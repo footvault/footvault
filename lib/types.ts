@@ -1,0 +1,146 @@
+// Existing types (assuming they are already here)
+export type Product = {
+  id: number
+  name: string
+  brand: string
+  category: string
+  sku: string
+  original_price: number // Added original_price
+  sale_price: number
+  status: string
+  image: string | null
+  size_category: string
+  created_at: string
+  updated_at: string
+}
+
+export type Variant = {
+  id: string
+  product_id: number
+  size: string
+  color: string
+  quantity: number
+  location: string
+  status: string
+  qr_code_url: string | null
+  cost_price: number
+  created_at: string
+  updated_at: string
+}
+
+export type CustomLocation = {
+  id: string
+  name: string
+  created_at: string
+  updated_at: string
+}
+
+export type Avatar = {
+  image: string
+  id: string
+  name: string
+  default_percentage: number
+  created_at: string
+  updated_at: string
+}
+
+export type ProfitDistributionTemplate = {
+  id: string
+  name: string
+  description: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type Sale = {
+  [x: string]: any
+  profitDistribution: any
+  id: string
+  sale_date: string
+  total_amount: number
+  total_discount: number
+  net_profit: number
+  customer_name?: string | null // Added customer name
+  customer_phone?: string | null // Added customer phone
+  created_at: string
+  updated_at: string
+  sale_items?: SaleItem[]
+  sale_profit_distributions?: SaleProfitDistribution[]
+}
+
+export type SaleItem = {
+  id: string
+  sale_id: string
+  variant_id: string
+  sold_price: number
+  cost_price: number
+  quantity: number
+  created_at: string
+  updated_at: string
+  variant?: Variant // Optional: to include variant details if joined
+}
+
+export type SaleProfitDistribution = {
+  id: string
+  sale_id: string
+  avatar_id: string
+  amount: number
+  percentage: number
+  created_at: string
+  updated_at: string
+  avatar?: Avatar // Optional: to include avatar details if joined
+}
+
+export type SalesStats = {
+  totalSalesAmount: number
+  totalNetProfit: number
+  numberOfSales: number
+}
+
+export type ProfitDistributionEntry = {
+  avatarId: string
+  avatarName: string
+  percentage: number
+  amount: number
+}
+
+export type ProfitDistributionTemplateDetail = {
+  id: string
+  name: string
+  description: string | null
+  created_at: string
+  updated_at: string
+  distributions: { avatar_id: string; percentage: number }[]
+}
+
+export type ProfitDistributionTemplateFormValues = {
+  name: string
+  description: string
+  distributions: { avatarId: string; percentage: number }[]
+}
+
+export type AvatarFormValues = {
+  name: string
+  default_percentage: number
+}
+
+// New ProductVariant type, moved from components and updated
+export type ProductVariant = {
+  id: string
+  productId: number
+  size: string
+  sizeLabel: string
+  variantSku: string
+  location: string
+  status: string
+  dateAdded: string
+  condition: string
+  serialNumber: string
+  costPrice: number
+  productName: string
+  productBrand: string
+  productSku: string
+  productImage: string
+  productSalePrice: number
+  productOriginalPrice: number // Added for new profit calculation
+}
