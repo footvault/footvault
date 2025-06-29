@@ -71,8 +71,6 @@ import { QrReader } from 'react-qr-reader';
 import PremiumFeatureModal from "./PremiumFeatureModal"
 import { Html5Qrcode, Html5QrcodeScanner, Html5QrcodeScanType } from 'html5-qrcode';
 
-// this is a test comment to see if the git is working
-
 
 export function ShoesInventoryTable({ initialShoesData }: { initialShoesData: any[] }) {
   const { currency } = useCurrency()
@@ -652,11 +650,15 @@ const handleScannerOpen = async () => {
     }
   }
 
-  // Add new functions for delete confirmation and execution
   const handleDeleteConfirmation = (type: "product" | "variant", id?: number | string) => {
-    setItemToDelete({ type, id })
-    setShowDeleteConfirmationModal(true)
+  if (type === "product" && id) {
+    const foundShoe = filteredShoes.find((shoe) => shoe.id === Number(id)) // or use allShoes
+    setSelectedShoe(foundShoe || null)
   }
+
+  setItemToDelete({ type, id })
+  setShowDeleteConfirmationModal(true)
+}
 
   const handleBulkDeleteConfirmation = (type: "bulk-products" | "bulk-variants") => {
     if (type === "bulk-products" && selectedItems.length > 0) {
@@ -668,70 +670,138 @@ const handleScannerOpen = async () => {
     }
   }
 
-  const executeDelete = async () => {
-    if (!itemToDelete) return
+// Client-side functions to call your API
+const deleteProduct = async (productId: number) => {
+  try {
+    const response = await fetch('/api/delete-product', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ productId })
+    });
 
-    setIsDeleting(async () => {
-      let success = false
-      let errorMessage = ""
+    const result = await response.json();
+    
+    if (!response.ok) {
+      return {
+        success: false,
+        error: result.error || 'Failed to delete product'
+      };
+    }
 
-      try {
-        if (itemToDelete.type === "product" && itemToDelete.id) {
-          const result = await deleteProduct(itemToDelete.id as number)
-          success = result.success
-          errorMessage = result.error || ""
-        } else if (itemToDelete.type === "variant" && itemToDelete.id) {
-          const result = await deleteVariants([itemToDelete.id as string])
-          success = result.success
-          errorMessage = result.error || ""
-        } else if (itemToDelete.type === "bulk-products" && itemToDelete.ids) {
-          // Assuming deleteProduct can handle multiple IDs or loop through them
-          // For now, let's loop as deleteProduct is for single product
-          for (const id of itemToDelete.ids) {
-            const result = await deleteProduct(Number(id))
-            if (!result.success) {
-              success = false
-              errorMessage = result.error || "One or more products failed to delete."
-              break
-            }
-            success = true
-          }
-        } else if (itemToDelete.type === "bulk-variants" && itemToDelete.ids) {
-          const result = await deleteVariants(itemToDelete.ids)
-          success = result.success
-          errorMessage = result.error || ""
-        }
-
-        if (success) {
-          console.log("Deletion successful!")
-          toast({
-            title: "Deletion Successful",
-            description: "Selected item(s) have been deleted.",
-          })
-          await refreshData() // Refresh data after deletion
-          setSelectedItems([])
-          setSelectedVariants([])
-        } else {
-          console.error("Deletion failed:", errorMessage)
-          toast({
-            title: "Deletion Failed",
-            description: errorMessage || "An unknown error occurred during deletion.",
-            variant: "destructive",
-          })
-        }
-      } catch (e: any) {
-        console.error("Error during deletion:", e)
-        toast({
-          title: "Deletion Error",
-          description: `An unexpected error occurred: ${e.message}`,
-          variant: "destructive",
-        })
-      } finally {
-        setShowDeleteConfirmationModal(false)
-        setItemToDelete(null)
-      }
-    })
+    return {
+      success: true,
+      message: result.message
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || 'Network error occurred'
+    };
   }
+};
+
+const deleteVariants = async (variantIds: string[]) => {
+  try {
+    const response = await fetch('/api/delete-variants', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ variantIds })
+    });
+
+    const result = await response.json();
+    
+    if (!response.ok) {
+      return {
+        success: false,
+        error: result.error || 'Failed to delete variants'
+      };
+    }
+
+    return {
+      success: true,
+      message: result.message
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || 'Network error occurred'
+    };
+  }
+};
+
+// Updated executeDelete function with proper error handling
+const executeDelete = async () => {
+  if (!itemToDelete) return;
+
+  setIsDeleting(() => {}); // Start transition (no-op function)
+
+  let success = false;
+  let errorMessage = "";
+
+  try {
+    if (itemToDelete.type === "product" && itemToDelete.id) {
+      const result = await deleteProduct(itemToDelete.id as number);
+      success = result.success;
+      errorMessage = result.error || "";
+    } else if (itemToDelete.type === "variant" && itemToDelete.id) {
+      const result = await deleteVariants([itemToDelete.id as string]);
+      success = result.success;
+      errorMessage = result.error || "";
+    } else if (itemToDelete.type === "bulk-products" && itemToDelete.ids) {
+      // Handle bulk product deletion
+      let allSuccessful = true;
+      let errors: string[] = [];
+      
+      for (const id of itemToDelete.ids) {
+        const result = await deleteProduct(Number(id));
+        if (!result.success) {
+          allSuccessful = false;
+          errors.push(`Product ${id}: ${result.error}`);
+        }
+      }
+      
+      success = allSuccessful;
+      errorMessage = errors.length > 0 ? errors.join('; ') : "";
+    } else if (itemToDelete.type === "bulk-variants" && itemToDelete.ids) {
+      const result = await deleteVariants(itemToDelete.ids);
+      success = result.success;
+      errorMessage = result.error || "";
+    }
+
+    if (success) {
+      console.log("Deletion successful!");
+      toast({
+        title: "Deletion Successful",
+        description: "Selected item(s) have been deleted.",
+      });
+      await refreshData(); // Refresh data after deletion
+      setSelectedItems([]);
+      setSelectedVariants([]);
+    } else {
+      console.error("Deletion failed:", errorMessage);
+      toast({
+        title: "Deletion Failed",
+        description: errorMessage || "An unknown error occurred during deletion.",
+        variant: "destructive",
+      });
+    }
+  } catch (e: any) {
+    console.error("Error during deletion:", e);
+    toast({
+      title: "Deletion Error",
+      description: `An unexpected error occurred: ${e.message}`,
+      variant: "destructive",
+    });
+  } finally {
+    setIsDeleting(() => {}); // End transition (no-op function)
+    setShowDeleteConfirmationModal(false);
+    setItemToDelete(null);
+  }
+};
 
   const handleBulkAction = async (action: string) => {
     setIsLoading(true)
@@ -2293,7 +2363,7 @@ console.log("User Plan:", userPlan)
         title={
           itemToDelete
             ? itemToDelete.type === "product"
-              ? `Delete Product: ${selectedShoe?.name ?? "Unknown Product"}?`
+              ? `Delete Product: ${selectedShoe?.name}?`
               : itemToDelete.type === "variant"
                 ? `Delete Individual Shoe: #${String(itemToDelete.id)?.split("-").pop() ?? "Unknown Variant"}?`
                 : itemToDelete.type === "bulk-products"

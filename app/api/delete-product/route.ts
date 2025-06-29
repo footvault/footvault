@@ -1,42 +1,23 @@
+import { createClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export async function DELETE(request: Request) {
   try {
     const { productId } = await request.json();
 
     if (!productId) {
-      return NextResponse.json({ 
-        success: false, 
-        error: "Product ID is required" 
+      return NextResponse.json({
+        success: false,
+        error: "Product ID is required"
       }, { status: 400 });
     }
 
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader) {
-      return NextResponse.json({
-        success: false,
-        error: "No authorization header"
-      }, { status: 401 });
-    }
+    const cookieStore = cookies();
+    const supabase = await createClient(cookieStore);
 
-    const token = authHeader.replace("Bearer ", "");
-    const authenticatedSupabase = createClient(
-      supabaseUrl,
-      supabaseKey,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      }
-    );
-
-    const { data: { user }, error: userError } = await authenticatedSupabase.auth.getUser();
+    // Check if user is authenticated
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
       return NextResponse.json({
@@ -46,16 +27,16 @@ export async function DELETE(request: Request) {
     }
 
     // Delete the product (cascade delete will handle variants)
-    const { error: deleteError } = await authenticatedSupabase
+    const { error: deleteError } = await supabase
       .from('products')
       .delete()
       .eq('id', productId);
 
     if (deleteError) {
       console.error("Error deleting product:", deleteError);
-      return NextResponse.json({ 
-        success: false, 
-        error: deleteError.message 
+      return NextResponse.json({
+        success: false,
+        error: deleteError.message
       }, { status: 500 });
     }
 
@@ -66,9 +47,9 @@ export async function DELETE(request: Request) {
 
   } catch (error: any) {
     console.error("Error in deleteProduct API route:", error);
-    return NextResponse.json({ 
-      success: false, 
-      error: error.message 
+    return NextResponse.json({
+      success: false,
+      error: error.message
     }, { status: 500 });
   }
 }
