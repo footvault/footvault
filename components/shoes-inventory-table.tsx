@@ -71,6 +71,8 @@ import { QrReader } from 'react-qr-reader';
 import PremiumFeatureModal from "./PremiumFeatureModal"
 import { Html5Qrcode, Html5QrcodeScanner, Html5QrcodeScanType } from 'html5-qrcode';
 
+// this is a test comment to see if the git is working
+
 
 export function ShoesInventoryTable({ initialShoesData }: { initialShoesData: any[] }) {
   const { currency } = useCurrency()
