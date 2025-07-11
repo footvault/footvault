@@ -1188,7 +1188,7 @@ console.log("User Plan:", userPlan)
                   </Button>
                 </Link>
                 <Link href="/checkout">
-                  <Button size="sm" variant="secondary">
+                  <Button size="sm" >
                     <Plus className="h-4 w-4 mr-2" />
                     New Sale
                   </Button>
@@ -1320,7 +1320,7 @@ console.log("User Plan:", userPlan)
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-40">
-                  ${priceRange[0]} - ${priceRange[1]}
+                  {formatCurrency(priceRange[0], currency)} - {formatCurrency(priceRange[1], currency)}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-80">
@@ -1335,8 +1335,8 @@ console.log("User Plan:", userPlan)
                     className="w-full"
                   />
                   <div className="flex justify-between text-sm text-gray-500">
-                    <span>${priceRange[0]}</span>
-                    <span>${priceRange[1]}</span>
+                    <span>{formatCurrency(priceRange[0], currency)}</span>
+                    <span> {formatCurrency(priceRange[1], currency)}</span>
                   </div>
                 </div>
               </PopoverContent>

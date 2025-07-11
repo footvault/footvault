@@ -26,23 +26,37 @@ export async function DELETE(request: Request) {
       }, { status: 401 });
     }
 
-    // Delete the product (cascade delete will handle variants)
-    const { error: deleteError } = await supabase
+    // Archive the product (set isArchived to true)
+    const { error: archiveError } = await supabase
       .from('products')
-      .delete()
+      .update({ isArchived: true })
       .eq('id', productId);
 
-    if (deleteError) {
-      console.error("Error deleting product:", deleteError);
+    if (archiveError) {
+      console.error("Error archiving product:", archiveError);
       return NextResponse.json({
         success: false,
-        error: deleteError.message
+        error: archiveError.message
+      }, { status: 500 });
+    }
+
+    // Archive all variants related to this product
+    const { error: archiveVariantsError } = await supabase
+      .from('variants')
+      .update({ isArchived: true })
+      .eq('product_id', productId);
+
+    if (archiveVariantsError) {
+      console.error("Error archiving variants:", archiveVariantsError);
+      return NextResponse.json({
+        success: false,
+        error: archiveVariantsError.message
       }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      message: "Product deleted successfully"
+      message: "Product archived successfully"
     });
 
   } catch (error: any) {

@@ -28,25 +28,24 @@ export async function DELETE(request: Request) {
       }, { status: 401 });
     }
 
-    // Delete the variants
-    const { error: deleteError } = await supabase
-      .from('variants') // Adjust table name based on your schema
-      .delete()
-      .eq('user_id', user.id) // Ensure the user owns the variants
-      .or(`status.eq.Available,status.eq.In Display`)
+    // Archive the variants (set isArchived to true)
+    const { error: archiveError } = await supabase
+      .from('variants')
+      .update({ isArchived: true })
+      .eq('user_id', user.id)
       .in('id', variantIds);
 
-    if (deleteError) {
-      console.error("Error deleting variants:", deleteError);
+    if (archiveError) {
+      console.error("Error archiving variants:", archiveError);
       return NextResponse.json({
         success: false,
-        error: deleteError.message
+        error: archiveError.message
       }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      message: `${variantIds.length} variant(s) deleted successfully`
+      message: "Variants archived successfully"
     });
 
   } catch (error: any) {
