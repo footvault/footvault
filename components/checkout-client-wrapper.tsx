@@ -18,6 +18,8 @@ import { Avatar, ProfitDistributionTemplateDetail } from "@/lib/types"
 import { ConfirmationModal } from "@/components/confirmation-modal"
 import { SaleSuccessModal } from "@/components/sale-success-modal"
 import { useRouter } from "next/navigation"
+import { useCurrency } from "@/context/CurrencyContext"
+import { formatCurrency } from "@/lib/utils/currency"
 
 interface TransformedVariant {
   id: string
@@ -68,6 +70,8 @@ export function CheckoutClientWrapper({
     { avatarId: string; percentage: number; amount: number }[]
   >([])
   const router = useRouter()
+
+  const { currency } = useCurrency(); // Get the user's selected currency
 
   const availableVariants = useMemo(() => {
     const selectedIds = new Set(selectedVariants.map((v) => v.id))
@@ -271,7 +275,7 @@ export function CheckoutClientWrapper({
         open={showConfirmSaleModal}
         onOpenChange={setShowConfirmSaleModal}
         title="Confirm Sale"
-        description="Are you sure you want to complete this sale? This action cannot be undone."
+        description="Are you sure you want to complete this sale?"
         onConfirm={() => handleConfirmSale(pendingProfitDistribution)}
         isConfirming={isConfirmingSale}
       />
@@ -344,7 +348,7 @@ export function CheckoutClientWrapper({
                         <p className="text-xs text-gray-500">
                           Size: {variant.size} ({variant.sizeLabel})
                         </p>
-                        <p className="text-sm font-bold text-green-600 mt-2">${safeToFixed(variant.productSalePrice)}</p>
+                        <p className="text-sm font-bold text-green-600 mt-2">{formatCurrency(variant.productSalePrice, currency)}</p>
                       </CardContent>
                       <div className="p-3 border-t">
                         <Button
@@ -405,7 +409,7 @@ export function CheckoutClientWrapper({
               <CardContent className="space-y-4">
                 <div className="flex justify-between text-sm">
                   <span>Subtotal ({selectedVariants.length} items)</span>
-                  <span>${safeToFixed(subtotal)}</span>
+                  <span>{formatCurrency(subtotal, currency)}</span>
                 </div>
 
                 <div>
@@ -446,15 +450,15 @@ export function CheckoutClientWrapper({
 
                 <div className="flex justify-between font-bold text-lg border-t pt-4">
                   <span>Total</span>
-                  <span>${safeToFixed(totalAmount)}</span>
+                  <span>{formatCurrency(totalAmount, currency)}</span>
                 </div>
                 <div className="flex justify-between text-sm text-gray-700">
                   <span>Total Cost</span>
-                  <span>${safeToFixed(totalCost)}</span>
+                  <span>{formatCurrency(totalCost, currency)}</span>
                 </div>
                 <div className="flex justify-between font-semibold text-base">
                   <span>Net Profit</span>
-                  <span className={netProfit < 0 ? "text-red-600" : "text-green-600"}>${safeToFixed(netProfit)}</span>
+                  <span className={netProfit < 0 ? "text-red-600" : "text-green-600"}>{formatCurrency(netProfit, currency)}</span>
                 </div>
               </CardContent>
             </Card>

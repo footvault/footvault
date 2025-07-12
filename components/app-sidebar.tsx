@@ -2,7 +2,8 @@
 
 import type * as React from "react"
 import Link from "next/link"
-import { Home, Plus, ShoppingCart, BarChart, CreditCard, Settings } from "lucide-react"
+import { Home, Plus, ShoppingCart, BarChart, CreditCard, Settings, Archive } from "lucide-react"
+import { useEffect, useState } from "react"
 
 import {
   Sidebar,
@@ -19,6 +20,8 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar"
 import { usePathname } from "next/navigation"
+import { getArchivedProducts } from "@/lib/data"
+import { getArchivedVariantsWithProduct } from "@/lib/archived-variants"
 
 const mainNavigation = [
   {
@@ -66,6 +69,26 @@ const secondaryNavigation = [
 
 export function AppSidebar({ children, ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
+  const [hasArchive, setHasArchive] = useState(false)
+
+  useEffect(() => {
+    async function checkArchive() {
+      try {
+        const [archivedProducts, archivedVariantGroups] = await Promise.all([
+          getArchivedProducts(),
+          getArchivedVariantsWithProduct(),
+        ])
+        // Show archive if there is at least one archived product or at least one archived variant
+        const hasAny =
+          (archivedProducts && archivedProducts.length > 0) ||
+          (archivedVariantGroups && archivedVariantGroups.some(group => group.variants && group.variants.length > 0))
+        setHasArchive(hasAny)
+      } catch {
+        setHasArchive(false)
+      }
+    }
+    checkArchive()
+  }, [])
 
   return (
     <Sidebar {...props}>
@@ -87,6 +110,16 @@ export function AppSidebar({ children, ...props }: React.ComponentProps<typeof S
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {hasArchive && (
+                <SidebarMenuItem key="Archive">
+                  <SidebarMenuButton asChild isActive={pathname === "/archive"}>
+                    <Link href="/archive">
+                      <Archive />
+                      <span>Archive</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

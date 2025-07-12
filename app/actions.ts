@@ -1300,49 +1300,26 @@ export async function getSaleDetails(saleId: string) {
  * @param saleId The ID of the sale to delete.
  */
 export async function deleteSale(saleId: string) {
-  const supabase = createAdminClient() // Use admin client for deletion
-
   try {
-    // Start a transaction (Supabase client doesn't have explicit transactions for RPC,
-    // but cascade deletes handle this for related tables if set up in DB)
-    // For explicit transaction-like behavior, you'd typically use a stored procedure or
-    // handle rollbacks manually if one step fails. For simplicity, relying on cascade for now.
-
-    // Delete profit distributions first (if not cascaded)
-    const { error: deleteProfitDistError } = await supabase
-      .from("sale_profit_distributions")
+    const cookieStore = cookies()
+    const supabase = await createClient(cookieStore)
+    // Check user
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) {
+      return { success: false, error: "Authentication required" }
+    }
+    // Delete the sale (CASCADE will delete related sale_profit_distributions)
+    const { error } = await supabase
+      .from("sales")
       .delete()
-      .eq("sale_id", saleId)
-
-    if (deleteProfitDistError) {
-      console.error("Error deleting profit distributions for sale:", deleteProfitDistError)
-      return { success: false, error: deleteProfitDistError.message }
+      .eq("id", saleId)
+      .eq("user_id", user.id)
+    if (error) {
+      return { success: false, error: error.message }
     }
-
-    // Delete sale items (if not cascaded)
-    const { error: deleteSaleItemsError } = await supabase.from("sale_items").delete().eq("sale_id", saleId)
-
-    if (deleteSaleItemsError) {
-      console.error("Error deleting sale items:", deleteSaleItemsError)
-      return { success: false, error: deleteSaleItemsError.message }
-    }
-
-    // Finally, delete the sale itself
-    const { error: deleteSaleError } = await supabase.from("sales").delete().eq("id", saleId)
-
-    if (deleteSaleError) {
-      console.error("Error deleting sale:", deleteSaleError)
-      return { success: false, error: deleteSaleError.message }
-    }
-
-    revalidatePath("/sales") // Revalidate sales history page
-    revalidatePath("/checkout") // Revalidate checkout page (in case it affects any stats)
-    revalidatePath("/") // Revalidate inventory (if any variant statuses need to revert, though not handled here)
-
     return { success: true }
   } catch (e: any) {
-    console.error("Exception deleting sale:", e)
-    return { success: false, error: `An unexpected error occurred: ${e.message}` }
+    return { success: false, error: e.message }
   }
 }
 

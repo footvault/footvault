@@ -77,7 +77,8 @@ async function getAvailableVariants(userId: string) {
         )
       `)
       .eq('user_id', userId)
-      .eq('status', 'Available');
+      .eq('status', 'Available')
+      .eq('isArchived', false);
 
     if (variantsError) {
       console.error("Error fetching variants:", variantsError);

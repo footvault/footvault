@@ -76,13 +76,17 @@ export function ShoesInventoryTable({ initialShoesData }: { initialShoesData: an
   const { currency } = useCurrency()
    const currencySymbol = getCurrencySymbol(currency); // Get the currency symbol
   const [shoesData, setShoesData] = useState(() => {
-    return initialShoesData.map((shoe) => ({
-      ...shoe,
-      variants: shoe.variants.map((variant: any) => ({
-        ...variant,
-        productOriginalPrice: shoe.originalPrice, // Add productOriginalPrice to each variant
-      })),
-    }))
+    return initialShoesData
+      .filter((shoe) => shoe.isArchived !== true)
+      .map((shoe) => ({
+        ...shoe,
+        variants: shoe.variants
+          ? shoe.variants.filter((variant: any) => variant.isArchived !== true).map((variant: any) => ({
+              ...variant,
+              productOriginalPrice: shoe.originalPrice, // Add productOriginalPrice to each variant
+            }))
+          : [],
+      }))
   })
   const [selectedItems, setSelectedItems] = useState<number[]>([])
   const [selectedVariants, setSelectedVariants] = useState<string[]>([])
@@ -2363,23 +2367,23 @@ console.log("User Plan:", userPlan)
         title={
           itemToDelete
             ? itemToDelete.type === "product"
-              ? `Delete Product: ${selectedShoe?.name}?`
+              ? `Archive Product: ${selectedShoe?.name}?`
               : itemToDelete.type === "variant"
-                ? `Delete Individual Shoe: #${String(itemToDelete.id)?.split("-").pop() ?? "Unknown Variant"}?`
+                ? `Archive Individual Shoe: #${String(itemToDelete.id)?.split("-").pop() ?? "Unknown Variant"}?`
                 : itemToDelete.type === "bulk-products"
-                  ? `Delete ${itemToDelete.ids?.length ?? 0} Selected Products?`
-                  : `Delete ${itemToDelete.ids?.length ?? 0} Selected Individual Shoes?`
+                  ? `Archive ${itemToDelete.ids?.length ?? 0} Selected Products?`
+                  : `Archive ${itemToDelete.ids?.length ?? 0} Selected Individual Shoes?`
             : "Confirm Deletion" // Default title if itemToDelete is null
         }
         description={
           itemToDelete
             ? itemToDelete.type === "product"
-              ? "This action cannot be undone. This will permanently delete the product and all its associated variants."
+              ? "This action will archive the product and all its associated variants."
               : itemToDelete.type === "variant"
-                ? "This action cannot be undone. This will permanently delete this individual shoe variant."
+                ? "This will archive this individual shoe variant."
                 : itemToDelete.type === "bulk-products"
-                  ? "This action cannot be undone. This will permanently delete all selected products and their associated variants."
-                  : "This action cannot be undone. This will permanently delete all selected individual shoe variants."
+                  ? "This will archive all selected products and their associated variants."
+                  : "This will  archive all selected individual shoe variants."
             : "Are you sure you want to delete the selected item(s)?" // Default description
         }
         onConfirm={executeDelete}

@@ -9,7 +9,6 @@ import { MoreHorizontal, Eye, Trash2, Search, Filter } from "lucide-react"
 import type { Sale } from "@/lib/types"
 import { SaleDetailModal } from "./sale-detail-modal"
 import { ConfirmationModal } from "./confirmation-modal"
-import { deleteSale } from "@/app/actions"
 import { formatCurrency } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
 
@@ -57,14 +56,23 @@ export function SalesList({ sales }: SalesListProps) {
 
   const handleConfirmDelete = async () => {
     if (saleToDelete) {
-      const result = await deleteSale(saleToDelete)
-      if (result.success) {
-        console.log("Sale deleted successfully!")
-      } else {
-        console.error("Failed to delete sale:", result.error)
+      try {
+        const response = await fetch('/api/delete-sale', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ saleId: saleToDelete }),
+        });
+        const result = await response.json();
+        if (result.success) {
+          console.log("Sale deleted successfully!");
+        } else {
+          console.error("Failed to delete sale:", result.error);
+        }
+      } catch (e) {
+        console.error("Failed to delete sale:", e);
       }
-      setIsConfirmModalOpen(false)
-      setSaleToDelete(null)
+      setIsConfirmModalOpen(false);
+      setSaleToDelete(null);
     }
   }
 
@@ -451,7 +459,7 @@ export function SalesList({ sales }: SalesListProps) {
         open={isConfirmModalOpen}
         onOpenChange={setIsConfirmModalOpen}
         title="Confirm Deletion"
-        description="Are you sure you want to delete this sale? This action cannot be undone."
+        description="Are you sure you want to delete this sale? This action cannot be undone and will permanently delete the sale and all related profit distributions."
         onConfirm={handleConfirmDelete}
         // @ts-ignore
         confirmText="Delete"

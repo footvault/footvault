@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ShoppingCart, Trash2 } from "lucide-react"
 import Image from "next/image"
+import { formatCurrency } from "@/lib/utils/currency"
+import { useCurrency } from "@/context/CurrencyContext"
 
 interface TransformedVariant {
   id: string;
@@ -31,6 +33,9 @@ interface CheckoutCartProps {
 }
 
 export function CheckoutCart({ selectedVariants, onRemove }: CheckoutCartProps) {
+
+  const { currency } = useCurrency(); // Get the user's selected currency
+
   return (
     <Card>
       <CardHeader>
@@ -56,6 +61,9 @@ export function CheckoutCart({ selectedVariants, onRemove }: CheckoutCartProps) 
                 <div className="flex-grow">
                   <h4 className="font-medium line-clamp-1">{variant.productName}</h4>
                   <p className="text-sm text-gray-600">{variant.productBrand}</p>
+                    {variant.serialNumber && (
+                    <p className="text-xs text-gray-500 mt-0.5">Serial #: {variant.serialNumber}</p>
+                  )}
                   <div className="flex gap-2 mt-1">
                     <Badge variant="outline" className="text-xs">
                       Size: {variant.size} {variant.sizeLabel}
@@ -66,7 +74,7 @@ export function CheckoutCart({ selectedVariants, onRemove }: CheckoutCartProps) 
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm font-semibold mt-1">${variant.productSalePrice.toFixed(2)}</p>
+                  <p className="text-sm font-semibold mt-1">{formatCurrency(variant.productSalePrice, currency)}</p>
                 </div>
                 <Button
                   variant="ghost"

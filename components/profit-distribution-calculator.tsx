@@ -10,6 +10,8 @@ import { Avatar as UIAvatar, AvatarFallback, AvatarImage } from "@/components/ui
 import { Plus, Trash2, Percent, Loader2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import type { ProfitDistributionTemplateDetail } from "@/lib/types"
+import { formatCurrency } from "@/lib/utils/currency"
+import { useCurrency } from "@/context/CurrencyContext"
 
 interface Avatar {
   id: string
@@ -158,6 +160,8 @@ export function ProfitDistributionCalculator({
     onRecordSale(currentDistribution)
   }
 
+  const { currency } = useCurrency(); // Get the user's selected currency
+
   return (
     <Card>
       <CardHeader>
@@ -268,7 +272,7 @@ export function ProfitDistributionCalculator({
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{item.percentage.toFixed(2)}%</span>
-                      <span className="text-gray-500">(${item.amount.toFixed(2)})</span>
+                      <span className="text-gray-500">({formatCurrency(item.amount, currency)})</span>
                     </div>
                   </div>
                 )
@@ -280,7 +284,7 @@ export function ProfitDistributionCalculator({
         <div className="border-t pt-4 space-y-2">
           <div className="flex justify-between text-sm font-medium">
             <span>Total Profit:</span>
-            <span className={netProfit < 0 ? "text-red-600" : "text-green-600"}>${netProfit.toFixed(2)}</span>
+            <span className={netProfit < 0 ? "text-red-600" : "text-green-600"}>{formatCurrency(netProfit, currency)}</span>
           </div>
           <div className="flex justify-between text-sm font-medium">
             <span>Total Distributed Percentage:</span>
@@ -291,7 +295,7 @@ export function ProfitDistributionCalculator({
           <div className="flex justify-between text-sm font-medium">
             <span>Total Distributed Amount:</span>
             <span className={Math.abs(totalDistributedAmount - netProfit) > 0.01 ? "text-red-500" : "text-green-600"}>
-              ${totalDistributedAmount.toFixed(2)}
+              {formatCurrency(totalDistributedAmount, currency)}
             </span>
           </div>
           {Math.abs(totalDistributedAmount - netProfit) > 0.01 && (

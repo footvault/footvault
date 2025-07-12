@@ -39,7 +39,7 @@ export function ConfirmationModal({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isConfirming}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={isConfirming}>
+          <Button onClick={onConfirm} disabled={isConfirming}>
             {isConfirming && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isConfirming ? "Confirming..." : "Confirm"}
           </Button>
