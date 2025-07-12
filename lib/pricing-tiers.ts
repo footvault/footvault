@@ -26,8 +26,8 @@ export const pricingTiers = [
     features: [
       { label: "Eveything in Free Tier" },
       {
-        label: "Import & export via CSV",
-        tooltip: "Easily upload or download your inventory using CSV files."
+        label: "export via CSV",
+        tooltip: "Easily download your inventory using CSV files."
       },
       {
         label: "QR code printing for each pair",

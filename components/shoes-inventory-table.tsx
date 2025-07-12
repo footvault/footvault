@@ -1142,7 +1142,7 @@ console.log("User Plan:", userPlan)
               
               {/* Desktop Actions */}
               <div className="hidden md:flex gap-2">
-                {userPlan?.toLowerCase() != "free" ? (
+                {/* {userPlan?.toLowerCase() != "free" ? (
   <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
     <Upload className="h-4 w-4 mr-2" />
     Import
@@ -1159,7 +1159,7 @@ console.log("User Plan:", userPlan)
       featureName="Import Inventory"
     />
   </>
-)}
+)} */}
                 {userPlan?.toLowerCase() != "free" ? (
   <Button
     variant="outline"
@@ -1224,13 +1224,10 @@ console.log("User Plan:", userPlan)
           </div>
 
           {/* Additional Mobile Actions */}
-          <div className="grid grid-cols-3 gap-2 md:hidden">
+          <div className="grid grid-cols-2 gap-2 md:hidden">
            {userPlan?.toLowerCase() != "free" ? (
   <>
-    <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
-      <Upload className="h-4 w-4 mr-1" />
-      Import
-    </Button>
+    
     <Button
       variant="outline"
       size="sm"

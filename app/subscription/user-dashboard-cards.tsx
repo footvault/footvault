@@ -38,7 +38,7 @@ export default function UserDashboard() {
       "Standard Support"
     ],
     Individual: [
-      "Import & export via CSV",
+      "export via CSV",
       "QR code printing for each pair"
     ],
     Team: [

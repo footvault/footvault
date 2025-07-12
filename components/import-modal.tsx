@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useTransition, useEffect } from "react"
+import { useState, useTransition, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +12,7 @@ import { Download, Upload, Loader2, XCircle, CheckCircle, AlertTriangle, Plus, C
 import { toast } from "@/hooks/use-toast"
 import Papa from "papaparse" // For CSV parsing
 import { importProductsAndVariants } from "@/app/actions" // New server action
+import { createClient } from "@/lib/supabase/client"
 
 interface ImportModalProps {
   open: boolean
@@ -27,7 +28,6 @@ interface ParsedRow {
   "Product Category": string
   "Original Price": number
   "Sale Price": number
-  "Product Image URL": string
   "Size Category": string
   Size: string
   "Size Label": string
@@ -48,7 +48,6 @@ const csvTemplateHeaders = [
   { key: "Product Category", label: "Product Category", required: false, type: "string" },
   { key: "Original Price", label: "Original Price", required: false, type: "number" },
   { key: "Sale Price", label: "Sale Price", required: false, type: "number" },
-  { key: "Product Image URL", label: "Product Image URL", required: false, type: "string" },
   { key: "Size Category", label: "Size Category", required: false, type: "string" },
   { key: "Size", label: "Size", required: false, type: "string" },
   { key: "Size Label", label: "Size Label", required: false, type: "string" },
@@ -59,6 +58,46 @@ const csvTemplateHeaders = [
   { key: "Serial Number", label: "Serial Number", required: true, type: "string" },
   { key: "Variant SKU", label: "Variant SKU", required: false, type: "string" },
   { key: "Cost Price", label: "Cost Price", required: false, type: "number" }, // Added Cost Price
+]
+
+// Add two example rows for template download
+const exampleRows = [
+  {
+    "Product Name": "Nike Air Max 90",
+    "Product Brand": "Nike",
+    "Product SKU": "AM90-001",
+    "Product Category": "Sneakers",
+    "Original Price": 120,
+    "Sale Price": 150,
+    "Size Category": "Men",
+    "Size": "10",
+    "Size Label": "US",
+    "Location": "Warehouse A",
+    "Variant Status": "Available",
+    "Date Added": "2025-07-12",
+    "Condition": "New",
+    "Serial Number": "SN123456",
+    "Variant SKU": "AM90-001-10US",
+    "Cost Price": 100,
+  },
+  {
+    "Product Name": "Adidas Ultraboost",
+    "Product Brand": "Adidas",
+    "Product SKU": "UB-002",
+    "Product Category": "Running",
+    "Original Price": 140,
+    "Sale Price": 180,
+    "Size Category": "Women",
+    "Size": "8",
+    "Size Label": "US",
+    "Location": "Warehouse B",
+    "Variant Status": "Available",
+    "Date Added": "2025-07-12",
+    "Condition": "New",
+    "Serial Number": "SN654321",
+    "Variant SKU": "UB-002-8US",
+    "Cost Price": 120,
+  },
 ]
 
 export function ImportModal({ open, onOpenChange, refreshData }: ImportModalProps) {
@@ -130,7 +169,10 @@ export function ImportModal({ open, onOpenChange, refreshData }: ImportModalProp
 
   const handleDownloadTemplate = () => {
     const headers = csvTemplateHeaders.map((h) => h.label)
-    const csvContent = headers.map((h) => `"${h}"`).join(",") + "\n"
+    const csvContent = [
+      headers.map((h) => `"${h}"`).join(","),
+      ...exampleRows.map((row) => headers.map((h) => `"${row[h] ?? ''}"`).join(",")),
+    ].join("\n") + "\n"
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -193,6 +235,22 @@ export function ImportModal({ open, onOpenChange, refreshData }: ImportModalProp
           }) as ParsedRow[]
 
           setParsedData(cleanedData)
+          // Always show the table, even if validation fails
+          // (table is shown if parsedData.length > 0)
+          // Fetch images for all rows after setting data
+          setTimeout(() => {
+            cleanedData.forEach(async (row, i) => {
+              const sku = row["Product SKU"] as string
+              if (sku) {
+                const imageUrl = await fetchImageForSKU(sku)
+                setParsedData((prev) => {
+                  const updated = [...prev]
+                  updated[i] = { ...updated[i], _imageUrl: imageUrl }
+                  return updated
+                })
+              }
+            })
+          }, 0)
           validateAllData(cleanedData) // Initial validation
         },
         error: (err) => {
@@ -317,7 +375,6 @@ export function ImportModal({ open, onOpenChange, refreshData }: ImportModalProp
       "Product Category": "Uncategorized",
       "Original Price": 0,
       "Sale Price": 0,
-      "Product Image URL": "",
       "Size Category": "Unisex",
       Size: "",
       "Size Label": "US",
@@ -377,6 +434,74 @@ export function ImportModal({ open, onOpenChange, refreshData }: ImportModalProp
   }
 
   const hasOverallErrors = parsingError || validationErrors.size > 0
+
+  // After parsing, fetch product images by SKU (throttled)
+  const imageCache = useRef<{ [sku: string]: string }>({})
+  // Replace fetchImageForSKU to use SneakerDev API
+  const fetchImageForSKU = async (sku: string) => {
+    if (imageCache.current[sku]) return imageCache.current[sku]
+    // 1. Try Supabase first
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from("product_images")
+        .select("image_url")
+        .eq("sku", sku)
+        .single()
+      if (data?.image_url) {
+        imageCache.current[sku] = data.image_url
+        return data.image_url
+      }
+    } catch (e) {
+      // ignore, fallback to API
+    }
+    // 2. Fallback to SneakerDev API
+    try {
+      const res = await fetch(`https://api.sneakerdev.com/v1/sneakers?sku=${encodeURIComponent(sku)}`)
+      if (!res.ok) throw new Error("Not found")
+      const apiData = await res.json()
+      const imageUrl = apiData?.results?.[0]?.image || ""
+      if (imageUrl) {
+        // Save to Supabase for future use
+        try {
+          const supabase = createClient()
+          await supabase.from("product_images").upsert({ sku, image_url: imageUrl })
+        } catch (e) {
+          // ignore
+        }
+      }
+      imageCache.current[sku] = imageUrl
+      return imageUrl
+    } catch (e) {
+      imageCache.current[sku] = ""
+      return ""
+    }
+  }
+
+  useEffect(() => {
+    if (parsedData.length > 0) {
+      let isMounted = true
+      const fetchImages = async () => {
+        for (let i = 0; i < parsedData.length; i++) {
+          const sku = parsedData[i]["Product SKU"] as string
+          if (sku) {
+            const imageUrl = await fetchImageForSKU(sku)
+            if (isMounted) {
+              setParsedData((prev) => {
+                const updated = [...prev]
+                updated[i] = { ...updated[i], _imageUrl: imageUrl }
+                return updated
+              })
+            }
+          }
+        }
+      }
+      fetchImages()
+      return () => {
+        isMounted = false
+      }
+    }
+  }, [parsedData.length])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -442,6 +567,7 @@ export function ImportModal({ open, onOpenChange, refreshData }: ImportModalProp
                           {header.label} {header.required && <span className="text-red-500">*</span>}
                         </TableHead>
                       ))}
+                      <TableHead className="whitespace-nowrap">Image</TableHead>
                       <TableHead className="whitespace-nowrap">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -493,6 +619,13 @@ export function ImportModal({ open, onOpenChange, refreshData }: ImportModalProp
                             </TableCell>
                           )
                         })}
+                        <TableCell>
+                          {row._imageUrl ? (
+                            <img src={row._imageUrl} alt="Product" className="w-12 h-12 object-cover rounded" />
+                          ) : (
+                            <span className="text-xs text-gray-400">Fetching...</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-xs whitespace-nowrap">
                           <div className="flex gap-1">
                             <Button
