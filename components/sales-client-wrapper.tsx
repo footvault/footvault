@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Plus, Search, Filter, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { SaleDetailModal } from "@/components/sale-detail-modal"
-import { SalesList } from "@/components/sales-list"
+import  SalesList from "@/components/sales-list"
 import {
   DropdownMenu,
   DropdownMenuContent,

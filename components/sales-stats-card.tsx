@@ -211,7 +211,13 @@ export function SalesStatsCard({
               {avatarProfits.map((avatar) => (
                 <Card key={avatar.name} className="flex flex-col items-center p-4">
                   <Avatar className="h-16 w-16 mb-2">
-                    <AvatarImage src={avatar.avatarUrl || "/placeholder.svg"} alt={avatar.name} />
+                    <AvatarImage
+                      src={
+                        
+                        `https://avatar-placeholder.iran.liara.run/api?name=${encodeURIComponent(avatar.name)}&background=random`
+                      }
+                      alt={avatar.name}
+                    />
                     <AvatarFallback>{avatar.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <p className="text-sm font-medium text-center">{avatar.name}</p>
