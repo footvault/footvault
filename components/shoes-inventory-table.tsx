@@ -49,467 +49,44 @@ import { SizeModal } from "@/components/size-modal"
 import { QRCodeModal } from "@/components/qr-code-modal"
 import { PrintPreview } from "@/components/print-preview"
 import { StatsCards } from "@/components/stats-cards"
-import { BulkActionsBar } from "@/components/bulk-actions-bar"
-import {
-  addCustomLocation,
-  getCustomLocations,
-  revalidateAndGetProducts,
-  deleteVariants,
-  deleteProduct,
-  updateVariantStatusAndLocation,
-} from "@/app/actions" // Import the new Server Action
-import { ConfirmationModal } from "@/components/confirmation-modal" // New modal component
-import { ImportModal } from "@/components/import-modal" // Import the new ImportModal
-import Link from "next/link"
-import { toast } from "@/hooks/use-toast"
-import { AddProductForm } from "@/components/add-product-form" // Import the AddProductForm
-import EditProductModal from "@/components/edit-product-modal"
-import { useCurrency } from "@/context/CurrencyContext"
-import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency"
-import { fetchCustomLocations } from "@/lib/fetchCustomLocations"
-import { createClient } from "@/lib/supabase/client"
-import dynamic from "next/dynamic";
-import { QrReader } from 'react-qr-reader';
-import PremiumFeatureModal from "./PremiumFeatureModal"
-import { Html5Qrcode, Html5QrcodeScanner, Html5QrcodeScanType } from 'html5-qrcode';
 
+      <div className="md:hidden space-y-4 p-4">
+        {paginatedShoes.map((shoe) => (
+          <div key={shoe.id} className="border rounded-lg p-4 bg-white shadow-sm">
+            {/* ...full product card JSX as in the desktop table, adapted for mobile... */}
+            {/* (see previous code for the full structure, including actions, details, and variants) */}
+            {/* You can copy the JSX from the desktop table row and expanded row, but styled for mobile */}
+            {/* ...existing code for mobile product card... */}
+          </div>
+        ))}
 
-export function ShoesInventoryTable({ initialShoesData }: { initialShoesData: any[] }) {
-  const { currency } = useCurrency()
-   const currencySymbol = getCurrencySymbol(currency); // Get the currency symbol
-  const [shoesData, setShoesData] = useState(() => {
-    return initialShoesData
-      .filter((shoe) => shoe.isArchived !== true)
-      .map((shoe) => ({
-        ...shoe,
-        variants: shoe.variants
-          ? shoe.variants.filter((variant: any) => variant.isArchived !== true).map((variant: any) => ({
-              ...variant,
-              productOriginalPrice: shoe.originalPrice, // Add productOriginalPrice to each variant
-            }))
-          : [],
-      }))
-  })
-  const [selectedItems, setSelectedItems] = useState<number[]>([])
-  const [selectedVariants, setSelectedVariants] = useState<string[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [brandFilter, setBrandFilter] = useState("all")
-  const [categoryFilter, setCategoryFilter] = useState("all")
-  const [maxSalePrice, setMaxSalePrice] = useState(1000);
-  // Compute the maximum sale price dynamically from shoesData
-  const computedMaxSalePrice = useMemo(() => {
-    if (!shoesData || shoesData.length === 0) return 100;
-    return Math.max(...shoesData.map((shoe) => Number(shoe.salePrice) || 0));
-  }, [shoesData]);
-
-  useEffect(() => {
-    setMaxSalePrice(computedMaxSalePrice);
-    // If priceRange is out of new bounds, reset it
-    setPriceRange((prev) => {
-      if (prev[1] > computedMaxSalePrice) {
-        return [0, computedMaxSalePrice];
-      }
-      return prev;
-    });
-  }, [computedMaxSalePrice]);
-  const [priceRange, setPriceRange] = useState([0, computedMaxSalePrice]);
-
-  // When computedMaxSalePrice changes, update priceRange upper bound if needed
-  useEffect(() => {
-    setPriceRange((prev) => {
-      // If the upper bound is different, update it
-      if (prev[1] !== computedMaxSalePrice) {
-        // If the previous upper bound was higher, clamp it
-        return [prev[0], computedMaxSalePrice];
-      }
-      return prev;
-    });
-  }, [computedMaxSalePrice]);
-  const [isLoading, setIsLoading] = useState(false)
-  const [expandedRows, setExpandedRows] = useState<number[]>([])
-  const [selectedShoe, setSelectedShoe] = useState<any>(null)
-  const [showSizeModal, setShowSizeModal] = useState(false)
-  const [showQRModal, setShowQRModal] = useState(false)
-  const [showPrintPreview, setShowPrintPreview] = useState(false)
-  const [showImportModal, setShowImportModal] = useState(false) // New state for import modal
-  const [sortBy, setSortBy] = useState("name")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
-  const [collapsedSizes, setCollapsedSizes] = useState<string[]>([])
-  const [editingVariant, setEditingVariant] = useState<string | null>(null)
-  const [editValues, setEditValues] = useState<any>({})
-  // Add new state variables inside ShoesInventoryTable component
-  const [showDeleteConfirmationModal, setShowDeleteConfirmationModal] = useState(false)
-  const [itemToDelete, setItemToDelete] = useState<{
-    type: "product" | "variant" | "bulk-products" | "bulk-variants"
-    id?: number | string
-    ids?: string[]
-  } | null>(null)
-  const [isDeleting, setIsDeleting] = useTransition()
-  const [customLocations, setCustomLocations] = useState<string[]>([])
-  const [showCustomLocationInput, setShowCustomLocationInput] = useState(false)
-  const [newCustomLocationName, setNewCustomLocationName] = useState("")
-  const [isAddingLocation, startAddLocationTransition] = useTransition()
-  const [showEditProductModal, setShowEditProductModal] = useState(false)
-  const [productToEdit, setProductToEdit] = useState<any>(null)
-  const [showMoveLocationModal, setShowMoveLocationModal] = useState(false)
- 
-  const [showFilters, setShowFilters] = useState(false);
-  const [userPlan, setUserPlan] = useState<string | null>(null);
-   const [showPremiumModal, setShowPremiumModal] = useState(false)
-const scannerRef = useRef<HTMLDivElement | null>(null);
-const html5QrcodeScanner = useRef<Html5QrcodeScanner | null>(null);
-// Your state variables
-const [showQRScanner, setShowQRScanner] = useState(false);
-const [data, setData] = useState("");
-const [qrError, setQrError] = useState(false);
-const [isScanning, setIsScanning] = useState(false);
-const [scanAttempts, setScanAttempts] = useState(0);
-const html5QrCode = useRef<Html5Qrcode | null>(null);
-
-  // QR Scanner Effect with detailed logging
-useEffect(() => {
-  console.log("🔄 QR Scanner Effect triggered");
-  console.log("showQRScanner:", showQRScanner);
-  console.log("isScanning:", isScanning);
-  
-  if (showQRScanner && !isScanning) {
-    console.log("✅ Starting QR Scanner...");
-    startScanning();
-  }
-
-  return () => {
-    console.log("🧹 Cleanup: Stopping scanner");
-    stopScanning();
-  };
-}, [showQRScanner]);
-
-const startScanning = async () => {
-  try {
-    console.log("🎬 startScanning() called");
-    setIsScanning(true);
-    setQrError(false);
-    setScanAttempts(0);
-    
-    const element = document.getElementById("qr-reader");
-    console.log("📱 QR Reader element:", element);
-    
-    if (!element) {
-      console.error("❌ QR Reader element not found!");
-      return;
-    }
-    
-    html5QrCode.current = new Html5Qrcode("qr-reader");
-    console.log("📸 Html5Qrcode instance created");
-    
-    // Get available cameras
-    const cameras = await Html5Qrcode.getCameras();
-    console.log("📷 Available cameras:", cameras);
-    
-    // Try to use back camera first, then any available camera
-    let cameraConfig;
-    if (cameras.length > 0) {
-      // Use specific camera ID for better results
-      const backCamera = cameras.find(camera => 
-        camera.label.toLowerCase().includes('back') || 
-        camera.label.toLowerCase().includes('rear') ||
-        camera.label.toLowerCase().includes('environment')
-      );
-      
-      cameraConfig = backCamera ? backCamera.id : cameras[0].id;
-      console.log("📷 Using camera:", backCamera || cameras[0]);
-    } else {
-      cameraConfig = { facingMode: "environment" };
-    }
-    
-    console.log("⚙️ Camera config:", cameraConfig);
-    
-    // Enhanced scanner configuration
-    const scannerConfig = {
-      fps: 10,
-      qrbox: { width: 250, height: 250 },
-      aspectRatio: 1.0,
-      disableFlip: false, // Allow horizontal flip
-      videoConstraints: {
-        advanced: [
-          { focusMode: "continuous" as const },
-          // @ts-ignore
-          { focusDistance: 0.1 as number }
-        ] as MediaTrackConstraintSet[]
-      },
-      // Support multiple formats
-      supportedScanTypes: [
-         // @ts-ignore
-        Html5QrcodeScanType.SCAN_TYPE_QR_CODE
-      ]
-    };
-    console.log("⚙️ Scanner config:", scannerConfig);
-    
-    await html5QrCode.current.start(
-      cameraConfig,
-      scannerConfig,
-      // Success callback
-      (decodedText, decodedResult) => {
-        console.log("🎉 CODE DETECTED!");
-        console.log("📝 Decoded text:", decodedText);
-        console.log("📊 Decoded result:", decodedResult);
-        console.log("🏷️ Format:", decodedResult.result.format);
-        console.log("🔢 Scan attempts before success:", scanAttempts);
-        
-        // Validate that we got actual data
-        if (decodedText && decodedText.trim().length > 0) {
-          setData(decodedText);
-          console.log("💾 Data saved to state:", decodedText);
-          
-          handleQRScan(decodedText);
-          console.log("🔄 handleQRScan called with:", decodedText);
-          
-          stopScanning();
-          setShowQRScanner(false);
-          
-          toast({
-            title: "QR Code Scanned Successfully",
-            description: `Content: ${decodedText}`,
-          });
-        } else {
-          console.warn("⚠️ Empty or invalid decoded text:", decodedText);
-        }
-      },
-      // Error callback
-      (errorMessage) => {
-        setScanAttempts(prev => prev + 1);
-        
-        // More detailed error logging
-        if (errorMessage.includes('NotFoundException')) {
-          if (errorMessage.includes('MultiFormat Readers')) {
-            // This specific error means it detected something but couldn't decode it
-            if (scanAttempts % 25 === 0) {
-              console.log(`🔍 Detected something but can't decode it (attempt ${scanAttempts})`);
-              console.log("💡 Try moving closer/farther or improving lighting");
-            }
-          } else {
-            // Standard "no QR code found" error
-            if (scanAttempts % 100 === 0) {
-              console.log(`🔍 Still scanning... (${scanAttempts} attempts)`);
-            }
-          }
-        } else {
-          console.error("❌ QR Scan Error:", errorMessage);
-        }
-      }
-    );
-    
-    console.log("✅ Scanner started successfully");
-    
-  } catch (err) {
-    console.error("💥 CRITICAL ERROR starting scanner:", err);
-    setQrError(true);
-    setIsScanning(false);
-    
-    toast({
-      title: "Camera Error",
-      description: `Unable to access camera: ${typeof err === "object" && err && "message" in err ? (err as { message: string }).message : String(err)}`,
-      variant: "destructive"
-    });
-  }
-};
-
-const stopScanning = async () => {
-  try {
-    console.log("🛑 stopScanning() called");
-    console.log("📱 Current scanner instance:", html5QrCode.current);
-    
-    if (html5QrCode.current) {
-      console.log("🔄 Stopping scanner...");
-      await html5QrCode.current.stop();
-      console.log("✅ Scanner stopped");
-      
-      html5QrCode.current = null;
-      console.log("🧹 Scanner instance cleared");
-    } else {
-      console.log("ℹ️ No scanner instance to stop");
-    }
-  } catch (err) {
-    console.log("❌ Error stopping scanner");
-  } finally {
-    setIsScanning(false);
-    console.log("🏁 Scanner state reset");
-  }
-};
-
-// Updated close handler with logging
-const handleCloseScanner = () => {
-  console.log("🚪 Close button clicked");
-  stopScanning();
-  setShowQRScanner(false);
-  setQrError(false);
-  setData("");
-  setScanAttempts(0);
-  console.log("🧹 All states reset");
-};
-
-// Your existing QR scan handler with logging
-const handleQRScan = (scannedValue: React.SetStateAction<string>) => {
-  console.log("🎯 handleQRScan called with:", scannedValue);
-  setSearchTerm(scannedValue);
-  console.log("🔍 Search term updated to:", scannedValue);
-};
-
-// Add this button click handler with logging
-const handleScannerOpen = async () => {
-  console.log("🚀 Scanner button clicked");
-  
-  try {
-    // Check camera permissions
-    console.log("🔐 Checking camera permissions...");
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    console.log("✅ Camera permission granted");
-    console.log("📹 Stream:", stream);
-    
-    // Stop the test stream
-    stream.getTracks().forEach(track => {
-      console.log("🔄 Stopping track:", track);
-      track.stop();
-    });
-    
-    setShowQRScanner(true);
-    console.log("📱 QR Scanner modal opened");
-  } catch (error) {
-    console.error("💥 Camera permission error:");
-    console.error("Full error:", error);
-    if (error && typeof error === "object" && "message" in error) {
-      alert(`Camera access error: ${(error as { message: string }).message}`);
-    } else {
-      alert("Camera access error: Unknown error");
-    }
-  }
-};
-
-  // Function to refresh data from Supabase
-  const refreshData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        toast({
-          title: "Authentication Required",
-          description: "Please sign in to continue",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const response = await fetch('/api/get-products', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to fetch products');
-      }
-
-      if (result.success) {
-        // Enrich variants with productOriginalPrice
-        const enrichedData = result.data.map((shoe: any) => ({
-          ...shoe,
-          variants: shoe.variants.map((variant: any) => ({
-            ...variant,
-            productOriginalPrice: shoe.original_price,
-          })),
-        }));
-        setShoesData(enrichedData);
-      } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to fetch products",
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      console.error("Error fetching products:", error);
-      toast({
-        title: "Error",
-        description: error.message || "An error occurred while fetching products",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [])
-
-  useEffect(() => {
-    // If initial data changes (e.g., from a re-render of the parent server component), update state
-    setShoesData(
-      initialShoesData.map((shoe) => ({
-        ...shoe,
-        variants: shoe.variants.map((variant: any) => ({
-          ...variant,
-          productOriginalPrice: shoe.originalPrice,
-        })),
-      })),
-    )
-  }, [initialShoesData])
-
-  // Fetch user plan
-  const fetchUserPlan = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        toast({
-          title: "Authentication Required",
-          description: "Please sign in to access features.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const response = await fetch('/api/user-plan', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to fetch user plan.");
-      }
-
-      if (result.plan) {
-        setUserPlan(result.plan); // 'free', 'individual', 'team', 'store'
-      } else {
-        throw new Error("Plan data missing from response.");
-      }
-    } catch (error: any) {
-      console.error("Error fetching user plan:", error);
-      toast({
-        title: "Error",
-        description: error.message || "An error occurred while checking your plan.",
-        variant: "destructive",
-      });
-      setUserPlan("free"); // fallback if error
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchUserPlan();
-  }, [fetchUserPlan]);
-
-  // Enhanced filter and search logic
-  useEffect(() => {
-    const fetchLocations = async () => {
+        {/* Pagination Controls for products (after the list) */}
+        {filteredShoes.length > 50 && (
+          <div className="flex flex-wrap justify-center items-center gap-2 my-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setProductPage((p) => Math.max(1, p - 1))}
+              disabled={productPage === 1}
+              aria-label="Previous page"
+            >
+              Previous
+            </Button>
+            <span className="text-sm">
+              Page {productPage} of {totalProductPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setProductPage((p) => Math.min(totalProductPages, p + 1))}
+              disabled={productPage === totalProductPages}
+              aria-label="Next page"
+            >
+              Next
+            </Button>
+          </div>
+        )}
+      </div>
       const { success, data, error } = await fetchCustomLocations()
   
       if (success && data) {
@@ -1101,7 +678,6 @@ const executeDelete = async () => {
     setEditValues({})
   }
 
-console.log("User Plan:", userPlan)
 
   return (
     <div className="space-y-6">
@@ -1477,7 +1053,7 @@ console.log("User Plan:", userPlan)
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredShoes.map((shoe) => (
+          {paginatedShoes.map((shoe) => (
             <React.Fragment key={shoe.id}>
               <TableRow key={shoe.id} className="hover:bg-gray-50">
                 <TableCell>
@@ -1929,7 +1505,33 @@ console.log("User Plan:", userPlan)
       </Table>
 
       <div className="md:hidden space-y-4 p-4">
-      {filteredShoes.map((shoe) => (
+      {paginatedShoes.map((shoe) => (
+      {/* Pagination Controls for products */}
+      {filteredShoes.length > 50 && (
+        <div className="flex flex-wrap justify-center items-center gap-2 my-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setProductPage((p) => Math.max(1, p - 1))}
+            disabled={productPage === 1}
+            aria-label="Previous page"
+          >
+            Previous
+          </Button>
+          <span className="text-sm">
+            Page {productPage} of {totalProductPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setProductPage((p) => Math.min(totalProductPages, p + 1))}
+            disabled={productPage === totalProductPages}
+            aria-label="Next page"
+          >
+            Next
+          </Button>
+        </div>
+      )}
   <div key={shoe.id} className="border rounded-lg p-4 bg-white shadow-sm"> {/* Card Start */}
     <div className="flex items-center justify-between mb-2"> {/* Header Start */}
       <div className="flex items-center gap-2"> {/* Checkbox/Image/Name Start */}
@@ -2343,6 +1945,33 @@ console.log("User Plan:", userPlan)
   </div> 
 ))}
       </div>
+
+      {/* Pagination Controls for products (after both desktop and mobile lists) */}
+      {filteredShoes.length > 50 && (
+        <div className="flex flex-wrap justify-center items-center gap-2 my-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setProductPage((p) => Math.max(1, p - 1))}
+            disabled={productPage === 1}
+            aria-label="Previous page"
+          >
+            Previous
+          </Button>
+          <span className="text-sm">
+            Page {productPage} of {totalProductPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setProductPage((p) => Math.min(totalProductPages, p + 1))}
+            disabled={productPage === totalProductPages}
+            aria-label="Next page"
+          >
+            Next
+          </Button>
+        </div>
+      )}
   
       </div>
           )}

@@ -52,6 +52,9 @@ export function CheckoutClientWrapper({
   initialAvatars,
   initialProfitTemplates,
 }: CheckoutClientWrapperProps) {
+  // Pagination for variants
+  const [variantPage, setVariantPage] = useState(1);
+  const variantsPerPage = 50;
   const [allVariants, setAllVariants] = useState<TransformedVariant[]>(initialVariants)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedVariants, setSelectedVariants] = useState<TransformedVariant[]>([])
@@ -90,10 +93,15 @@ export function CheckoutClientWrapper({
         variant.variantSku,
         variant.size,
       ].map((field) => (field || "").toLowerCase())
-
       return searchableFields.some((field) => field.includes(lowerCaseSearchTerm))
     })
   }, [searchTerm, availableVariants])
+
+  // Pagination logic for variants
+  const totalVariantPages = filteredVariants.length > 50 ? Math.ceil(filteredVariants.length / variantsPerPage) : 1
+  const paginatedVariants = filteredVariants.length > 50
+    ? filteredVariants.slice((variantPage - 1) * variantsPerPage, variantPage * variantsPerPage)
+    : filteredVariants
 
   const handleAddVariantToCart = (variant: TransformedVariant) => {
     setSelectedVariants((prev) => [...prev, variant])
@@ -330,39 +338,67 @@ export function CheckoutClientWrapper({
                   <p>All available shoes are in the cart or inventory is empty.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-96 overflow-y-auto pr-2">
-                  {filteredVariants.map((variant) => (
-                    <Card key={variant.id} className="flex flex-col">
-                      <CardContent className="p-3 flex-grow">
-                        <Image
-                          src={variant.productImage || "/placeholder.svg?height=100&width=100"}
-                          alt={variant.productName || "Placeholder image"}
-                          width={80}
-                          height={80}
-                          className="rounded-md object-cover mx-auto mb-2"
-                        />
-                        <h3 className="font-semibold text-sm line-clamp-2">{variant.productName}</h3>
-                        <p className="text-xs text-gray-600">{variant.productBrand}</p>
-                        <p className="text-xs font-mono text-gray-500">SKU: {variant.productSku}</p>
-                        <p className="text-xs font-mono text-gray-500">Serial: {variant.serialNumber}</p>
-                        <p className="text-xs text-gray-500">
-                          Size: {variant.size} ({variant.sizeLabel})
-                        </p>
-                        <p className="text-sm font-bold text-green-600 mt-2">{formatCurrency(variant.productSalePrice, currency)}</p>
-                      </CardContent>
-                      <div className="p-3 border-t">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => handleAddVariantToCart(variant)}
-                        >
-                          <Plus className="h-4 w-4 mr-1" /> Add to Cart
-                        </Button>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-96 overflow-y-auto pr-2">
+                    {paginatedVariants.map((variant) => (
+                      <Card key={variant.id} className="flex flex-col">
+                        <CardContent className="p-3 flex-grow">
+                          <Image
+                            src={variant.productImage || "/placeholder.svg?height=100&width=100"}
+                            alt={variant.productName || "Placeholder image"}
+                            width={80}
+                            height={80}
+                            className="rounded-md object-cover mx-auto mb-2"
+                          />
+                          <h3 className="font-semibold text-sm line-clamp-2">{variant.productName}</h3>
+                          <p className="text-xs text-gray-600">{variant.productBrand}</p>
+                          <p className="text-xs font-mono text-gray-500">SKU: {variant.productSku}</p>
+                          <p className="text-xs font-mono text-gray-500">Serial: {variant.serialNumber}</p>
+                          <p className="text-xs text-gray-500">
+                            Size: {variant.size} ({variant.sizeLabel})
+                          </p>
+                          <p className="text-sm font-bold text-green-600 mt-2">{formatCurrency(variant.productSalePrice, currency)}</p>
+                        </CardContent>
+                        <div className="p-3 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => handleAddVariantToCart(variant)}
+                          >
+                            <Plus className="h-4 w-4 mr-1" /> Add to Cart
+                          </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                  {/* Pagination controls for variants */}
+                  {filteredVariants.length > 50 && (
+                    <div className="flex flex-wrap justify-center items-center gap-2 mt-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setVariantPage((p) => Math.max(1, p - 1))}
+                        disabled={variantPage === 1}
+                        aria-label="Previous page"
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-sm">
+                        Page {variantPage} of {totalVariantPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setVariantPage((p) => Math.min(totalVariantPages, p + 1))}
+                        disabled={variantPage === totalVariantPages}
+                        aria-label="Next page"
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
