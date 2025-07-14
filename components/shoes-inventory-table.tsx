@@ -97,7 +97,7 @@ export function ShoesInventoryTable({ initialShoesData }: { initialShoesData: an
   const [brandFilter, setBrandFilter] = useState("all")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [maxSalePrice, setMaxSalePrice] = useState(1000);
-  const PRODUCTS_PER_PAGE = 30;
+  const PRODUCTS_PER_PAGE = 50;
 const [productPage, setProductPage] = useState(1);
 
 
@@ -604,7 +604,7 @@ const handleScannerOpen = async () => {
     return filtered;
   }, [searchTerm, statusFilter, brandFilter, categoryFilter, priceRange, sortBy, sortOrder, shoesData]);
 
-  const paginatedShoes = useMemo(() => {
+const paginatedShoes = useMemo(() => {
   const start = (productPage - 1) * PRODUCTS_PER_PAGE;
   const end = start + PRODUCTS_PER_PAGE;
   return filteredShoes.slice(start, end);
@@ -689,6 +689,8 @@ const totalProductPages = Math.max(1, Math.ceil(filteredShoes.length / PRODUCTS_
       setShowDeleteConfirmationModal(true)
     }
   }
+
+  const visibleShoes = searchTerm.trim() ? filteredShoes : paginatedShoes;
 
 // Client-side functions to call your API
 const deleteProduct = async (productId: number) => {
@@ -1491,7 +1493,7 @@ console.log("User Plan:", userPlan)
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredShoes.map((shoe) => (
+          {visibleShoes.map((shoe) => (
             <React.Fragment key={shoe.id}>
               <TableRow key={shoe.id} className="hover:bg-gray-50">
                 <TableCell>
@@ -1943,7 +1945,7 @@ console.log("User Plan:", userPlan)
       </Table>
 
       <div className="md:hidden space-y-4 p-4">
-      {paginatedShoes.map((shoe) => (
+      {visibleShoes.map((shoe) => (
   <div key={shoe.id} className="border rounded-lg p-4 bg-white shadow-sm"> {/* Card Start */}
     <div className="flex items-center justify-between mb-2"> {/* Header Start */}
       <div className="flex items-center gap-2"> {/* Checkbox/Image/Name Start */}
@@ -2356,8 +2358,33 @@ console.log("User Plan:", userPlan)
 )}
   </div> 
 ))}
+
       </div>
-  
+  {filteredShoes.length > PRODUCTS_PER_PAGE && (
+    <div className="flex flex-wrap justify-center items-center gap-2 my-4">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setProductPage((p) => Math.max(1, p - 1))}
+        disabled={productPage === 1}
+        aria-label="Previous page"
+      >
+        Previous
+      </Button>
+      <span className="text-sm">
+        Page {productPage} of {totalProductPages}
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setProductPage((p) => Math.min(totalProductPages, p + 1))}
+        disabled={productPage === totalProductPages}
+        aria-label="Next page"
+      >
+        Next
+      </Button>
+    </div>
+  )}
       </div>
           )}
 
