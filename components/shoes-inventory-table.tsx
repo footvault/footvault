@@ -1,3 +1,4 @@
+
 "use client"
 import React, { useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -62,6 +63,7 @@ import { ImportModal } from "@/components/import-modal" // Import the new Import
 import Link from "next/link"
 import { toast } from "@/hooks/use-toast"
 import { AddProductForm } from "@/components/add-product-form" // Import the AddProductForm
+import EditProductModal from "@/components/edit-product-modal"
 import { useCurrency } from "@/context/CurrencyContext"
 import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency"
 import { fetchCustomLocations } from "@/lib/fetchCustomLocations"
@@ -1548,11 +1550,20 @@ console.log("User Plan:", userPlan)
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
                         onClick={() => {
-                          setProductToEdit(shoe)
-                          setShowEditProductModal(true)
+                          setProductToEdit(shoe);
+                          setShowEditProductModal(true);
                         }}
                       >
                         <Edit className="h-4 w-4 mr-2" />
+                        Edit Product
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSelectedShoe(shoe);
+                          setShowSizeModal(true);
+                        }}
+                      >
+                        <Package className="h-4 w-4 mr-2" />
                         Add Variants
                       </DropdownMenuItem>
                       <DropdownMenuItem
@@ -2387,13 +2398,19 @@ console.log("User Plan:", userPlan)
         isConfirming={isDeleting}
       />
       <ImportModal open={showImportModal} onOpenChange={setShowImportModal} refreshData={refreshData} />
-      <AddProductForm
-        open={showEditProductModal}
-        onOpenChange={setShowEditProductModal}
-        productDataFromApi={null} // Not from API when editing existing
-        existingProductDetails={productToEdit} // Pass the product to edit
-        onProductAdded={refreshData} // Refresh data after product is updated
-      />
+      {showEditProductModal && productToEdit && (
+        <EditProductModal
+          open={showEditProductModal}
+          onOpenChange={setShowEditProductModal}
+          product={productToEdit}
+          onProductUpdated={async () => {
+            setShowEditProductModal(false);
+            setProductToEdit(null);
+            await refreshData();
+          }}
+        />
+      )}
+
 
        {/* QR Scanner Modal */}
      {showQRScanner && (

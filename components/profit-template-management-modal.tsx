@@ -16,11 +16,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Trash2, Loader2, Edit, Save } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import {
-  deleteProfitDistributionTemplate,
-} from "@/app/actions"
+import { deleteProfitDistributionTemplate } from "@/app/actions"
 import { Avatar as UIAvatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import type { ProfitDistributionTemplateDetail } from "@/lib/types" // FIX: Import correct type
+import type { ProfitDistributionTemplateDetail } from "@/lib/types"
 
 interface AvatarType {
   id: string
@@ -31,10 +29,9 @@ interface AvatarType {
 interface ProfitTemplateItem {
   avatar_id: string
   percentage: number
-  avatar_name?: string // Added for display purposes
+  avatar_name?: string
 }
 
-// FIX: Use ProfitDistributionTemplateDetail for the template type
 interface ProfitTemplate extends ProfitDistributionTemplateDetail {}
 
 interface ProfitTemplateManagementModalProps {
@@ -58,22 +55,19 @@ export function ProfitTemplateManagementModal({
   const [isEditing, setIsEditing] = useState(false)
 
   useEffect(() => {
-    if (!isOpen) {
-      resetForm()
-    }
+    if (!isOpen) resetForm()
   }, [isOpen])
 
   useEffect(() => {
     if (selectedTemplate) {
       setTemplateName(selectedTemplate.name)
       setTemplateDescription(selectedTemplate.description || "")
-      // FIX: Map distributions to templateItems
       setTemplateItems(
         (selectedTemplate.distributions ?? []).map((item) => ({
           avatar_id: item.avatar_id,
           percentage: item.percentage,
           avatar_name: avatars.find((a) => a.id === item.avatar_id)?.name || "",
-        })),
+        }))
       )
       setIsEditing(true)
     } else {
@@ -81,24 +75,18 @@ export function ProfitTemplateManagementModal({
     }
   }, [selectedTemplate, avatars])
 
-  // Fetch a single template with distributions from the API
   const fetchTemplateWithDistributions = async (id: string) => {
     try {
       const { createClient } = await import("@/lib/supabase/client")
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
       const response = await fetch(`/api/get-profit-template?id=${id}`, {
-        headers: {
-          Authorization: `Bearer ${session?.access_token || ''}`
-        }
+        headers: { Authorization: `Bearer ${session?.access_token || ''}` }
       })
       const result = await response.json()
-      if (result.success && result.data) {
-        setSelectedTemplate(result.data)
-      } else {
-        toast({ title: "Error", description: result.error || "Failed to fetch template.", variant: "destructive" })
-      }
-    } catch (err) {
+      if (result.success && result.data) setSelectedTemplate(result.data)
+      else toast({ title: "Error", description: result.error || "Failed to fetch template.", variant: "destructive" })
+    } catch {
       toast({ title: "Error", description: "Unexpected error fetching template.", variant: "destructive" })
     }
   }
@@ -111,23 +99,17 @@ export function ProfitTemplateManagementModal({
     setIsEditing(false)
   }
 
-  const handleAddTemplateItem = () => {
-    setTemplateItems((prev) => [...prev, { avatar_id: "", percentage: 0 }])
-  }
+  const handleAddTemplateItem = () => setTemplateItems((prev) => [...prev, { avatar_id: "", percentage: 0 }])
 
-  const handleRemoveTemplateItem = (index: number) => {
-    setTemplateItems((prev) => prev.filter((_, i) => i !== index))
-  }
+  const handleRemoveTemplateItem = (index: number) => setTemplateItems((prev) => prev.filter((_, i) => i !== index))
 
   const handleItemPercentageChange = (index: number, value: number) => {
-    setTemplateItems((prev) => prev.map((item, i) => (i === index ? { ...item, percentage: value } : item)))
+    setTemplateItems((prev) => prev.map((item, i) => i === index ? { ...item, percentage: value } : item))
   }
 
   const handleItemAvatarChange = (index: number, avatarId: string) => {
     const avatar = avatars.find((a) => a.id === avatarId)
-    setTemplateItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, avatar_id: avatarId, avatar_name: avatar?.name || "" } : item)),
-    )
+    setTemplateItems((prev) => prev.map((item, i) => i === index ? { ...item, avatar_id: avatarId, avatar_name: avatar?.name || "" } : item))
   }
 
   const validateForm = () => {
@@ -140,28 +122,18 @@ export function ProfitTemplateManagementModal({
       return false
     }
     if (templateItems.some((item) => !item.avatar_id)) {
-      toast({
-        title: "Validation Error",
-        description: "Please select an avatar for all participants.",
-        variant: "destructive",
-      })
+      toast({ title: "Validation Error", description: "Please select an avatar for all participants.", variant: "destructive" })
       return false
     }
-    const totalPercentage = templateItems.reduce((sum, item) => sum + item.percentage, 0)
-    if (Math.abs(totalPercentage - 100) > 0.01) {
-      // Allow for minor floating point inaccuracies
-      toast({
-        title: "Validation Error",
-        description: `Total percentage must be 100%. Current: ${totalPercentage.toFixed(2)}%`,
-        variant: "destructive",
-      })
+    const total = templateItems.reduce((sum, item) => sum + item.percentage, 0)
+    if (Math.abs(total - 100) > 0.01) {
+      toast({ title: "Validation Error", description: `Total percentage must be 100%. Current: ${total.toFixed(2)}%`, variant: "destructive" })
       return false
     }
     return true
   }
 
   const handleSubmit = async () => {
-    console.log('handleSubmit called', { isEditing, selectedTemplate });
     if (!validateForm()) return
 
     startTransition(async () => {
@@ -171,47 +143,27 @@ export function ProfitTemplateManagementModal({
         distributions: templateItems.map(({ avatar_id, percentage }) => ({ avatar_id, percentage })),
       }
 
-      let result
-      if (isEditing && selectedTemplate) {
-        console.log('Editing mode: updating template', selectedTemplate.id, payload);
-        try {
-          const { createClient } = await import("@/lib/supabase/client")
-          const supabase = createClient()
-          const { data: { session } } = await supabase.auth.getSession()
-          const response = await fetch("/api/update-profit-template", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session?.access_token || ""}`
-            },
-            body: JSON.stringify({ id: selectedTemplate.id, ...payload })
-          })
-          result = await response.json()
-        } catch (err) {
-          result = { success: false, error: "Unexpected error." }
-        }
-      } else {
-        try {
-          const { createClient } = await import("@/lib/supabase/client")
-          const supabase = createClient()
-          const { data: { session } } = await supabase.auth.getSession()
-          const response = await fetch("/api/add-profit-template", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session?.access_token || ""}`
-            },
-            body: JSON.stringify(payload)
-          })
-          result = await response.json()
-        } catch (err) {
-          result = { success: false, error: "Unexpected error." }
-        }
+      const { createClient } = await import("@/lib/supabase/client")
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token || ""}`,
       }
 
+      const response = await fetch(
+        isEditing && selectedTemplate ? "/api/update-profit-template" : "/api/add-profit-template",
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify(isEditing && selectedTemplate ? { id: selectedTemplate.id, ...payload } : payload),
+        }
+      )
+
+      const result = await response.json()
       if (result.success) {
         toast({ title: "Success", description: `Template ${isEditing ? "updated" : "added"} successfully!` })
-        onClose() // Close modal and trigger refresh in parent
+        onClose()
       } else {
         toast({ title: "Error", description: result.error || "Failed to save template.", variant: "destructive" })
       }
@@ -219,13 +171,13 @@ export function ProfitTemplateManagementModal({
   }
 
   const handleDelete = async () => {
-    if (!selectedTemplate || !confirm(`Are you sure you want to delete template "${selectedTemplate.name}"?`)) return
+    if (!selectedTemplate || !confirm(`Are you sure you want to delete template \"${selectedTemplate.name}\"?`)) return
 
     startTransition(async () => {
       const result = await deleteProfitDistributionTemplate(selectedTemplate.id)
       if (result.success) {
         toast({ title: "Success", description: "Template deleted successfully!" })
-        onClose() // Close modal and trigger refresh in parent
+        onClose()
       } else {
         toast({ title: "Error", description: result.error || "Failed to delete template.", variant: "destructive" })
       }
@@ -243,41 +195,18 @@ export function ProfitTemplateManagementModal({
               : "Create a new template for recurring profit distributions."}
           </DialogDescription>
         </DialogHeader>
+
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="templateName" className="text-right">
-              Name
-            </Label>
-            <Input
-              id="templateName"
-              value={templateName}
-              onChange={(e) => setTemplateName(e.target.value)}
-              className="col-span-3"
-              disabled={isPending}
-            />
+            <Label htmlFor="templateName" className="text-right">Name</Label>
+            <Input id="templateName" value={templateName} onChange={(e) => setTemplateName(e.target.value)} className="col-span-3" disabled={isPending} />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="templateDescription" className="text-right">
-              Description
-            </Label>
-            <Textarea
-              id="templateDescription"
-              value={templateDescription}
-              onChange={(e) => setTemplateDescription(e.target.value)}
-              className="col-span-3"
-              disabled={isPending}
-            />
-          </div>
-
+         
           <h3 className="text-lg font-semibold mt-4 col-span-4">Participants</h3>
           <div className="space-y-3">
             {templateItems.map((item, index) => (
               <div key={index} className="flex items-center gap-2">
-                <Select
-                  value={item.avatar_id}
-                  onValueChange={(value) => handleItemAvatarChange(index, value)}
-                  disabled={isPending}
-                >
+                <Select value={item.avatar_id} onValueChange={(value) => handleItemAvatarChange(index, value)} disabled={isPending}>
                   <SelectTrigger className="flex-1">
                     <SelectValue placeholder="Select Avatar" />
                   </SelectTrigger>
@@ -296,25 +225,10 @@ export function ProfitTemplateManagementModal({
                   </SelectContent>
                 </Select>
                 <div className="relative w-24">
-                  <Input
-                    type="number"
-                    value={item.percentage}
-                    onChange={(e) => handleItemPercentageChange(index, Number(e.target.value))}
-                    placeholder="0"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    className="pr-6"
-                    disabled={isPending}
-                  />
+                  <Input type="number" value={item.percentage} onChange={(e) => handleItemPercentageChange(index, Number(e.target.value))} placeholder="0" min="0" max="100" step="0.01" className="pr-6" disabled={isPending} />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500">%</span>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleRemoveTemplateItem(index)}
-                  disabled={isPending}
-                >
+                <Button variant="ghost" size="icon" onClick={() => handleRemoveTemplateItem(index)} disabled={isPending}>
                   <Trash2 className="h-4 w-4 text-red-500" />
                 </Button>
               </div>
@@ -355,17 +269,15 @@ export function ProfitTemplateManagementModal({
             )}
           </div>
         </div>
+
         <DialogFooter>
           {selectedTemplate && (
             <Button variant="destructive" onClick={handleDelete} disabled={isPending}>
-              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-              Delete
+              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Delete
             </Button>
           )}
           {isEditing && (
-            <Button variant="outline" onClick={resetForm} disabled={isPending}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={resetForm} disabled={isPending}>Cancel</Button>
           )}
           <Button onClick={handleSubmit} disabled={isPending}>
             {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}

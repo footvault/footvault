@@ -81,7 +81,7 @@ export function SizeModal({ shoe, open, onOpenChange, refreshData }: SizeModalPr
     setIsSaving(true)
     try {
       // Add size to update call
-      const { error } = await updateVariantStatusAndLocation(editValues.id, editValues.status, editValues.location, editValues.serialNumber, editValues.size)
+      const { error } = await updateVariantStatusAndLocation(editValues.id, editValues.status, editValues.location, editValues.size)
       if (error) {
         console.error("Failed to update variant:", error)
         // You can add a toast notification here for error feedback

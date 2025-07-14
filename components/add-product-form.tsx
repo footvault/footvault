@@ -750,7 +750,7 @@ export function AddProductForm({
                   onChange={handleProductFormChange}
                   step="0.01"
                   max={99999}
-                  disabled={isAddingToExistingProduct}
+                  
                 />
               </div>
               <div>
@@ -762,7 +762,7 @@ export function AddProductForm({
                   onChange={handleProductFormChange}
                   step="0.01"
                   max={99999}
-                  disabled={isAddingToExistingProduct}
+                  
                 />
               </div>
             </div>
