@@ -1165,7 +1165,7 @@ console.log("User Plan:", userPlan)
     variant="outline"
     size="sm"
     onClick={() => {
-      const csvContent = generateCSV([]);
+       const csvContent = generateCSV(shoesData); //
       downloadCSV(csvContent, "inventory-export.csv");
     }}
   >

@@ -2,6 +2,7 @@
 
 import type * as React from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Home, Plus, ShoppingCart, BarChart, CreditCard, Settings, Archive } from "lucide-react"
 import { useEffect, useState } from "react"
 
@@ -93,7 +94,11 @@ export function AppSidebar({ children, ...props }: React.ComponentProps<typeof S
   return (
     <Sidebar {...props}>
       <SidebarHeader>
-        <div className="p-2 text-lg font-semibold">Shoe Inventory</div>
+        <div className="p-2 text-lg font-semibold flex items-center gap-2">
+           <Image src={"/images/FootVault-logo-white-only.png"} alt="FootVault" width={32} height={32} />
+          <Link href="/">FootVault</Link>
+        </div>
+          
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

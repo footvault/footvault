@@ -18,6 +18,7 @@ const mapProductToCamelCase = (product: any) => ({
   sizeCategory: product.size_category,
   createdAt: product.created_at,
   updatedAt: product.updated_at,
+  isArchived: product.isArchived ?? product.is_archived ?? false,
   variants: [],
 })
 

@@ -46,6 +46,7 @@ interface Variant {
   size: string
   status: string
   location: string
+  serialNumber: string // Add serialNumber
 }
 
 interface SizeModalProps {
@@ -65,6 +66,7 @@ export function SizeModal({ shoe, open, onOpenChange, refreshData }: SizeModalPr
   const [collapsedSizes, setCollapsedSizes] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [showAddVariantModal, setShowAddVariantModal] = useState(false)
+  const [serialError, setSerialError] = useState<string | null>(null)
 
   if (!shoe) return null
 
@@ -75,10 +77,11 @@ export function SizeModal({ shoe, open, onOpenChange, refreshData }: SizeModalPr
 
   const handleSave = async () => {
     if (!editValues) return
-
+    if (serialError) return // Prevent save if serial is not unique
     setIsSaving(true)
     try {
-      const { error } = await updateVariantStatusAndLocation(editValues.id, editValues.status, editValues.location)
+      // Add size to update call
+      const { error } = await updateVariantStatusAndLocation(editValues.id, editValues.status, editValues.location, editValues.serialNumber, editValues.size)
       if (error) {
         console.error("Failed to update variant:", error)
         // You can add a toast notification here for error feedback
@@ -121,6 +124,37 @@ export function SizeModal({ shoe, open, onOpenChange, refreshData }: SizeModalPr
 
   const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEditValues(prev => prev ? { ...prev, location: e.target.value } : null)
+  }
+
+  const handleSerialChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newSerial = e.target.value
+    setEditValues(prev => prev ? { ...prev, serialNumber: newSerial } : null)
+    setSerialError(null)
+    if (newSerial.trim()) {
+      try {
+        const res = await fetch(`/api/check-serial-number`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ serialNumber: newSerial }),
+        })
+        const data = await res.json()
+        if (!data.isUnique) {
+          setSerialError("Serial number already exists.")
+        } else {
+          setSerialError(null)
+        }
+      } catch (err) {
+        setSerialError("Error checking serial number.")
+      }
+    } else {
+      setSerialError("Serial number is required.")
+    }
+  }
+
+  const handleSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditValues(prev => prev ? { ...prev, size: e.target.value } : null)
   }
 
   const getStatusStyle = (status: string) => {
@@ -186,6 +220,7 @@ export function SizeModal({ shoe, open, onOpenChange, refreshData }: SizeModalPr
                     <TableHead className="font-medium text-gray-900 tracking-tight">Size</TableHead>
                     <TableHead className="font-medium text-gray-900 tracking-tight">Status</TableHead>
                     <TableHead className="hidden xs:table-cell font-medium text-gray-900 tracking-tight">Location</TableHead>
+                    <TableHead className="font-medium text-gray-900 tracking-tight">Serial #</TableHead>
                     <TableHead className="font-medium text-gray-900 tracking-tight pr-6">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -207,9 +242,18 @@ export function SizeModal({ shoe, open, onOpenChange, refreshData }: SizeModalPr
                         />
                       </TableCell>
                       <TableCell>
-                        <div className="font-mono text-sm font-medium text-black">
-                          {variant.size}
-                        </div>
+                        {editingVariant === variant.id ? (
+                          <Input
+                            value={editValues?.size || ""}
+                            onChange={handleSizeChange}
+                            placeholder="Enter size"
+                            className="h-9 text-sm border-gray-200 bg-white"
+                          />
+                        ) : (
+                          <div className="font-mono text-sm font-medium text-black">
+                            {variant.size}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         {editingVariant === variant.id ? (
@@ -245,6 +289,11 @@ export function SizeModal({ shoe, open, onOpenChange, refreshData }: SizeModalPr
                             {variant.location || '—'}
                           </span>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-gray-600 font-mono">
+                          {variant.serialNumber || '—'}
+                        </span>
                       </TableCell>
                       <TableCell className="pr-6">
                         {editingVariant === variant.id ? (
