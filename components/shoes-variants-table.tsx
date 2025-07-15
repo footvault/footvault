@@ -35,6 +35,7 @@ import { Variant, Product } from "@/lib/types"
 import Image from "next/image"
 import EditProductModal from "@/components/edit-product-modal"
 import { ConfirmationModal } from "@/components/confirmation-modal"
+import { EditVariantModal } from "@/components/edit-variant-modal"
 import { Badge } from "@/components/ui/badge"
 
 const columnHelper = createColumnHelper<Variant>()
@@ -132,7 +133,7 @@ export function ShoesVariantsTable() {
     return ["all", ...Array.from(set)]
   }, [variants])
 
-  // Filtered variants
+  // Filtered variants (all filters except status, which is handled by table column filter)
   const filteredVariants = useMemo(() => {
     return variants.filter(v => {
       const brand = (v as any).product_brand || (v as any).product?.brand;
@@ -141,8 +142,8 @@ export function ShoesVariantsTable() {
         (sizeFilter === "all" || v.size === sizeFilter) &&
         (brandFilter === "all" || brand === brandFilter)
       );
-    })
-  }, [variants, locationFilter, sizeFilter, brandFilter])
+    });
+  }, [variants, locationFilter, sizeFilter, brandFilter]);
 
   const columns = useMemo(() => [
     // Image
@@ -248,9 +249,18 @@ export function ShoesVariantsTable() {
       enableSorting: true,
     }),
     // Date Sold
-    columnHelper.accessor("updated_at", {
+    columnHelper.display({
+      id: "date_sold",
       header: "Date Sold",
-      cell: (info) => <div className="whitespace-nowrap min-w-[120px]">{new Date(info.getValue() as string).toLocaleDateString()}</div>,
+      cell: (info) => {
+        const variant = info.row.original as any;
+        const dateSold = variant.date_sold;
+        return (
+          <div className="whitespace-nowrap min-w-[120px]">
+            {dateSold ? new Date(dateSold).toLocaleDateString() : 'Empty'}
+          </div>
+        );
+      },
       enableSorting: true,
     }),
     // Actions
@@ -447,29 +457,33 @@ export function ShoesVariantsTable() {
       </div>
 
       {/* Edit Modal */}
-      {editModal.open && editModal.variant && (
-        <EditProductModal
-          open={editModal.open}
-          onOpenChange={(open) => setEditModal({ open, variant: open ? editModal.variant : undefined })}
-          product={editModal.variant}
-          onProductUpdated={fetchVariants}
-        />
-      )}
+      <EditVariantModal
+        open={editModal.open}
+        variant={editModal.variant}
+        onClose={(updated) => {
+          setEditModal({ open: false })
+          if (updated) {
+            fetchVariants() // Refresh the table data
+          }
+        }}
+      />
+
       {/* Delete Modal */}
-      {deleteModal.open && deleteModal.variant && (
-        <ConfirmationModal
-          open={deleteModal.open}
-          onOpenChange={(open) => setDeleteModal({ open, variant: open ? deleteModal.variant : undefined })}
-          title="Delete Variant"
-          description="Are you sure you want to delete this variant? This action cannot be undone."
-          isConfirming={false}
-          onConfirm={async () => {
-            // Implement your delete logic here
-            setDeleteModal({ open: false });
-            await fetchVariants();
-          }}
-        />
-      )}
+      <ConfirmationModal
+        open={deleteModal.open && !!deleteModal.variant}
+        onOpenChange={(open) => setDeleteModal({ open, variant: open ? deleteModal.variant : undefined })}
+        title="Delete Variant"
+        description="Are you sure you want to delete this variant? This action cannot be undone."
+        isConfirming={false}
+        onConfirm={async () => {
+          if (deleteModal.variant?.id) {
+            await supabase.from('variants').delete().eq('id', deleteModal.variant.id);
+          }
+          setDeleteModal({ open: false });
+          await fetchVariants();
+        }}
+      />
+
     </div>
   )
 }
