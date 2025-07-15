@@ -9,6 +9,8 @@ import Image from "next/image"
 import { fetchKicksDevProduct } from "@/lib/fetchKicksDevProduct";
 import { KicksDevSearchItem } from "@/app/actions"
 import { AddProductForm } from "@/components/add-product-form"
+import { ManualAddProduct } from "./ManualAddProduct"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar" // Add this import
@@ -49,6 +51,7 @@ export default function AddProductPage() {
   const [selectedProductForModal, setSelectedProductForModal] = useState<KicksDevProductData | null>(null)
   const [existingProductDetails, setExistingProductDetails] = useState<any | null>(null)
   const [showAddProductModal, setShowAddProductModal] = useState(false)
+  const [showManualAdd, setShowManualAdd] = useState(false)
 
   const handleSearch = () => {
     if (!searchTerm.trim()) {
@@ -215,6 +218,9 @@ export default function AddProductPage() {
                 {isSearching && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Search
               </Button>
+              <Button variant="outline" onClick={() => setShowManualAdd(true)}>
+                <Plus className="mr-2 h-4 w-4" />Add Manual
+              </Button>
             </CardContent>
           </Card>
 
@@ -270,6 +276,15 @@ export default function AddProductPage() {
             existingProductDetails={existingProductDetails}
             onProductAdded={handleProductAdded}
           />
+          {/* Manual Add Product/Variant Section */}
+          <Dialog open={showManualAdd} onOpenChange={setShowManualAdd}>
+            <DialogContent>
+              <ManualAddProduct
+                onProductAdded={handleProductAdded}
+                onClose={() => setShowManualAdd(false)}
+              />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </SidebarInset>
