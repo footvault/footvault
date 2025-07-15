@@ -15,8 +15,8 @@ export default async function HomePage() {
         <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" /> {/* Add separator */}
         <h1 className="text-xl font-semibold">Inventory</h1>
       </header>
-      <div className="flex flex-1 flex-col gap-4 p-4">
-        <div className="container mx-auto py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8 w-full">
+      <div className="container mx-auto py-8">
           <ShoesInventoryTable initialShoesData={shoesData} />
         </div>
       </div>

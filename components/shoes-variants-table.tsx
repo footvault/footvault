@@ -39,6 +39,7 @@ import { Badge } from "@/components/ui/badge"
 
 const columnHelper = createColumnHelper<Variant>()
 
+
 export function ShoesVariantsTable() {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -47,6 +48,13 @@ export function ShoesVariantsTable() {
   const [loading, setLoading] = useState(true)
   const [editModal, setEditModal] = useState<{ open: boolean, variant?: Variant }>({ open: false })
   const [deleteModal, setDeleteModal] = useState<{ open: boolean, variant?: Variant }>({ open: false })
+
+  // New filter state
+  const [locationFilter, setLocationFilter] = useState<string>("all")
+  const [sizeFilter, setSizeFilter] = useState<string>("all")
+  const [brandFilter, setBrandFilter] = useState<string>("all")
+  // For searchable size dropdown
+  const [sizeSearch, setSizeSearch] = useState("")
 
   const supabase = createClient()
 
@@ -94,6 +102,47 @@ export function ShoesVariantsTable() {
   useEffect(() => {
     fetchVariants()
   }, [])
+
+  // Compute unique filter options
+  const locationOptions = useMemo(() => {
+    const set = new Set<string>()
+    variants.forEach(v => { if (v.location) set.add(v.location) })
+    return ["all", ...Array.from(set)]
+  }, [variants])
+  const sizeOptions = useMemo(() => {
+    const set = new Set<string>()
+    variants.forEach(v => { if (v.size) set.add(v.size) })
+    return ["all", ...Array.from(set)]
+  }, [variants])
+
+  // Filtered size options based on search
+  const filteredSizeOptions = useMemo(() => {
+    if (!sizeSearch) return sizeOptions;
+    return sizeOptions.filter(size =>
+      size === "all" || size.toLowerCase().includes(sizeSearch.toLowerCase())
+    );
+  }, [sizeOptions, sizeSearch])
+  // Try to use v.product_brand if present, else v.product?.brand for legacy/fetched data
+  const brandOptions = useMemo(() => {
+    const set = new Set<string>()
+    variants.forEach(v => {
+      if ((v as any).product_brand) set.add((v as any).product_brand)
+      else if ((v as any).product?.brand) set.add((v as any).product.brand)
+    })
+    return ["all", ...Array.from(set)]
+  }, [variants])
+
+  // Filtered variants
+  const filteredVariants = useMemo(() => {
+    return variants.filter(v => {
+      const brand = (v as any).product_brand || (v as any).product?.brand;
+      return (
+        (locationFilter === "all" || v.location === locationFilter) &&
+        (sizeFilter === "all" || v.size === sizeFilter) &&
+        (brandFilter === "all" || brand === brandFilter)
+      );
+    })
+  }, [variants, locationFilter, sizeFilter, brandFilter])
 
   const columns = useMemo(() => [
     // Image
@@ -159,7 +208,7 @@ export function ShoesVariantsTable() {
       header: "Cost",
       cell: (info) => {
         const value = info.getValue();
-        return <div className="text-right min-w-[100px]">${typeof value === 'number' ? value.toFixed(2) : '-'}</div>;
+        return <div className=" min-w-[100px]">${typeof value === 'number' ? value.toFixed(2) : '-'}</div>;
       },
       enableSorting: true,
     }),
@@ -169,7 +218,7 @@ export function ShoesVariantsTable() {
       header: "Price",
       cell: (info) => {
         const variant = info.row.original as any;
-        return <div className="text-right min-w-[100px]">${variant.product?.sale_price?.toFixed(2) ?? '-'}</div>;
+        return <div className=" min-w-[100px]">${variant.product?.sale_price?.toFixed(2) ?? '-'}</div>;
       },
       enableSorting: true,
     }),
@@ -227,7 +276,7 @@ export function ShoesVariantsTable() {
   ], [])
 
   const table = useReactTable({
-    data: variants,
+    data: filteredVariants,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -257,6 +306,50 @@ export function ShoesVariantsTable() {
           className="max-w-sm"
         />
         <div className="flex gap-2 flex-wrap">
+          {/* Location Filter */}
+          <Select value={locationFilter} onValueChange={setLocationFilter}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="All Locations" />
+            </SelectTrigger>
+            <SelectContent>
+              {locationOptions.map(loc => (
+                <SelectItem key={loc} value={loc}>{loc === "all" ? "All Locations" : loc}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* Size Filter - searchable */}
+          <Select value={sizeFilter} onValueChange={setSizeFilter}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="All Sizes" />
+            </SelectTrigger>
+            <SelectContent>
+              <div className="px-2 py-1 sticky top-0 bg-white z-10">
+                <input
+                  type="text"
+                  placeholder="Search size..."
+                  className="w-full px-2 py-1 border rounded text-sm mb-1"
+                  value={sizeSearch}
+                  onChange={e => setSizeSearch(e.target.value)}
+                  onClick={e => e.stopPropagation()}
+                />
+              </div>
+              {filteredSizeOptions.map(size => (
+                <SelectItem key={size} value={size}>{size === "all" ? "All Sizes" : size}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* Brand Filter */}
+          <Select value={brandFilter} onValueChange={setBrandFilter}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="All Brands" />
+            </SelectTrigger>
+            <SelectContent>
+              {brandOptions.map(brand => (
+                <SelectItem key={brand} value={brand}>{brand === "all" ? "All Brands" : brand}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* Status Filter (existing) */}
           <Select
             value={(table.getColumn("status")?.getFilterValue() as string) ?? "all"}
             onValueChange={(value) => table.getColumn("status")?.setFilterValue(value === "all" ? undefined : value)}

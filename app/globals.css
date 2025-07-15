@@ -95,69 +95,56 @@ body {
 }
 
 
-/* Very Small Devices */
+.container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  max-width: 100%;
+}
 @media (min-width: 320px) {
   .container {
-    max-width: 320px;
+     max-width: 320px;
   }
 }
-@media (min-width: 375px) {
+@media (min-width: 350px) {
   .container {
-    max-width: 375px;
-  }
-}
-@media (min-width: 425px) {
-  .container {
-    max-width: 425px;
+     max-width: 350px;
   }
 }
 @media (min-width: 480px) {
   .container {
-    max-width: 480px;
+     max-width: 480px;
   }
 }
-@media (min-width: 540px) {
-  .container {
-    max-width: 540px;
-  }
-}
-@media (min-width: 600px) {
-  .container {
-    max-width: 600px;
-  }
-}
-
-/* Tailwind Default Breakpoints */
 @media (min-width: 640px) {
   .container {
-    max-width: 640px;
+    max-width: calc(100vw - 4rem); /* Sidebar rail collapsed */
   }
 }
 @media (min-width: 768px) {
   .container {
-    max-width: 768px;
+    max-width: calc(100vw - 18rem); /* Full sidebar */
   }
 }
 @media (min-width: 1024px) {
   .container {
-    max-width: 1024px;
+    max-width: calc(100vw - 18rem);
   }
 }
 @media (min-width: 1280px) {
   .container {
-    max-width: 1280px;
+    max-width: calc(100vw - 18rem);
   }
 }
 @media (min-width: 1536px) {
   .container {
-    max-width: 1536px;
+    max-width: calc(100vw - 18rem);
   }
 }
-
-/* Optional: Ultra-wide Screens */
 @media (min-width: 1920px) {
   .container {
-    max-width: 1720px;
+    max-width: calc(100vw - 20rem); /* extra for ultra-wide */
   }
 }
-
