@@ -91,4 +91,73 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+  
 }
+
+
+/* Very Small Devices */
+@media (min-width: 320px) {
+  .container {
+    max-width: 320px;
+  }
+}
+@media (min-width: 375px) {
+  .container {
+    max-width: 375px;
+  }
+}
+@media (min-width: 425px) {
+  .container {
+    max-width: 425px;
+  }
+}
+@media (min-width: 480px) {
+  .container {
+    max-width: 480px;
+  }
+}
+@media (min-width: 540px) {
+  .container {
+    max-width: 540px;
+  }
+}
+@media (min-width: 600px) {
+  .container {
+    max-width: 600px;
+  }
+}
+
+/* Tailwind Default Breakpoints */
+@media (min-width: 640px) {
+  .container {
+    max-width: 640px;
+  }
+}
+@media (min-width: 768px) {
+  .container {
+    max-width: 768px;
+  }
+}
+@media (min-width: 1024px) {
+  .container {
+    max-width: 1024px;
+  }
+}
+@media (min-width: 1280px) {
+  .container {
+    max-width: 1280px;
+  }
+}
+@media (min-width: 1536px) {
+  .container {
+    max-width: 1536px;
+  }
+}
+
+/* Optional: Ultra-wide Screens */
+@media (min-width: 1920px) {
+  .container {
+    max-width: 1720px;
+  }
+}
+

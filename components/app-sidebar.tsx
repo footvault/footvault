@@ -3,7 +3,7 @@
 import type * as React from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Home, Plus, ShoppingCart, BarChart, CreditCard, Settings, Archive } from "lucide-react"
+import { Home, Plus, ShoppingCart, BarChart, CreditCard, Settings, Archive, Boxes } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import {
@@ -31,6 +31,12 @@ const mainNavigation = [
     icon: Home,
     protected: true,
   },
+    {
+    title: "Variants",
+    url: "/variants",
+    icon: Boxes,
+    protected: true,
+  },
   {
     title: "Add Product",
     url: "/add-product",
@@ -49,6 +55,7 @@ const mainNavigation = [
     icon: BarChart,
     protected: true,
   },
+
 ]
 
 const secondaryNavigation = [

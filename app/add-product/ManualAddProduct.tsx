@@ -27,10 +27,10 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
     size: string
     location: string
     status: string
-    serialNumber: string
+    quantity: number
   }
   const [variants, setVariants] = useState<Variant[]>([
-    { size: "", location: "", status: "Available", serialNumber: "" }
+    { size: "", location: "", status: "Available", quantity: 1 }
   ])
   // For dynamic size label (US/UK/EU/CM)
   const [sizeLabel, setSizeLabel] = useState("US");
@@ -110,8 +110,7 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
     // Use a Set to ensure uniqueness before sorting
     return Array.from(new Set(sizes)).sort((a, b) => Number.parseFloat(a) - Number.parseFloat(b)) // Ensure numerical sort
   }
-  // Track serial number check status for each variant
-  const [serialStatus, setSerialStatus] = useState<{[idx: number]: { loading: boolean, exists: boolean|null }}>(() => ({ 0: { loading: false, exists: null } }))
+  // No serial status needed for auto serials
   const [isSaving, setIsSaving] = useState(false)
   const [showRequired, setShowRequired] = useState(false)
 
@@ -121,51 +120,12 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
   const handleVariantChange = (idx: number, e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setVariants(prev => prev.map((variant, i) =>
-      i === idx ? { ...variant, [name]: value } : variant
+      i === idx ? { ...variant, [name]: name === "quantity" ? Math.max(1, parseInt(value) || 1) : value } : variant
     ))
-    // If serialNumber changed, check uniqueness
-    if (name === "serialNumber") {
-      checkSerialNumber(idx, value)
-    }
   }
 
-  // Live check for serial number uniqueness
-  const checkSerialNumber = async (idx: number, serialNumber: string) => {
-    if (!serialNumber) {
-      setSerialStatus(prev => ({ ...prev, [idx]: { loading: false, exists: null } }))
-      return
-    }
-    setSerialStatus(prev => ({ ...prev, [idx]: { loading: true, exists: null } }))
-    try {
-      // Get user session and access token
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) {
-        setSerialStatus(prev => ({ ...prev, [idx]: { loading: false, exists: null } }))
-        return
-      }
-      const res = await fetch("/api/check-serial-number", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({ serialNumber }),
-      })
-      const data = await res.json()
-      setSerialStatus(prev => ({ ...prev, [idx]: { loading: false, exists: data.success ? !data.isUnique : null } }))
-    } catch {
-      setSerialStatus(prev => ({ ...prev, [idx]: { loading: false, exists: null } }))
-    }
-  }
 
-  // Run check on mount and when variants change (for all serials)
-  useEffect(() => {
-    variants.forEach((v, idx) => {
-      if (v.serialNumber) checkSerialNumber(idx, v.serialNumber)
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // No serial check needed for auto serials
   const addVariant = () => {
     // Prevent adding if last variant is incomplete
     const last = variants[variants.length - 1]
@@ -175,8 +135,7 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
       return
     }
     setShowRequired(false)
-    setVariants([...variants, { size: "", location: "", status: "Available", serialNumber: "" }])
-    setSerialStatus(prev => ({ ...prev, [variants.length]: { loading: false, exists: null } }))
+    setVariants([...variants, { size: "", location: "", status: "Available", quantity: 1 }])
   }
   const removeVariant = (idx: number) => {
     setVariants(variants.filter((_, i) => i !== idx))
@@ -184,7 +143,7 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
 
   const requiredFields: Array<keyof typeof product> = ["name", "brand", "sku", "category", "originalPrice", "salePrice", "status", "image", "sizeCategory"];
   const isProductMissing = requiredFields.some(field => !product[field]);
-  const isVariantMissing = variants.some(v => !v.size || !v.location || !v.serialNumber);
+  const isVariantMissing = variants.some(v => !v.size || !v.location || !v.quantity);
 
   const handleManualSave = async () => {
     setShowRequired(true);
@@ -204,55 +163,44 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
         }
         for (let i = 0; i < variants.length; i++) {
           const v = variants[i];
-          if (!v.size || !v.location || !v.serialNumber) {
+          if (!v.size || !v.location || !v.quantity) {
             setIsSaving(false);
             return;
           }
-        }
-        // Check for duplicate serial numbers in the form
-        const serialNumbers = variants.map(v => v.serialNumber).filter(sn => sn);
-        const localDuplicates = serialNumbers.filter((sn, idx, arr) => arr.indexOf(sn) !== idx);
-        if (localDuplicates.length > 0) {
-          toast({ title: "Duplicate Serial Number", description: `Duplicate serial number(s) in form: ${[...new Set(localDuplicates)].join(", ")}` });
-          setIsSaving(false);
-          return;
         }
 
         // Get user session
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError || !user) throw new Error("Not authenticated");
 
-        // Check for serial number uniqueness using API route
-        if (serialNumbers.length > 0) {
-          const taken: string[] = [];
-          for (const sn of serialNumbers) {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-            if (!token) {
-              toast({ title: "Serial Number Check Failed", description: "Not authenticated." });
-              setIsSaving(false);
-              return;
-            }
-            const res = await fetch("/api/check-serial-number", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`,
-              },
-              body: JSON.stringify({ serialNumber: sn }),
+        // Get the highest serial_number for this user
+        const { data: maxSerialData } = await supabase
+          .from("variants")
+          .select("serial_number")
+          .eq("user_id", user.id)
+          .order("serial_number", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        let nextSerial = 1;
+        if (maxSerialData && maxSerialData.serial_number) {
+          const last = parseInt(maxSerialData.serial_number, 10);
+          nextSerial = isNaN(last) ? 1 : last + 1;
+        }
+
+        // For each variant row, create N variants (N = quantity)
+        let variantsToInsert: any[] = [];
+        for (const v of variants) {
+          const qty = parseInt(v.quantity as any, 10) || 1;
+          for (let i = 0; i < qty; i++) {
+            variantsToInsert.push({
+              size: v.size,
+              location: v.location,
+              status: v.status,
+              serial_number: String(nextSerial++),
+              user_id: user.id,
+              // product_id will be set below
             });
-            const data = await res.json();
-            if (!data.success) {
-              toast({ title: "Serial Number Check Failed", description: data.error || "Could not check serial number." });
-              setIsSaving(false);
-              return;
-            }
-            if (!data.isUnique) taken.push(sn);
-          }
-          if (taken.length > 0) {
-            toast({ title: "Duplicate Serial Number", description: `Serial number(s) already exist: ${taken.join(", ")}` });
-            setIsSaving(false);
-            return;
           }
         }
 
@@ -290,15 +238,8 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
           productId = existingProduct.id;
         }
         // Insert variants
-        if (variants && variants.length > 0) {
-          const variantsToInsert = variants.map((v) => ({
-            product_id: productId,
-            size: v.size,
-            location: v.location,
-            status: v.status,
-            serial_number: v.serialNumber,
-            user_id: user.id,
-          }));
+        if (variantsToInsert.length > 0) {
+          variantsToInsert = variantsToInsert.map(v => ({ ...v, product_id: productId }));
           const { error: variantError } = await supabase
             .from("variants")
             .insert(variantsToInsert);
@@ -306,7 +247,7 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
         }
         toast({ title: "Product Added", description: "Product saved to Supabase." });
         setProduct({ name: "", brand: "", sku: "", category: "", originalPrice: "", salePrice: "", status: "In Stock", image: "", sizeCategory: "US" });
-        setVariants([{ size: "", location: "", status: "Available", serialNumber: "" }]);
+        setVariants([{ size: "", location: "", status: "Available", quantity: 1 }]);
         if (onProductAdded) onProductAdded();
         if (onClose) onClose();
       } catch (e: any) {
@@ -400,7 +341,6 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
           <h4 className="font-semibold mb-2 text-lg">Variants</h4>
           <div className="flex flex-col gap-2">
             {variants.map((variant, idx) => {
-              const status = serialStatus[idx] || { loading: false, exists: null }
               return (
                 <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end bg-gray-50 dark:bg-zinc-800 rounded-lg p-2">
                   <div className="flex flex-col">
@@ -500,22 +440,14 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
                   </div>
                   <div className="flex flex-col">
                     <Input
-                      name="serialNumber"
-                      placeholder="Serial Number"
-                      value={variant.serialNumber}
+                      name="quantity"
+                      type="number"
+                      min={1}
+                      value={variant.quantity}
                       onChange={e => handleVariantChange(idx, e)}
                       required
-                      className={
-                        status.loading
-                          ? "border-yellow-400 focus:border-yellow-500 focus:ring-yellow-500"
-                          : status.exists === true
-                          ? "border-red-500 focus:border-red-600 focus:ring-red-500"
-                          : status.exists === false && variant.serialNumber
-                          ? "border-green-500 focus:border-green-600 focus:ring-green-500"
-                          : ""
-                      }
+                      placeholder="Quantity"
                     />
-                    
                   </div>
                   <Button variant="destructive" size="sm" onClick={() => removeVariant(idx)} disabled={variants.length === 1}>Remove</Button>
                 </div>

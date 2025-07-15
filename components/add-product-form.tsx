@@ -68,15 +68,14 @@ interface ProductFormState {
 }
 
 interface VariantFormState {
-  tempId: string // For UI keying before actual ID is assigned
   id?: string // Optional ID property for compatibility
   size: string | undefined
   location: string | undefined
   status: string
   dateAdded: string
   condition: string
-  serialNumber: string
   sizeLabel: string // Added
+  quantity: number
 }
 
 // Helper function to generate dynamic size options
@@ -152,24 +151,20 @@ export function AddProductForm({
     image: "/placeholder.svg?height=100&width=100",
     sizeCategory: "Men's", // Default value
   })
-  const [variantsToAdd, setVariantsToAdd] = useState<VariantFormState[]>([])
   const [newVariant, setNewVariant] = useState<Omit<VariantFormState, "tempId">>({
     size: undefined,
     location: "Warehouse A", // Default location
     status: "Available", // Default status
     dateAdded: new Date().toISOString().split("T")[0], // Default to current date
     condition: "New", // Default condition
-    serialNumber: "",
     sizeLabel: "US", // Default value
+    quantity: 1,
   })
   const [customLocations, setCustomLocations] = useState<string[]>([])
   const [showCustomLocationInput, setShowCustomLocationInput] = useState(false)
   const [newCustomLocationName, setNewCustomLocationName] = useState("")
-  const [editingVariantId, setEditingVariantId] = useState<string | null>(null)
-  const [editingVariantValues, setEditingVariantValues] = useState<VariantFormState | null>(null)
-  const [newVariantSerialNumberError, setNewVariantSerialNumberError] = useState<string | null>(null);
-  const [editingVariantSerialNumberError, setEditingVariantSerialNumberError] = useState<string | null>(null)
-  const [newVariantSerialNumberValid, setNewVariantSerialNumberValid] = useState(false);
+  // Removed editingVariantId and editingVariantValues; only single variant input is used
+  // Serial number state removed (auto-assigned)
 
   const isAddingToExistingProduct = !!existingProductDetails
 
@@ -200,7 +195,15 @@ export function AddProductForm({
         image: existingProductDetails.image || "/placeholder.svg?height=100&width=100",
         sizeCategory: existingProductDetails.sizeCategory || "Men's", // Use existing size category
       })
-      setVariantsToAdd([]) // Start with an empty list for new variants
+      setNewVariant({
+        size: undefined,
+        location: "Warehouse A",
+        status: "Available",
+        dateAdded: new Date().toISOString().split("T")[0],
+        condition: "New",
+        sizeLabel: "US", // Default value
+        quantity: 1,
+      }) // Reset newVariant for new entry
     } else if (productDataFromApi) {
       // If adding a new product from API, pre-fill product form with API data
       const retailPriceTrait = productDataFromApi.traits?.find((t) => t.trait === "Retail Price")
@@ -216,7 +219,15 @@ export function AddProductForm({
         image: productDataFromApi.image || "/placeholder.svg?height=100&width=100",
         sizeCategory: "Men's", // Default or infer if API provides
       })
-      setVariantsToAdd([]) // Reset variants when a new product is selected
+      setNewVariant({
+        size: undefined,
+        location: "Warehouse A",
+        status: "Available",
+        dateAdded: new Date().toISOString().split("T")[0],
+        condition: "New",
+        sizeLabel: "US", // Default value
+        quantity: 1,
+      }) // Reset newVariant for new entry
     } else {
       // Reset form if no product data is provided (e.g., closing modal)
       setProductForm({
@@ -229,23 +240,19 @@ export function AddProductForm({
         image: "/placeholder.svg?height=100&width=100",
         sizeCategory: "Men's", // Reset to default
       })
-      setVariantsToAdd([])
+      setNewVariant({
+        size: undefined,
+        location: "Warehouse A",
+        status: "Available",
+        dateAdded: new Date().toISOString().split("T")[0],
+        condition: "New",
+        sizeLabel: "US", // Default value
+        quantity: 1,
+      }) // Reset newVariant for new entry
     }
 
     // Reset newVariant and errors regardless of mode
-    setNewVariant({
-      size: undefined,
-      location: "Warehouse A",
-      status: "Available",
-      dateAdded: new Date().toISOString().split("T")[0],
-      condition: "New",
-      serialNumber: "",
-      sizeLabel: "US", // Reset to default
-    })
-    setNewVariantSerialNumberError(null) // Clear error on product change
-    setEditingVariantId(null)
-    setEditingVariantValues(null)
-    setEditingVariantSerialNumberError(null)
+    // Removed: setEditingVariantId and setEditingVariantValues
   }, [productDataFromApi, existingProductDetails, open]) // Depend on 'open' to reset when modal closes/opens
 
   const handleProductFormChange = (
@@ -259,137 +266,9 @@ export function AddProductForm({
     }))
   }
 
-  const handleNewVariantChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleNewVariantChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
-    setNewVariant((prev) => ({ ...prev, [id]: value }));
-    
-    // Immediately validate serial number when it changes
-    if (id === "serialNumber") {
-      setNewVariantSerialNumberError(null);
-      setNewVariantSerialNumberValid(false); // Reset validation state
-      
-      if (value.trim()) {
-        try {
-          const supabase = createClient();
-          const { data: { session } } = await supabase.auth.getSession();
-          
-          if (!session) {
-            toast({
-              title: "Authentication Required",
-              description: "Please sign in to continue",
-              variant: "destructive",
-            });
-            return;
-          }
-
-          const response = await fetch('/api/check-serial-number', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
-              serialNumber: value.trim(),
-            }),
-          });
-
-          if (!response.ok) {
-            throw new Error(`Failed to check serial number: ${response.status}`);
-          }
-
-          const result = await response.json();
-
-          if (!result.success) {
-            setNewVariantSerialNumberError("Error checking serial number: " + (result.error || "Unknown error"));
-            setNewVariantSerialNumberValid(false);
-            return;
-          }
-
-          if (!result.isUnique) {
-            setNewVariantSerialNumberError("This serial number is already in use");
-            setNewVariantSerialNumberValid(false);
-          } else {
-            setNewVariantSerialNumberError("");
-            setNewVariantSerialNumberValid(true);
-          }
-        } catch (error: any) {
-          console.error("Error checking serial number:", error);
-          setNewVariantSerialNumberError("Error checking serial number: " + error.message);
-          setNewVariantSerialNumberValid(false);
-          
-          if (error.message.includes("Authentication")) {
-            toast({
-              title: "Authentication Required",
-              description: "Please sign in to continue",
-              variant: "destructive",
-            });
-          }
-        }
-      }
-    }
-  }
-
-  const validateNewVariantSerialNumber = async () => {
-    if (newVariant.serialNumber.trim()) {
-      try {
-        const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          toast({
-            title: "Authentication Required",
-            description: "Please sign in to continue",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        const response = await fetch('/api/check-serial-number', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            serialNumber: newVariant.serialNumber.trim(),
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to check serial number: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (!result.success) {
-          setNewVariantSerialNumberError("Error checking serial number: " + (result.error || "Unknown error"));
-          return;
-        }
-
-        if (!result.isUnique) {
-          setNewVariantSerialNumberError("This serial number is already in use");
-          setNewVariantSerialNumberValid(false);
-        } else {
-          setNewVariantSerialNumberError("");
-          setNewVariantSerialNumberValid(true);
-        }
-      } catch (error: any) {
-        console.error("Error checking serial number:", error);
-        setNewVariantSerialNumberError("Error checking serial number: " + error.message);
-        setNewVariantSerialNumberValid(false);
-        
-        if (error.message.includes("Authentication")) {
-          toast({
-            title: "Authentication Required",
-            description: "Please sign in to continue",
-            variant: "destructive",
-          });
-        }
-      }
-    } else {
-      setNewVariantSerialNumberError("");
-      setNewVariantSerialNumberValid(false);
-    }
+    setNewVariant((prev) => ({ ...prev, [id]: id === "quantity" ? Math.max(1, parseInt(value) || 1) : value }));
   }
 
   const handleAddCustomLocation = async () => {
@@ -459,125 +338,7 @@ export function AddProductForm({
     });
   }
 
-  const addVariantToList = () => {
-    if (
-      !newVariant.size ||
-      !newVariant.location ||
-      !newVariant.status ||
-      !newVariant.dateAdded ||
-      !newVariant.condition ||
-      !newVariant.serialNumber.trim() // Now mandatory and trimmed
-    ) {
-      toast({
-        title: "Missing Variant Details",
-        description: "Please fill in all required fields for the new individual shoe.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (newVariantSerialNumberError) {
-      toast({
-        title: "Serial Number Error",
-        description: newVariantSerialNumberError,
-        variant: "destructive",
-      })
-      return
-    }
-
-    setVariantsToAdd((prev) => [...prev, { ...newVariant, tempId: crypto.randomUUID() }])
-    setNewVariant({
-      size: undefined,
-      location: "Warehouse A",
-      status: "Available",
-      dateAdded: new Date().toISOString().split("T")[0],
-      condition: "New",
-      serialNumber: "",
-      sizeLabel: "US",
-    })
-    setNewVariantSerialNumberError(null) // Clear error after adding
-  }
-
-  const removeVariantFromList = (tempId: string) => {
-    setVariantsToAdd((prev) => prev.filter((v) => v.tempId !== tempId))
-  }
-
-  const handleEditVariant = (variant: VariantFormState) => {
-    setEditingVariantId(variant.tempId)
-    setEditingVariantValues({ ...variant })
-    setEditingVariantSerialNumberError(null) // Clear error when starting edit
-  }
-
-  const validateEditingVariantSerialNumber = async (serialNumber: string, currentVariantTempId: string) => {
-    if (serialNumber.trim()) {
-      // Check if the serial number is unique, but allow it if it's the original serial number of this variant
-      const isOriginal =
-        variantsToAdd.find((v) => v.tempId === currentVariantTempId)?.serialNumber === serialNumber.trim()
-      if (isOriginal) {
-        setEditingVariantSerialNumberError(null)
-        return
-      }
-
-      const { isUnique, error } = await checkSerialNumberUniqueness(serialNumber.trim())
-      if (error) {
-        setEditingVariantSerialNumberError("Error checking serial number: " + error)
-      } else if (!isUnique) {
-        setEditingVariantSerialNumberError("Serial number already exists.")
-      } else {
-        setEditingVariantSerialNumberError(null)
-      }
-    } else {
-      setEditingVariantSerialNumberError("Serial number is required.")
-    }
-  }
-
-  const handleSaveEditedVariant = () => {
-    if (!editingVariantValues) return
-
-    if (
-      !editingVariantValues.size ||
-      !editingVariantValues.location ||
-      !editingVariantValues.status ||
-      !editingVariantValues.dateAdded ||
-      !editingVariantValues.condition ||
-      !editingVariantValues.serialNumber.trim()
-    ) {
-      toast({
-        title: "Missing Variant Details",
-        description: "Please fill in all required fields for the edited individual shoe.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (editingVariantSerialNumberError) {
-      toast({
-        title: "Serial Number Error",
-        description: editingVariantSerialNumberError,
-        variant: "destructive",
-      })
-      return
-    }
-
-    setVariantsToAdd((prev) => prev.map((v) => (v.tempId === editingVariantId ? { ...editingVariantValues } : v)))
-    setEditingVariantId(null)
-    setEditingVariantValues(null)
-    setEditingVariantSerialNumberError(null) // Clear error after saving
-  }
-
-  const handleCancelEdit = () => {
-    setEditingVariantId(null)
-    setEditingVariantValues(null)
-    setEditingVariantSerialNumberError(null) // Clear error on cancel
-  }
-
-  const handleEditedVariantChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { id, value } = e.target
-    setEditingVariantValues((prev) => (prev ? { ...prev, [id]: value } : null))
-    if (id === "serialNumber") {
-      setEditingVariantSerialNumberError(null) // Clear error on change
-    }
-  }
+  // All variant editing/removal logic removed; only single quantity input is used now.
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -592,7 +353,7 @@ export function AddProductForm({
         throw new Error("Authentication required");
       }
 
-      // Validate and sanitize productForm and variantsToAdd
+      // Validate productForm and newVariant
       if (!productDataFromApi) {
         if (!productForm.name || !productForm.brand || !productForm.sku || !productForm.category) {
           toast({
@@ -604,50 +365,91 @@ export function AddProductForm({
           return;
         }
       }
-
-      // Ensure IDs are integers where required
-      const sanitizedVariants = variantsToAdd.map(variant => ({
-        ...variant,
-        id: parseInt(variant.id ?? "", 10) || null, // Convert id to integer or null
-      }));
-
-      const response = await fetch('/api/add-product', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          productForm,
-          variantsToAdd: sanitizedVariants,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to add product');
-      }
-
-      if (result.success) {
+      if (!newVariant.size || !newVariant.location || !newVariant.status || !newVariant.dateAdded || !newVariant.condition || !newVariant.quantity || newVariant.quantity < 1) {
         toast({
-          title: "Product Added",
-          description: result.message || "Product has been added successfully.",
-        });
-        onOpenChange(false);
-        onProductAdded();
-      } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to add product",
+          title: "Missing Variant Details",
+          description: "Please fill in all required fields for the variant.",
           variant: "destructive",
         });
+        setIsSubmitting(false);
+        return;
       }
+
+      // 1. Create the product (if not adding to existing)
+      let productId = existingProductDetails?.id;
+      if (!productId) {
+        // Map camelCase to snake_case for DB columns
+        const dbProduct = {
+          name: productForm.name,
+          brand: productForm.brand,
+          sku: productForm.sku,
+          category: productForm.category,
+          original_price: productForm.originalPrice,
+          sale_price: productForm.salePrice,
+          image: productForm.image,
+          size_category: productForm.sizeCategory,
+          user_id: session.user.id,
+        };
+        const { data: productInsert, error: productError } = await supabase
+          .from('products')
+          .insert([dbProduct])
+          .select('id')
+          .single();
+        if (productError || !productInsert) {
+          throw new Error(productError?.message || 'Failed to create product');
+        }
+        productId = productInsert.id;
+      }
+
+      // 2. Get max serial_number for this user
+      const { data: maxSerialData, error: maxSerialError } = await supabase
+        .from('variants')
+        .select('serial_number')
+        .eq('user_id', session.user.id)
+        .order('serial_number', { ascending: false })
+        .limit(1);
+      let maxSerial = 0;
+      if (maxSerialData && maxSerialData.length > 0 && maxSerialData[0].serial_number) {
+        const parsed = parseInt(maxSerialData[0].serial_number, 10);
+        if (!isNaN(parsed)) maxSerial = parsed;
+      }
+
+      // 3. Prepare N variants with incremented serials
+      const variants = Array.from({ length: newVariant.quantity }, (_, i) => ({
+        id: uuidv4(),
+        product_id: productId,
+        size: newVariant.size,
+        variant_sku: productForm.sku,
+        location: newVariant.location,
+        status: newVariant.status,
+        date_added: newVariant.dateAdded,
+        condition: newVariant.condition,
+        serial_number: (maxSerial + i + 1).toString(),
+        size_label: newVariant.sizeLabel,
+        cost_price: 0.00,
+        user_id: session.user.id,
+        isArchived: false,
+      }));
+
+      // 4. Insert all variants
+      const { error: variantError } = await supabase
+        .from('variants')
+        .insert(variants);
+      if (variantError) {
+        throw new Error(variantError.message || 'Failed to add variants');
+      }
+
+      toast({
+        title: "Product & Variants Added",
+        description: `Added ${newVariant.quantity} variants with auto-incremented serials.`,
+      });
+      onOpenChange(false);
+      onProductAdded();
     } catch (error: any) {
-      console.error("Error adding product:", error);
+      console.error("Error adding product/variants:", error);
       toast({
         title: "Error",
-        description: error.message || "An error occurred while adding the product",
+        description: error.message || "An error occurred while adding the product/variants",
         variant: "destructive",
       });
     } finally {
@@ -783,7 +585,7 @@ export function AddProductForm({
 
             {/* Add New Variant Form */}
             <div className="border p-4 rounded-md space-y-3 bg-gray-50">
-              <h4 className="font-medium text-sm">Add New Individual Shoe</h4>
+              <h4 className="font-medium text-sm">Variant Details</h4>
               <div>
                 <Label htmlFor="sizeLabel" className="text-xs">
                   Size Label
@@ -932,35 +734,6 @@ export function AddProductForm({
                 </Select>
               </div>
               <div>
-                <Label htmlFor="serialNumber" className="text-xs">
-                  Serial Number
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="serialNumber"
-                    value={newVariant.serialNumber}
-                    onChange={handleNewVariantChange}
-                    className={cn(
-                      "text-xs pr-8",
-                      newVariantSerialNumberValid && "border-green-500",
-                      newVariantSerialNumberError && "border-red-500"
-                    )}
-                    required
-                  />
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                    {newVariantSerialNumberValid && (
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                    )}
-                    {newVariantSerialNumberError && (
-                      <XCircle className="h-4 w-4 text-red-500" />
-                    )}
-                  </div>
-                </div>
-                {newVariantSerialNumberError && (
-                  <p className="text-red-500 text-xs mt-1">{newVariantSerialNumberError}</p>
-                )}
-              </div>
-              <div>
                 <Label htmlFor="dateAdded" className="text-xs">
                   Date Added
                 </Label>
@@ -972,301 +745,40 @@ export function AddProductForm({
                   className="text-xs"
                 />
               </div>
-              <Button
-                type="button"
-                onClick={addVariantToList}
-                className="w-full"
-                disabled={!!newVariantSerialNumberError || !newVariantSerialNumberValid} // Disable if error or not validated as unique
-              >
-                <Plus className="h-4 w-4 mr-2" /> Add Shoe to List
-              </Button>
-            </div>
-
-            {/* List of Variants to Add as Grid Cards */}
-            {variantsToAdd.length > 0 && (
-              <div className="space-y-2 max-h-64 overflow-y-auto border p-3 rounded-md">
-                <h4 className="font-medium text-sm mb-3">Shoes to be Added ({variantsToAdd.length})</h4>
-                <div className="grid grid-cols-1 gap-3">
-                  {variantsToAdd.map((variant) => (
-                    <Card key={variant.tempId} className="p-3">
-                      {editingVariantId === variant.tempId ? (
-                        // Edit mode
-                        <div className="space-y-2">
-                          <div>
-                            <Label htmlFor="editSizeLabel" className="text-xs">
-                              Size Label
-                            </Label>
-                            <Select
-                              value={editingVariantValues?.sizeLabel || undefined}
-                              onValueChange={(value) =>
-                                setEditingVariantValues((prev) => (prev ? { ...prev, sizeLabel: value } : null))
-                              }
-                            >
-                              <SelectTrigger id="editSizeLabel" className="w-full text-xs">
-                                <SelectValue placeholder="Select size label" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="US">US</SelectItem>
-                                <SelectItem value="UK">UK</SelectItem>
-                                <SelectItem value="EU">EU</SelectItem>
-                                <SelectItem value="CM">CM</SelectItem>
-                                <SelectItem value="TD">TD</SelectItem>
-                                <SelectItem value="YC">YC</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label htmlFor="editSize" className="text-xs">
-                              Size
-                            </Label>
-                            <Select
-                              value={editingVariantValues?.size || undefined}
-                              onValueChange={(value) =>
-                                setEditingVariantValues((prev) => (prev ? { ...prev, size: value } : null))
-                              }
-                            >
-                              <SelectTrigger id="editSize" className="w-full text-xs">
-                                <SelectValue placeholder="Select size" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {getDynamicSizes(productForm.sizeCategory, editingVariantValues?.sizeLabel || "").map(
-                                  (size) => (
-                                    <SelectItem key={size} value={size}>
-                                      {size}
-                                    </SelectItem>
-                                  ),
-                                )}
-                                <SelectItem value="custom-size-input">Custom Size...</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            {editingVariantValues?.size === "custom-size-input" && (
-                              <Input
-                                id="editCustomSize"
-                                placeholder="Enter custom size"
-                                value={
-                                  editingVariantValues?.size === "custom-size-input" ? "" : editingVariantValues?.size
-                                }
-                                onChange={(e) =>
-                                  setEditingVariantValues((prev) => (prev ? { ...prev, size: e.target.value } : null))
-                                }
-                                className="mt-2 text-xs"
-                              />
-                            )}
-                          </div>
-                          <div>
-                            <Label htmlFor="editLocation" className="text-xs">
-                              Location
-                            </Label>
-                            <Select
-                              value={editingVariantValues?.location || undefined}
-                              onValueChange={(value) => {
-                                if (value === "add-custom-location") {
-                                  setShowCustomLocationInput(true)
-                                  setEditingVariantValues((prev) => (prev ? { ...prev, location: undefined } : null))
-                                } else {
-                                  setShowCustomLocationInput(false)
-                                  setEditingVariantValues((prev) => (prev ? { ...prev, location: value } : null))
-                                }
-                              }}
-                            >
-                              <SelectTrigger id="editLocation" className="w-full text-xs">
-                                <SelectValue placeholder="Select location or add new" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Warehouse A">Warehouse A</SelectItem>
-                                <SelectItem value="Warehouse B">Warehouse B</SelectItem>
-                                {customLocations.map((loc) => (
-                                  <SelectItem key={loc} value={loc}>
-                                    {loc}
-                                  </SelectItem>
-                                ))}
-                                <SelectItem value="add-custom-location">Add Custom Location...</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            {showCustomLocationInput && editingVariantId === variant.tempId && (
-                              <div className="flex gap-2 mt-2">
-                                <Input
-                                  id="newCustomLocationName"
-                                  placeholder="Enter new location name"
-                                  value={newCustomLocationName}
-                                  onChange={(e) => setNewCustomLocationName(e.target.value)}
-                                  className="text-xs flex-1"
-                                  disabled={isPending}
-                                />
-                                <Button
-                                  type="button"
-                                  onClick={handleAddCustomLocation}
-                                  size="sm"
-                                  className="h-8"
-                                  disabled={isPending}
-                                >
-                                  {isPending ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Plus className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                          <div>
-                            <Label htmlFor="editStatus" className="text-xs">
-                              Status
-                            </Label>
-                            <Select
-                              value={editingVariantValues?.status || undefined}
-                              onValueChange={(value) =>
-                                setEditingVariantValues((prev) => (prev ? { ...prev, status: value } : null))
-                              }
-                            >
-                              <SelectTrigger id="editStatus" className="w-full text-xs">
-                                <SelectValue placeholder="Select status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Available">Available</SelectItem>
-                                <SelectItem value="In Display">In Display</SelectItem>
-                                <SelectItem value="Used">Used</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label htmlFor="editCondition" className="text-xs">
-                              Condition
-                            </Label>
-                            <Select
-                              value={editingVariantValues?.condition || undefined}
-                              onValueChange={(value) =>
-                                setEditingVariantValues((prev) => (prev ? { ...prev, condition: value } : null))
-                              }
-                            >
-                              <SelectTrigger id="editCondition" className="w-full text-xs">
-                                <SelectValue placeholder="Select condition" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="New">New</SelectItem>
-                                <SelectItem value="Used">Used</SelectItem>
-                                <SelectItem value="Damaged">Damaged</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label htmlFor="editSerialNumber" className="text-xs">
-                              Serial Number
-                            </Label>
-                            <Input
-                              id="editSerialNumber"
-                              value={editingVariantValues?.serialNumber || ""}
-                              onChange={handleEditedVariantChange}
-                              className="text-xs"
-                              required
-                              aria-invalid={editingVariantSerialNumberError ? "true" : "false"}
-                            />
-                            {editingVariantSerialNumberError && (
-                              <p className="text-red-500 text-xs mt-1">{editingVariantSerialNumberError}</p>
-                            )}
-                          </div>
-                          <div>
-                            <Label htmlFor="editDateAdded" className="text-xs">
-                              Date Added
-                            </Label>
-                            <Input
-                              id="editDateAdded"
-                              type="date"
-                              value={editingVariantValues?.dateAdded || ""}
-                              onChange={handleEditedVariantChange}
-                              className="text-xs"
-                            />
-                          </div>
-                          <div className="flex gap-2 mt-3">
-                            <Button
-                              size="sm"
-                              onClick={handleSaveEditedVariant}
-                              className="flex-1"
-                              disabled={!!editingVariantSerialNumberError}
-                            >
-                              <Save className="h-4 w-4 mr-2" /> Save
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={handleCancelEdit} className="flex-1">
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        // Display mode
-                        <div className="space-y-1 text-sm">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">Size:</span>
-                            <span>
-                              {variant.size} ({variant.sizeLabel})
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">Location:</span>
-                            <span>{variant.location}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">Status:</span>
-                            <span>{variant.status}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">Condition:</span>
-                            <span>{variant.condition}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">Serial:</span>
-                            <span className="font-mono">{variant.serialNumber}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">Added:</span>
-                            <span>{variant.dateAdded}</span>
-                          </div>
-                          <div className="flex gap-2 mt-3">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleEditVariant(variant)}
-                              className="flex-1"
-                            >
-                              <Edit className="h-4 w-4 mr-2" /> Edit
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => removeVariantFromList(variant.tempId)}
-                              className="flex-1"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" /> Delete
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </Card>
-                  ))}
-                </div>
+              <div>
+                <Label htmlFor="quantity" className="text-xs">
+                  Quantity
+                </Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  min={1}
+                  value={newVariant.quantity}
+                  onChange={handleNewVariantChange}
+                  className="text-xs"
+                />
               </div>
-            )}
+            </div>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
+        <DialogFooter className="flex justify-end gap-2 py-4">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="px-6"
+          >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={
-              isPending ||
-              variantsToAdd.length === 0 ||
-              !!newVariantSerialNumberError ||
-              !!editingVariantSerialNumberError
-            }
+            className={cn("px-6", isSubmitting && "opacity-50 cursor-not-allowed")}
+            disabled={isSubmitting}
           >
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isAddingToExistingProduct ? "Add Individual Shoes" : "Add Product & Shoes"}
+            {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : "Save Product"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   )
 }
-

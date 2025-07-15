@@ -1,0 +1,25 @@
+
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar" // Add this import
+import { Separator } from "@/components/ui/separator" // Add this import
+import { ShoesVariantsTable } from "@/components/shoes-variants-table"
+
+export default async function HomePage() {
+
+
+  return (
+    <SidebarInset>
+      {" "}
+      {/* Wrap content with SidebarInset */}
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1 hidden md:flex" /> {/* Add SidebarTrigger for desktop */}
+        <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" /> {/* Add separator */}
+        <h1 className="text-xl font-semibold">Inventory</h1>
+      </header>
+     <div className="max-w-7xl mx-auto px-4 py-8 w-full">
+      <div className="container mx-auto py-8">
+       <ShoesVariantsTable />
+       </div>
+     </div>
+    </SidebarInset>
+  )
+}
