@@ -3,6 +3,7 @@ import { useState, ChangeEvent, useEffect } from "react"
 import { useTransition } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Input } from "@/components/ui/input"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from "next/image"
@@ -31,6 +32,84 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
   const [variants, setVariants] = useState<Variant[]>([
     { size: "", location: "", status: "Available", serialNumber: "" }
   ])
+  // For dynamic size label (US/UK/EU/CM)
+  const [sizeLabel, setSizeLabel] = useState("US");
+  // For location dropdown and add
+  const [addingLocationIdx, setAddingLocationIdx] = useState<number|null>(null);
+  const [newLocation, setNewLocation] = useState("");
+  const [customLocations, setCustomLocations] = useState<string[]>([]);
+
+  // Fetch user custom locations from Supabase on mount
+  useEffect(() => {
+    const fetchLocations = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from("custom_locations")
+        .select("name")
+        .eq("user_id", user.id);
+      let locs = (data || []).map((row: any) => row.name);
+      // Add placeholder locations if not present
+      ["Warehouse A", "Warehouse B", "Warehouse C"].forEach(ph => {
+        if (!locs.includes(ph)) locs.push(ph);
+      });
+      setCustomLocations(locs);
+    };
+    fetchLocations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Helper function to generate dynamic size options
+  const getDynamicSizes = (sizeCategory: string, sizeLabel: string): string[] => {
+    const sizes: string[] = []
+    if (!sizeCategory || !sizeLabel) return []
+
+    const generateRange = (start: number, end: number, step: number) => {
+      for (let i = start; i <= end; i += step) {
+        sizes.push(i.toString())
+        if (step === 0.5 && i + 0.5 <= end) {
+          sizes.push((i + 0.5).toString())
+        }
+      }
+    }
+
+    switch (sizeCategory) {
+      case "Men's":
+      case "Unisex":
+        if (sizeLabel === "US") generateRange(3, 15, 0.5)
+        else if (sizeLabel === "UK") generateRange(2.5, 14.5, 0.5)
+        else if (sizeLabel === "EU")
+          generateRange(35, 49, 0.5) // Approx
+        else if (sizeLabel === "CM") generateRange(22, 33, 0.5) // Approx
+        break
+      case "Women's":
+        if (sizeLabel === "US") generateRange(4, 12, 0.5)
+        else if (sizeLabel === "UK") generateRange(2, 10, 0.5)
+        else if (sizeLabel === "EU")
+          generateRange(34, 44, 0.5) // Approx
+        else if (sizeLabel === "CM") generateRange(21, 29, 0.5) // Approx
+        break
+      case "Youth": // YC
+        if (sizeLabel === "US" || sizeLabel === "YC")
+          generateRange(1, 7, 0.5) // Youth sizes typically 1Y-7Y
+        else if (sizeLabel === "UK")
+          generateRange(13.5, 6.5, 0.5) // UK youth sizes
+        else if (sizeLabel === "EU")
+          generateRange(31, 40, 0.5) // EU youth sizes
+        else if (sizeLabel === "CM") generateRange(19, 25, 0.5) // CM youth sizes
+        break
+      case "Toddlers": // TD
+        if (sizeLabel === "US" || sizeLabel === "TD")
+          generateRange(1, 10, 0.5) // Toddler sizes typically 1C-10C
+        else if (sizeLabel === "UK")
+          generateRange(0.5, 9.5, 0.5) // UK toddler sizes
+        else if (sizeLabel === "EU")
+          generateRange(16, 27, 0.5) // EU toddler sizes
+        else if (sizeLabel === "CM") generateRange(8, 16, 0.5) // CM toddler sizes
+        break
+    }
+    // Use a Set to ensure uniqueness before sorting
+    return Array.from(new Set(sizes)).sort((a, b) => Number.parseFloat(a) - Number.parseFloat(b)) // Ensure numerical sort
+  }
   // Track serial number check status for each variant
   const [serialStatus, setSerialStatus] = useState<{[idx: number]: { loading: boolean, exists: boolean|null }}>(() => ({ 0: { loading: false, exists: null } }))
   const [isSaving, setIsSaving] = useState(false)
@@ -325,11 +404,98 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
               return (
                 <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end bg-gray-50 dark:bg-zinc-800 rounded-lg p-2">
                   <div className="flex flex-col">
-                    <Input name="size" placeholder="Size" value={variant.size} onChange={e => handleVariantChange(idx, e)} required />
+                    <div className="flex gap-2">
+                      <Select
+                        value={variant.size}
+                        onValueChange={val => handleVariantChange(idx, { target: { name: "size", value: val } } as any)}
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Select Size" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getDynamicSizes(product.sizeCategory, sizeLabel).map(sizeOpt => (
+                            <SelectItem key={sizeOpt} value={sizeOpt}>{sizeOpt}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={sizeLabel}
+                        onValueChange={val => setSizeLabel(val)}
+                      >
+                        <SelectTrigger style={{ minWidth: 60 }}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="US">US</SelectItem>
+                          <SelectItem value="UK">UK</SelectItem>
+                          <SelectItem value="EU">EU</SelectItem>
+                          <SelectItem value="CM">CM</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                     {showRequired && !variant.size && idx === variants.length - 1 && <span className="text-xs text-red-500 mt-1">Required</span>}
                   </div>
                   <div className="flex flex-col">
-                    <Input name="location" placeholder="Location" value={variant.location} onChange={e => handleVariantChange(idx, e)} required />
+                    <div className="flex gap-2 items-center">
+                      <Select
+                        value={variant.location}
+                        onValueChange={val => handleVariantChange(idx, { target: { name: "location", value: val } } as any)}
+                      >
+                        <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select Location" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {/* User's custom locations + placeholders */}
+                        {customLocations.map(loc => (
+                          <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                        ))}
+                      </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="px-2 py-1"
+                        onClick={() => setAddingLocationIdx(idx)}
+                        disabled={addingLocationIdx === idx}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                    {/* Show add location input below if adding for this variant */}
+                    {addingLocationIdx === idx && (
+                      <div className="flex gap-2 mt-2">
+                        <Input
+                          value={newLocation}
+                          onChange={e => setNewLocation(e.target.value)}
+                          placeholder="New location name"
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            if (newLocation && !variants.some(v => v.location === newLocation)) {
+                              // Set this variant's location to newLocation
+                              setVariants(prev => prev.map((v, i) => i === idx ? { ...v, location: newLocation } : v));
+                              setNewLocation("");
+                              setAddingLocationIdx(null);
+                            }
+                          }}
+                          disabled={!newLocation || variants.some(v => v.location === newLocation)}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => { setAddingLocationIdx(null); setNewLocation(""); }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
                     {showRequired && !variant.location && idx === variants.length - 1 && <span className="text-xs text-red-500 mt-1">Required</span>}
                   </div>
                   <div className="flex flex-col">
