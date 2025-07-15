@@ -46,7 +46,7 @@ import Image from "next/image"
 import { useMemo, useState, useEffect, useCallback, useTransition } from "react"
 import { getTotalStock, getVariantsBySize, getAvailableVariants } from "@/lib/utils/variant-helpers"
 import { SizeModal } from "@/components/size-modal"
-import { QRCodeModal } from "@/components/qr-code-modal"
+
 import { PrintPreview } from "@/components/print-preview"
 import { StatsCards } from "@/components/stats-cards"
 import { BulkActionsBar } from "@/components/bulk-actions-bar"
@@ -2401,7 +2401,7 @@ console.log("User Plan:", userPlan)
       {/* Modals */}
       <SizeModal shoe={selectedShoe} open={showSizeModal} onOpenChange={setShowSizeModal} refreshData={refreshData} />
 
-      <QRCodeModal shoe={selectedShoe} open={showQRModal} onOpenChange={setShowQRModal} />
+   
 
       <PrintPreview
         selectedItems={selectedItems}

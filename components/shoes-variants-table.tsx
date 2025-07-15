@@ -29,13 +29,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ChevronDown, ChevronUp } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode } from "lucide-react"
+import jsPDF from "jspdf"
+import QRCode from "qrcode"
 import { createClient } from "@/lib/supabase/client"
 import { Variant, Product } from "@/lib/types"
 import Image from "next/image"
 import EditProductModal from "@/components/edit-product-modal"
 import { ConfirmationModal } from "@/components/confirmation-modal"
 import { EditVariantModal } from "@/components/edit-variant-modal"
+
 import { Badge } from "@/components/ui/badge"
 
 const columnHelper = createColumnHelper<Variant>()
@@ -50,10 +59,20 @@ export function ShoesVariantsTable() {
   const [editModal, setEditModal] = useState<{ open: boolean, variant?: Variant }>({ open: false })
   const [deleteModal, setDeleteModal] = useState<{ open: boolean, variant?: Variant }>({ open: false })
 
+
   // New filter state
   const [locationFilter, setLocationFilter] = useState<string>("all")
   const [sizeFilter, setSizeFilter] = useState<string>("all")
   const [brandFilter, setBrandFilter] = useState<string>("all")
+
+  // PDF generation handler
+
+  // Open Next.js API route for PDF in new tab
+  const handleGeneratePdf = (variant: Variant) => {
+    const id = (variant as any).id;
+    if (!id) return;
+    window.open(`/api/variant-label?id=${encodeURIComponent(id)}`, "_blank");
+  }
   // For searchable size dropdown
   const [sizeSearch, setSizeSearch] = useState("")
 
@@ -270,13 +289,31 @@ export function ShoesVariantsTable() {
       cell: (info) => {
         const variant = info.row.original as Variant;
         return (
-          <div className="flex gap-2 min-w-[100px]">
-            <Button size="icon" variant="ghost" onClick={() => setEditModal({ open: true, variant })} title="Edit">
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536M9 11l6 6M3 21h6l11-11a2.828 2.828 0 0 0-4-4L5 17v4z"/></svg>
-            </Button>
-            <Button size="icon" variant="ghost" onClick={() => setDeleteModal({ open: true, variant })} title="Delete">
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 6h18M9 6v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6m-6 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
-            </Button>
+          <div className="flex justify-center min-w-[100px]">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="icon" variant="ghost" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setEditModal({ open: true, variant })}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleGeneratePdf(variant)}>
+                  <QrCode className="mr-2 h-4 w-4" />
+                  Generate PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setDeleteModal({ open: true, variant })}
+                  className="text-red-600"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         );
       },
@@ -455,6 +492,7 @@ export function ShoesVariantsTable() {
           </Button>
         </div>
       </div>
+
 
       {/* Edit Modal */}
       <EditVariantModal
