@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
   const labelSerial = v.serial_number || "-----";
 
   // Generate QR code as data URL
-  const qrUrl = await QRCode.toDataURL(sku, { width: 128, margin: 1 });
+  const qrUrl = await QRCode.toDataURL(serial, { width: 128, margin: 1 });
 
   // Generate PDF
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: [90, 54] });

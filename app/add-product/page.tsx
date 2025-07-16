@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Search, Loader2, Plus } from "lucide-react"
+import { Search, Loader2, Plus, CircleCheck } from "lucide-react"
 import Image from "next/image"
 import { fetchKicksDevProduct } from "@/lib/fetchKicksDevProduct";
 import { KicksDevSearchItem } from "@/app/actions"
@@ -24,27 +24,28 @@ const supabase = createClient();
 // Debug log to verify the import
 console.log("fetchKicksDevProduct:", fetchKicksDevProduct);
 
-interface KicksDevProductData {
-  id: string
-  title: string // Added property to match the usage
-  brand: string
-  sku: string
-  category: string
-  secondary_category: string // Added property
-  image: string
-  min_price: number
-  avg_price: number
-  max_price: number
-  traits: Array<{ trait: string; value: string }>
-  variants: Array<{
-    id: string
-    size: string
-    size_type: string
-    lowest_ask: number
-  }>
-}
 
 export default function AddProductPage() {
+  interface KicksDevProductData {
+    id: string
+    title: string // Added property to match the usage
+    brand: string
+    sku: string
+    category: string
+    secondary_category: string // Added property
+    image: string
+    min_price: number
+    avg_price: number
+    max_price: number
+    traits: Array<{ trait: string; value: string }>
+    variants: Array<{
+      id: string
+      size: string
+      size_type: string
+      lowest_ask: number
+    }>
+  }
+
   const [searchTerm, setSearchTerm] = useState("")
   const [searchResults, setSearchResults] = useState<Array<KicksDevSearchItem>>([])
   const [isSearching, startSearchTransition] = useTransition()
@@ -52,6 +53,23 @@ export default function AddProductPage() {
   const [existingProductDetails, setExistingProductDetails] = useState<any | null>(null)
   const [showAddProductModal, setShowAddProductModal] = useState(false)
   const [showManualAdd, setShowManualAdd] = useState(false)
+  const [inventorySkus, setInventorySkus] = useState<string[]>([])
+  // Fetch all SKUs in inventory for this user
+  useEffect(() => {
+    const fetchInventorySkus = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data, error } = await supabase
+        .from('products')
+        .select('sku')
+        .eq('user_id', session.user.id);
+      if (data) {
+        setInventorySkus(data.map((p: any) => p.sku));
+      }
+    };
+    fetchInventorySkus();
+  }, []);
+
 
   const handleSearch = () => {
     if (!searchTerm.trim()) {
@@ -170,10 +188,22 @@ export default function AddProductPage() {
   }
 
   const handleProductAdded = () => {
-    setSearchTerm("")
-    setSearchResults([])
-    setSelectedProductForModal(null)
-    setExistingProductDetails(null)
+    setSearchTerm("");
+    setSearchResults([]);
+    setSelectedProductForModal(null);
+    setExistingProductDetails(null);
+    // Refresh inventory SKUs after adding
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data, error } = await supabase
+        .from('products')
+        .select('sku')
+        .eq('user_id', session.user.id);
+      if (data) {
+        setInventorySkus(data.map((p: any) => p.sku));
+      }
+    })();
   }
 
   return (
@@ -226,32 +256,42 @@ export default function AddProductPage() {
 
           {searchResults.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {searchResults.map((product) => (
-                <Card key={product.id} className="flex flex-col">
-                  <CardContent className="p-4 flex-grow">
-                    <Image
-                      src={product.image || "/placeholder.svg?height=150&width=150"}
-                      alt={product.title}
-                      width={150}
-                      height={150}
-                      className="rounded-md object-cover mx-auto mb-4"
-                    />
-                    <h3 className="font-semibold text-lg mb-1 line-clamp-2">{product.title}</h3>
-                    <p className="text-sm text-gray-600 mb-1">{product.brand}</p>
-                    <p className="text-xs text-gray-500 font-mono">{product.sku}</p>
-                    <p className="text-xs text-gray-500">{product.category}</p>
-                  </CardContent>
-                  <div className="p-4 border-t">
-                    <Button
-                      className="w-full"
-                      onClick={() => handleAddProductClick(product.id, product.sku)}
-                      disabled={isSearching}
-                    >
-                      <Plus className="h-4 w-4 mr-2" /> Add Product
-                    </Button>
-                  </div>
-                </Card>
-              ))}
+              {searchResults.map((product) => {
+                // Check if this product is already in inventory (by SKU)
+                const alreadyInInventory = inventorySkus.includes(product.sku);
+                return (
+                  <Card key={product.id} className="flex flex-col relative">
+                    {/* Checkmark icon if already in inventory */}
+                    {alreadyInInventory && (
+                    <div className="absolute top-2 right-2 z-10 bg-green-600 rounded-full p-1 shadow-md flex items-center justify-center">
+  <CircleCheck className="h-5 w-5 text-white" />
+</div>
+                    )}
+                    <CardContent className="p-4 flex-grow">
+                      <Image
+                        src={product.image || "/placeholder.svg?height=150&width=150"}
+                        alt={product.title}
+                        width={150}
+                        height={150}
+                        className="rounded-md object-cover mx-auto mb-4"
+                      />
+                      <h3 className="font-semibold text-lg mb-1 line-clamp-2">{product.title}</h3>
+                      <p className="text-sm text-gray-600 mb-1">{product.brand}</p>
+                      <p className="text-xs text-gray-500 font-mono">{product.sku}</p>
+                      <p className="text-xs text-gray-500">{product.category}</p>
+                    </CardContent>
+                    <div className="p-4 border-t">
+                      <Button
+                        className="w-full"
+                        onClick={() => handleAddProductClick(product.id, product.sku)}
+                        disabled={isSearching}
+                      >
+                        <Plus className="h-4 w-4 mr-2" /> Add Product
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
           )}
 

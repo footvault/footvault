@@ -35,7 +35,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode } from "lucide-react"
+import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown } from "lucide-react"
 import jsPDF from "jspdf"
 import QRCode from "qrcode"
 import { createClient } from "@/lib/supabase/client"
@@ -51,7 +51,9 @@ const columnHelper = createColumnHelper<Variant>()
 
 
 export function ShoesVariantsTable() {
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "serial_number", desc: true } // Start with largest serial number first
+  ])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState("")
   const [variants, setVariants] = useState<Variant[]>([])
@@ -64,6 +66,7 @@ export function ShoesVariantsTable() {
   const [locationFilter, setLocationFilter] = useState<string>("all")
   const [sizeFilter, setSizeFilter] = useState<string>("all")
   const [brandFilter, setBrandFilter] = useState<string>("all")
+  const [sizeCategoryFilter, setSizeCategoryFilter] = useState<string>("all")
 
   // PDF generation handler
 
@@ -105,7 +108,7 @@ export function ShoesVariantsTable() {
         `)
         .eq('user_id', user.id)
         .eq('isArchived', false)
-        .order('created_at', { ascending: false })
+        .order('serial_number', { ascending: false }) // Sort by serial number descending
 
       if (error) {
         console.error('Error fetching variants:', error)
@@ -122,6 +125,11 @@ export function ShoesVariantsTable() {
   useEffect(() => {
     fetchVariants()
   }, [])
+
+  // Debug: Log sorting state
+  useEffect(() => {
+    console.log('Current sorting state:', sorting);
+  }, [sorting])
 
   // Compute unique filter options
   const locationOptions = useMemo(() => {
@@ -152,19 +160,75 @@ export function ShoesVariantsTable() {
     return ["all", ...Array.from(set)]
   }, [variants])
 
+  const sizeCategoryOptions = useMemo(() => {
+    const set = new Set<string>()
+    variants.forEach(v => {
+      if ((v as any).product?.size_category) set.add((v as any).product.size_category)
+    })
+    return ["all", ...Array.from(set)]
+  }, [variants])
+
   // Filtered variants (all filters except status, which is handled by table column filter)
   const filteredVariants = useMemo(() => {
-    return variants.filter(v => {
+    const result = variants.filter(v => {
       const brand = (v as any).product_brand || (v as any).product?.brand;
+      const sizeCategory = (v as any).product?.size_category;
       return (
         (locationFilter === "all" || v.location === locationFilter) &&
         (sizeFilter === "all" || v.size === sizeFilter) &&
-        (brandFilter === "all" || brand === brandFilter)
+        (brandFilter === "all" || brand === brandFilter) &&
+        (sizeCategoryFilter === "all" || sizeCategory === sizeCategoryFilter)
       );
     });
-  }, [variants, locationFilter, sizeFilter, brandFilter]);
+    console.log('Filtered serial_numbers:', result.map(v => (v as any).serial_number));
+    console.log('Full filteredVariants:', result);
+    return result;
+  }, [variants, locationFilter, sizeFilter, brandFilter, sizeCategoryFilter]);
+
+  // Bulk selection state (must be after filteredVariants)
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const allVisibleIds = useMemo(() => filteredVariants.map((v: any) => v.id), [filteredVariants]);
+  const isAllSelected = selectedIds.length > 0 && allVisibleIds.every((id: string) => selectedIds.includes(id));
+  const toggleSelectAll = () => {
+    if (isAllSelected) setSelectedIds([]);
+    else setSelectedIds(allVisibleIds);
+  };
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
 
   const columns = useMemo(() => [
+    // Checkbox column
+    columnHelper.display({
+      id: "select",
+      header: () => (
+        <div className="flex items-center justify-center">
+          <input
+            type="checkbox"
+            checked={isAllSelected}
+            onChange={toggleSelectAll}
+            aria-label="Select all"
+            className="w-4 h-4 accent-black"
+          />
+        </div>
+      ),
+      cell: (info) => {
+        const variant = info.row.original as any;
+        return (
+          <div className="flex items-center justify-center">
+            <input
+              type="checkbox"
+              checked={selectedIds.includes(variant.id)}
+              onChange={() => toggleSelectOne(variant.id)}
+              aria-label="Select row"
+              className="w-4 h-4 accent-black"
+            />
+          </div>
+        );
+      },
+      enableSorting: false,
+      enableColumnFilter: false,
+    }),
     // Image
     columnHelper.display({
       id: "image",
@@ -182,29 +246,82 @@ export function ShoesVariantsTable() {
       enableColumnFilter: false,
     }),
     // Serial Number (Stock)
-    columnHelper.display({
-      id: "serial_number",
-      header: "Stock",
-      cell: (info) => {
-        const variant = info.row.original as any;
-        return <div className="whitespace-nowrap min-w-[100px] font-medium">{variant.serial_number || '-'}</div>;
-      },
-      enableSorting: true,
-    }),
+    columnHelper.accessor(
+      (row) => (row as any).serial_number,
+      {
+        id: "serial_number",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              className="p-0 h-auto font-medium hover:bg-transparent"
+            >
+              Stock
+              {column.getIsSorted() === "asc" ? (
+                <ChevronUp className="ml-2 h-4 w-4" />
+              ) : column.getIsSorted() === "desc" ? (
+                <ChevronDown className="ml-2 h-4 w-4" />
+              ) : (
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              )}
+            </Button>
+          )
+        },
+        cell: (info) => {
+          const value = info.getValue();
+          return <div className="whitespace-nowrap min-w-[100px] font-medium">{value !== undefined && value !== null ? value : '-'}</div>;
+        },
+        enableSorting: true,
+      }
+    ),
     // SKU (from parent product)
     columnHelper.display({
       id: "sku",
-      header: "SKU",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="p-0 h-auto font-medium hover:bg-transparent"
+          >
+            SKU
+            {column.getIsSorted() === "asc" ? (
+              <ChevronUp className="ml-2 h-4 w-4" />
+            ) : column.getIsSorted() === "desc" ? (
+              <ChevronDown className="ml-2 h-4 w-4" />
+            ) : (
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            )}
+          </Button>
+        )
+      },
       cell: (info) => {
         const variant = info.row.original as any;
         return <div className="whitespace-nowrap min-w-[100px]">{variant.product?.sku || '-'}</div>;
       },
       enableSorting: true,
+      sortingFn: (rowA, rowB) => {
+        const a = (rowA.original as any).product?.sku || '';
+        const b = (rowB.original as any).product?.sku || '';
+        return a.localeCompare(b);
+      },
     }),
     // Name (brand below)
     columnHelper.display({
       id: "name",
-      header: "Name",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="p-0 h-auto font-medium hover:bg-transparent"
+          >
+            Name
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        )
+      },
       cell: (info) => {
         const variant = info.row.original as any;
         return (
@@ -216,16 +333,103 @@ export function ShoesVariantsTable() {
       },
       enableSorting: true,
       enableColumnFilter: true,
+      sortingFn: (rowA, rowB) => {
+        const a = (rowA.original as any).product?.name || '';
+        const b = (rowB.original as any).product?.name || '';
+        return a.localeCompare(b);
+      },
     }),
     // Size
     columnHelper.accessor("size", {
-      header: "Size",
-      cell: (info) => <div className="whitespace-nowrap min-w-[80px] font-medium">{info.getValue()}</div>,
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="p-0 h-auto font-medium hover:bg-transparent"
+          >
+            Size
+            {column.getIsSorted() === "asc" ? (
+              <ChevronUp className="ml-2 h-4 w-4" />
+            ) : column.getIsSorted() === "desc" ? (
+              <ChevronDown className="ml-2 h-4 w-4" />
+            ) : (
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            )}
+          </Button>
+        )
+      },
+      cell: (info) => {
+        const variant = info.row.original as any;
+        const size = info.getValue();
+        const sizeLabel = variant.size_label;
+        return (
+          <div className="whitespace-nowrap min-w-[80px] font-medium">
+            {size}
+            {sizeLabel && (
+              <span className="ml-2 text-xs text-muted-foreground">({sizeLabel})</span>
+            )}
+          </div>
+        );
+      },
       enableSorting: true,
+      sortingFn: (rowA, rowB) => {
+        const a = rowA.getValue("size") as string || '';
+        const b = rowB.getValue("size") as string || '';
+        // Custom sorting for sizes (handle numeric and text sizes)
+        const aNum = parseFloat(a);
+        const bNum = parseFloat(b);
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return aNum - bNum;
+        }
+        return a.localeCompare(b);
+      },
+    }),
+    // Size Category
+    columnHelper.display({
+      id: "size_category",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="p-0 h-auto font-medium hover:bg-transparent"
+          >
+            Category
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        )
+      },
+      cell: (info) => {
+        const variant = info.row.original as any;
+        const sizeCategory = variant.product?.size_category;
+        return (
+          <div className="whitespace-nowrap min-w-[100px]">
+            {sizeCategory || '-'}
+          </div>
+        );
+      },
+      enableSorting: true,
+      sortingFn: (rowA, rowB) => {
+        const a = (rowA.original as any).product?.size_category || '';
+        const b = (rowB.original as any).product?.size_category || '';
+        return a.localeCompare(b);
+      },
     }),
     // Cost
     columnHelper.accessor("cost_price", {
-      header: "Cost",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="p-0 h-auto font-medium hover:bg-transparent"
+          >
+            Cost
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        )
+      },
       cell: (info) => {
         const value = info.getValue();
         return <div className=" min-w-[100px]">${typeof value === 'number' ? value.toFixed(2) : '-'}</div>;
@@ -235,16 +439,43 @@ export function ShoesVariantsTable() {
     // Price
     columnHelper.display({
       id: "price",
-      header: "Price",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="p-0 h-auto font-medium hover:bg-transparent"
+          >
+            Price
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        )
+      },
       cell: (info) => {
         const variant = info.row.original as any;
         return <div className=" min-w-[100px]">${variant.product?.sale_price?.toFixed(2) ?? '-'}</div>;
       },
       enableSorting: true,
+      sortingFn: (rowA, rowB) => {
+        const a = (rowA.original as any).product?.sale_price || 0;
+        const b = (rowB.original as any).product?.sale_price || 0;
+        return a - b;
+      },
     }),
     // Status (Available, Sold, PullOut, Reserved, PreOrder)
     columnHelper.accessor("status", {
-      header: "Status",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="p-0 h-auto font-medium hover:bg-transparent"
+          >
+            Status
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        )
+      },
       cell: (info) => {
         const status = info.getValue() as string;
         let badgeVariant: any = "default";
@@ -263,14 +494,36 @@ export function ShoesVariantsTable() {
     // (Condition column removed because it's not in Variant type)
     // Date Added
     columnHelper.accessor("created_at", {
-      header: "Date Added",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="p-0 h-auto font-medium hover:bg-transparent"
+          >
+            Date Added
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        )
+      },
       cell: (info) => <div className="whitespace-nowrap min-w-[120px]">{new Date(info.getValue() as string).toLocaleDateString()}</div>,
       enableSorting: true,
     }),
     // Date Sold
     columnHelper.display({
       id: "date_sold",
-      header: "Date Sold",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="p-0 h-auto font-medium hover:bg-transparent"
+          >
+            Date Sold
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        )
+      },
       cell: (info) => {
         const variant = info.row.original as any;
         const dateSold = variant.date_sold;
@@ -281,6 +534,14 @@ export function ShoesVariantsTable() {
         );
       },
       enableSorting: true,
+      sortingFn: (rowA, rowB) => {
+        const a = (rowA.original as any).date_sold;
+        const b = (rowB.original as any).date_sold;
+        if (!a && !b) return 0;
+        if (!a) return 1; // Empty dates go to bottom
+        if (!b) return -1;
+        return new Date(a).getTime() - new Date(b).getTime();
+      },
     }),
     // Actions
     columnHelper.display({
@@ -320,7 +581,7 @@ export function ShoesVariantsTable() {
       enableSorting: false,
       enableColumnFilter: false,
     }),
-  ], [])
+  ], [selectedIds, isAllSelected, toggleSelectAll, toggleSelectOne])
 
   const table = useReactTable({
     data: filteredVariants,
@@ -339,11 +600,30 @@ export function ShoesVariantsTable() {
     },
     initialState: {
       pagination: { pageSize: 10 },
+      sorting: [{ id: "serial_number", desc: true }], // Ensure initial sort is set
     },
+    enableSorting: true,
+    manualSorting: false, // Let react-table handle sorting
   })
 
   return (
     <div className="space-y-4">
+      {/* Bulk actions bar */}
+      {selectedIds.length > 0 && (
+        <div className="flex items-center gap-4 bg-muted px-4 py-2 rounded mb-2">
+          <span>{selectedIds.length} selected</span>
+          <Button size="sm" variant="outline" onClick={async () => {
+            // Bulk archive
+            await supabase.from('variants').update({ isArchived: true }).in('id', selectedIds);
+            setSelectedIds([]);
+            fetchVariants();
+          }}>Bulk Archive</Button>
+          <Button size="sm" variant="default" onClick={() => {
+            // Bulk PDF: open new tab with ids as query param
+            window.open(`/api/variant-label-bulk?ids=${selectedIds.join(',')}`, "_blank");
+          }}>Bulk Generate PDF</Button>
+        </div>
+      )}
       {/* Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <Input
@@ -393,6 +673,19 @@ export function ShoesVariantsTable() {
             <SelectContent>
               {brandOptions.map(brand => (
                 <SelectItem key={brand} value={brand}>{brand === "all" ? "All Brands" : brand}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* Size Category Filter */}
+          <Select value={sizeCategoryFilter} onValueChange={setSizeCategoryFilter}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              {sizeCategoryOptions.map(category => (
+                <SelectItem key={category} value={category}>
+                  {category === "all" ? "All Categories" : category}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -501,7 +794,8 @@ export function ShoesVariantsTable() {
         onClose={(updated) => {
           setEditModal({ open: false })
           if (updated) {
-            fetchVariants() // Refresh the table data
+            fetchVariants(); // Refresh the table data
+            setSorting([{ id: "serial_number", desc: true }]); // Reset sort to Stock descending
           }
         }}
       />
@@ -519,6 +813,7 @@ export function ShoesVariantsTable() {
           }
           setDeleteModal({ open: false });
           await fetchVariants();
+          setSorting([{ id: "serial_number", desc: true }]); // Reset sort to Stock descending
         }}
       />
 

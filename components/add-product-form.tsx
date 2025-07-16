@@ -375,30 +375,46 @@ export function AddProductForm({
         return;
       }
 
-      // 1. Create the product (if not adding to existing)
+      // 1. Check for existing product (if not adding to existing)
       let productId = existingProductDetails?.id;
       if (!productId) {
-        // Map camelCase to snake_case for DB columns
-        const dbProduct = {
-          name: productForm.name,
-          brand: productForm.brand,
-          sku: productForm.sku,
-          category: productForm.category,
-          original_price: productForm.originalPrice,
-          sale_price: productForm.salePrice,
-          image: productForm.image,
-          size_category: productForm.sizeCategory,
-          user_id: session.user.id,
-        };
-        const { data: productInsert, error: productError } = await supabase
+        // Check if product with same SKU and user_id exists
+        const { data: existingProduct, error: existingProductError } = await supabase
           .from('products')
-          .insert([dbProduct])
           .select('id')
-          .single();
-        if (productError || !productInsert) {
-          throw new Error(productError?.message || 'Failed to create product');
+          .eq('sku', productForm.sku)
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (existingProductError) {
+          throw new Error(existingProductError.message || 'Failed to check for existing product');
         }
-        productId = productInsert.id;
+
+        if (existingProduct && existingProduct.id) {
+          productId = existingProduct.id;
+        } else {
+          // Map camelCase to snake_case for DB columns
+          const dbProduct = {
+            name: productForm.name,
+            brand: productForm.brand,
+            sku: productForm.sku,
+            category: productForm.category,
+            original_price: productForm.originalPrice,
+            sale_price: productForm.salePrice,
+            image: productForm.image,
+            size_category: productForm.sizeCategory,
+            user_id: session.user.id,
+          };
+          const { data: productInsert, error: productError } = await supabase
+            .from('products')
+            .insert([dbProduct])
+            .select('id')
+            .single();
+          if (productError || !productInsert) {
+            throw new Error(productError?.message || 'Failed to create product');
+          }
+          productId = productInsert.id;
+        }
       }
 
       // 2. Get max serial_number for this user
