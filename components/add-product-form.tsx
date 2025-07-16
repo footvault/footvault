@@ -54,6 +54,7 @@ interface AddProductFormProps {
   productDataFromApi: KicksDevProductData | null
   existingProductDetails: any | null // New prop for existing product from DB
   onProductAdded: () => void // Callback to refresh parent data
+  inferredSizeCategory?: string // New optional prop for inferred size category
 }
 
 interface ProductFormState {
@@ -137,6 +138,7 @@ export function AddProductForm({
   productDataFromApi,
   existingProductDetails, // New prop
   onProductAdded,
+  inferredSizeCategory,
 }: AddProductFormProps) {
   const { currency } = useCurrency(); // Get the user's selected currency
   const currencySymbol = getCurrencySymbol(currency); // Get the currency symbol
@@ -209,6 +211,8 @@ export function AddProductForm({
       const retailPriceTrait = productDataFromApi.traits?.find((t) => t.trait === "Retail Price")
       const retailPrice = retailPriceTrait ? Number.parseFloat(retailPriceTrait.value) : productDataFromApi.min_price
 
+      // Use inferredSizeCategory if provided, else fallback to "Men's"
+      console.log("[AddProductForm] Product title:", productDataFromApi.title, "SKU:", productDataFromApi.sku, "inferredSizeCategory:", inferredSizeCategory);
       setProductForm({
         name: productDataFromApi.title,
         brand: productDataFromApi.brand,
@@ -217,8 +221,9 @@ export function AddProductForm({
         originalPrice: retailPrice || 0,
         salePrice: productDataFromApi.avg_price || 0,
         image: productDataFromApi.image || "/placeholder.svg?height=100&width=100",
-        sizeCategory: "Men's", // Default or infer if API provides
-      })
+        sizeCategory: inferredSizeCategory || "Men's",
+      });
+      console.log("[AddProductForm] Set productForm.sizeCategory:", inferredSizeCategory || "Men's");
       setNewVariant({
         size: undefined,
         location: "Warehouse A",
@@ -250,10 +255,9 @@ export function AddProductForm({
         quantity: 1,
       }) // Reset newVariant for new entry
     }
-
     // Reset newVariant and errors regardless of mode
     // Removed: setEditingVariantId and setEditingVariantValues
-  }, [productDataFromApi, existingProductDetails, open]) // Depend on 'open' to reset when modal closes/opens
+  }, [productDataFromApi, existingProductDetails, open, inferredSizeCategory]) // Depend on inferredSizeCategory
 
   const handleProductFormChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
@@ -440,7 +444,7 @@ export function AddProductForm({
         status: newVariant.status,
         date_added: newVariant.dateAdded,
         condition: newVariant.condition,
-        serial_number: (maxSerial + i + 1).toString(),
+        serial_number: maxSerial + i + 1,
         size_label: newVariant.sizeLabel,
         cost_price: 0.00,
         user_id: session.user.id,
@@ -542,12 +546,12 @@ export function AddProductForm({
             <div>
               <Label htmlFor="sizeCategory">Size Category</Label>
               <Select
-                value={productForm.sizeCategory}
+                value={productForm.sizeCategory || "Men's"}
                 onValueChange={(value) => setProductForm((prev) => ({ ...prev, sizeCategory: value }))}
                 disabled={isAddingToExistingProduct}
               >
                 <SelectTrigger id="sizeCategory" className="w-full">
-                  <SelectValue placeholder="Select size category" />
+                  <SelectValue>{productForm.sizeCategory || "Men's"}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Men's">Men's</SelectItem>

@@ -44,6 +44,7 @@ export default function AddProductPage() {
       size_type: string
       lowest_ask: number
     }>
+    sizeCategory: string // Added for auto-detection
   }
 
   const [searchTerm, setSearchTerm] = useState("")
@@ -54,6 +55,7 @@ export default function AddProductPage() {
   const [showAddProductModal, setShowAddProductModal] = useState(false)
   const [showManualAdd, setShowManualAdd] = useState(false)
   const [inventorySkus, setInventorySkus] = useState<string[]>([])
+  const [inferredSizeCategory, setInferredSizeCategory] = useState<string | undefined>(undefined);
   // Fetch all SKUs in inventory for this user
   useEffect(() => {
     const fetchInventorySkus = async () => {
@@ -120,7 +122,21 @@ export default function AddProductPage() {
           return;
         }
 
-        // Set the selected product data
+        // Infer size category from title or SKU (robust)
+        const title = kicksDevResult.data.title?.toLowerCase().trim() || "";
+        const sku = kicksDevResult.data.sku?.toLowerCase().trim() || "";
+        let detectedSizeCategory = "Men's";
+        // Women's detection: match "women", "wmns", "(women", "(women's", "women's"
+        if (/\bwmns\b|\bwomen'?s?\b|\(women'?s?/i.test(title)) {
+          detectedSizeCategory = "Women's";
+        } else if (/\btd\b|\(td/i.test(title) || sku.includes("td")) {
+          detectedSizeCategory = "Toddlers";
+        } else if (/\bgs\b|\(gs|youth/i.test(title) || sku.includes("gs") || sku.includes("youth")) {
+          detectedSizeCategory = "Youth";
+        }
+        // Debug log
+        console.log("Product title:", kicksDevResult.data.title, "SKU:", kicksDevResult.data.sku, "Inferred size category:", detectedSizeCategory);
+        setInferredSizeCategory(detectedSizeCategory);
         setSelectedProductForModal({
           id: kicksDevResult.data.id,
           title: kicksDevResult.data.title || "",
@@ -134,6 +150,7 @@ export default function AddProductPage() {
           max_price: kicksDevResult.data.max_price || 0,
           traits: kicksDevResult.data.traits || [],
           variants: kicksDevResult.data.variants || [],
+          sizeCategory: detectedSizeCategory,
         });
 
         // Get the session for authentication
@@ -315,6 +332,7 @@ export default function AddProductPage() {
             productDataFromApi={selectedProductForModal}
             existingProductDetails={existingProductDetails}
             onProductAdded={handleProductAdded}
+            inferredSizeCategory={inferredSizeCategory}
           />
           {/* Manual Add Product/Variant Section */}
           <Dialog open={showManualAdd} onOpenChange={setShowManualAdd}>
