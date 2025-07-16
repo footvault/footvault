@@ -15,6 +15,7 @@ export type Product = {
 }
 
 export type Variant = {
+  serial_number: string
   id: string
   product_id: number
   size: string
