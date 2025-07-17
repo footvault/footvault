@@ -35,7 +35,7 @@ export function ProfitDistributionCalculator({
   isRecordingSale,
 }: ProfitDistributionCalculatorProps) {
   console.log('ProfitDistributionCalculator: profitTemplates', profitTemplates)
-  const [distributionType, setDistributionType] = useState<"manual" | "template">("manual")
+  const [distributionType, setDistributionType] = useState<"default" | "manual" | "template">("default")
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [manualDistribution, setManualDistribution] = useState<{ id: string; avatarId: string; percentage: number }[]>(
     [],
@@ -47,15 +47,7 @@ export function ProfitDistributionCalculator({
       setDistributionType("template")
       setSelectedTemplateId(profitTemplates[0].id)
     } else if (avatars.length > 0) {
-      const mainAccount = avatars.find((a) => a.name === "Main Account")
-      if (mainAccount) {
-        setManualDistribution([
-          { id: crypto.randomUUID(), avatarId: mainAccount.id, percentage: mainAccount.default_percentage },
-        ])
-      } else {
-        setManualDistribution([])
-      }
-      setDistributionType("manual")
+      setDistributionType("default")
     } else {
       setManualDistribution([])
       setDistributionType("manual")
@@ -112,23 +104,30 @@ export function ProfitDistributionCalculator({
   }
 
   const currentDistribution = useMemo(() => {
+    if (distributionType === "default") {
+      const mainAccount = avatars.find((a) => (a as any).type === "Main")
+      if (mainAccount) {
+        return calculateDistributionAmounts([
+          { avatarId: mainAccount.id, percentage: 100 },
+        ])
+      }
+      return []
+    }
     if (distributionType === "template" && selectedTemplateId) {
       const selectedTemplate = profitTemplates.find((t) => t.id === selectedTemplateId)
-      console.log("Selected Template ID:", selectedTemplateId)
-      console.log("Selected Template:", selectedTemplate)
       if (selectedTemplate && selectedTemplate.distributions) {
-        console.log("Selected Template Distributions:", selectedTemplate.distributions)
         return calculateDistributionAmounts(
           selectedTemplate.distributions.map((d) => ({ avatarId: d.avatar_id, percentage: d.percentage })),
         )
-      } else {
-        console.log('No distributions found for selected template.')
       }
     }
     return calculateDistributionAmounts(manualDistribution)
-  }, [distributionType, selectedTemplateId, profitTemplates, manualDistribution, netProfit])
+  }, [distributionType, selectedTemplateId, profitTemplates, manualDistribution, netProfit, avatars])
 
   const totalDistributedPercentage = useMemo(() => {
+    if (distributionType === "default") {
+      return 100
+    }
     if (distributionType === "template" && selectedTemplateId) {
       const selectedTemplate = profitTemplates.find((t) => t.id === selectedTemplateId)
       return selectedTemplate?.distributions?.reduce((sum, item) => sum + item.percentage, 0) || 0
@@ -174,11 +173,12 @@ export function ProfitDistributionCalculator({
           <Label htmlFor="distribution-type" className="text-sm">
             Distribution Type
           </Label>
-          <Select value={distributionType} onValueChange={(value: "manual" | "template") => setDistributionType(value)}>
+          <Select value={distributionType} onValueChange={(value: "default" | "manual" | "template") => setDistributionType(value)}>
             <SelectTrigger id="distribution-type">
               <SelectValue placeholder="Select distribution type" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="default">Default (Main Account Only)</SelectItem>
               <SelectItem value="manual">Manual</SelectItem>
               <SelectItem value="template" disabled={profitTemplates.length === 0}>
                 Template ({profitTemplates.length})
@@ -186,6 +186,28 @@ export function ProfitDistributionCalculator({
             </SelectContent>
           </Select>
         </div>
+
+        {distributionType === "default" && (
+          <div className="space-y-3">
+            {(() => {
+              const mainAccount = avatars.find((a) => (a as any).type === "Main")
+              if (!mainAccount) return <p className="text-sm text-gray-500">No Main Account avatar found.</p>
+              return (
+                <div className="flex items-center gap-2">
+                  <UIAvatar className="h-6 w-6">
+                    <AvatarImage src={`/api/avatar?name=${mainAccount.name}`} />
+                    <AvatarFallback>{mainAccount.name.charAt(0)}</AvatarFallback>
+                  </UIAvatar>
+                  <span>{mainAccount.name}</span>
+                  <div className="relative w-24">
+                    <Input type="number" value={100} readOnly disabled className="pr-6 bg-gray-100" />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        )}
 
         {distributionType === "template" && (
           <div>
@@ -310,7 +332,7 @@ export function ProfitDistributionCalculator({
           onClick={handleRecordSaleClick}
           disabled={
             isRecordingSale ||
-            (selectedTemplateId === null && manualDistribution.length === 0) ||
+            (distributionType === "manual" && manualDistribution.length === 0) ||
             totalDistributedPercentage !== 100
           }
         >
