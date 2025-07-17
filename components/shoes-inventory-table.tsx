@@ -37,7 +37,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, ShoppingCart, ReceiptText, Filter } from "lucide-react"
+import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, ShoppingCart, ReceiptText, Filter, Search } from "lucide-react"
 import jsPDF from "jspdf"
 import QRCode from "qrcode"
 import { createClient } from "@/lib/supabase/client"
@@ -48,6 +48,8 @@ import { ConfirmationModal } from "@/components/confirmation-modal"
 import { EditVariantModal } from "@/components/edit-variant-modal"
 
 import { Badge } from "@/components/ui/badge"
+
+import { InventoryStatsCard } from "@/components/inventory-stats-card";
 
 
 
@@ -99,6 +101,42 @@ export function ShoesInventoryTable() {
   const [editModal, setEditModal] = useState<{ open: boolean, product?: Product }>({ open: false })
   const [deleteModal, setDeleteModal] = useState<{ open: boolean, product?: Product }>({ open: false })
   const [showFiltersModal, setShowFiltersModal] = useState(false);
+
+  // Calculate stats for InventoryStatsCard just before return
+  const totalShoes = products.length;
+  const totalVariants = Object.values(rowVariants).reduce((sum, variants) => sum + variants.length, 0);
+   const [totalValue, setTotalValue] = useState<number>(0)
+
+  useEffect(() => {
+    const fetchTotalValue = async () => {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        console.warn('No session token available')
+        return
+      }
+
+      const res = await fetch('/api/inventory-value', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
+
+      const json = await res.json()
+      console.debug('[DEBUG] /api/inventory-value response:', json)
+
+      if (typeof json.totalCost === 'number') {
+        setTotalValue(json.totalCost)
+      } else {
+        setTotalValue(0)
+      }
+    }
+
+    fetchTotalValue()
+  }, [products, rowVariants])
 
   // Track screen width for responsive design
   const [screenWidth, setScreenWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1400);
@@ -212,7 +250,14 @@ export function ShoesInventoryTable() {
   // Filtered products (all filters except status, which is handled by table column filter)
   const filteredProducts = useMemo(() => {
     let result = products.filter(p => {
+      // Global filter for name, brand, SKU
+      const searchMatch = !globalFilter || 
+        p.name?.toLowerCase().includes(globalFilter.toLowerCase()) ||
+        p.brand?.toLowerCase().includes(globalFilter.toLowerCase()) ||
+        p.sku?.toLowerCase().includes(globalFilter.toLowerCase());
+      
       return (
+        searchMatch &&
         (brandFilter === "all" || p.brand === brandFilter) &&
         (sizeCategoryFilter === "all" || p.size_category === sizeCategoryFilter)
       );
@@ -225,7 +270,7 @@ export function ShoesInventoryTable() {
       });
     }
     return result;
-  }, [products, brandFilter, sizeCategoryFilter, sizeFilter, rowVariants]);
+  }, [products, brandFilter, sizeCategoryFilter, sizeFilter, rowVariants, globalFilter]);
 
   // Bulk selection state (must be after filteredVariants)
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -538,6 +583,8 @@ export function ShoesInventoryTable() {
 
   return (
     <div className="space-y-4">
+      {/* Inventory Stats Card */}
+      <InventoryStatsCard totalShoes={totalShoes} totalVariants={totalVariants} totalValue={totalValue} loading={loading} />
       {/* Top Action Buttons */}
       <div className="flex flex-wrap gap-2 justify-end mb-2">
         <Button
@@ -599,13 +646,24 @@ export function ShoesInventoryTable() {
       )}
       {/* Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-2 items-center">
-          <Input
-            placeholder="Search by name, brand, SKU, or stock..."
-            value={globalFilter ?? ""}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            className="max-w-sm"
-          />
+        <div className="flex flex-wrap gap-2 items-center flex-1">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 transition-colors duration-200" />
+            <Input
+              placeholder="Search by name, brand, SKU..."
+              value={globalFilter ?? ""}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="pl-10 transition-all duration-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
+            {globalFilter && (
+              <button
+                onClick={() => setGlobalFilter("")}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-200"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           {/* Size Filter - Always visible regardless of screen size, but for desktop move before brand filter */}
           {!isDesktop && (
             <Popover>
