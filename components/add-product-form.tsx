@@ -717,24 +717,7 @@ export function AddProductForm({
                   </div>
                 )}
               </div>
-              <div>
-                <Label htmlFor="status" className="text-xs">
-                  Status
-                </Label>
-                <Select
-                  value={newVariant.status}
-                  onValueChange={(value) => setNewVariant((prev) => ({ ...prev, status: value }))}
-                >
-                  <SelectTrigger id="status" className="w-full text-xs">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Available">Available</SelectItem>
-                    <SelectItem value="In Display">In Display</SelectItem>
-                    <SelectItem value="Used">Used</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Status is always 'Available' for new variants, so no UI needed */}
               <div>
                 <Label htmlFor="condition" className="text-xs">
                   Condition

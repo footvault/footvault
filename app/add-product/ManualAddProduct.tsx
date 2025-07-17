@@ -1,5 +1,6 @@
 "use client"
 import { useState, ChangeEvent, useEffect } from "react"
+import { v4 as uuidv4 } from "uuid"
 import { useTransition } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Input } from "@/components/ui/input"
@@ -28,6 +29,7 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
     location: string
     status: string
     quantity: number
+    condition?: string
   }
   const [variants, setVariants] = useState<Variant[]>([
     { size: "", location: "", status: "Available", quantity: 1 }
@@ -190,15 +192,23 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
 
         // For each variant row, create N variants (N = quantity)
         let variantsToInsert: any[] = [];
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
         for (const v of variants) {
           const qty = parseInt(v.quantity as any, 10) || 1;
           for (let i = 0; i < qty; i++) {
             variantsToInsert.push({
+              id: uuidv4(),
               size: v.size,
               location: v.location,
               status: v.status,
-              serial_number: String(nextSerial++),
+              serial_number: nextSerial++,
               user_id: user.id,
+              variant_sku: product.sku,
+              date_added: today,
+              condition: v.condition || null,
+              size_label: sizeLabel,
+              cost_price: 0.00,
+              isArchived: false,
               // product_id will be set below
             });
           }
@@ -259,212 +269,249 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
   };
 
   return (
-    <Card className="mt-4 max-w-2xl mx-auto shadow-xl border-0 rounded-2xl bg-white dark:bg-zinc-900 max-h-[90vh] overflow-y-auto">
-      <CardHeader className="flex flex-col items-center gap-2 pb-2">
-        <CardTitle className="text-2xl font-bold text-center">Manual Add Product</CardTitle>
-        <p className="text-sm text-gray-500 text-center">Fill in the details below to add a product and its variants.</p>
+    <Card className="mt-4 max-w-lg mx-auto shadow-xl border-0 rounded-2xl bg-white dark:bg-zinc-900 max-h-[90vh] overflow-y-auto">
+      <CardHeader className="flex flex-col items-center gap-2 pb-4">
+        <CardTitle className="text-2xl font-bold text-center">Add New Product</CardTitle>
+        <p className="text-sm text-gray-500 text-center">Fill in the details below to add a product to your inventory.</p>
       </CardHeader>
-      <CardContent>
-        <div className="flex flex-col md:flex-row gap-8 items-start w-full">
-          {/* Image preview and input */}
-          <div className="flex flex-col items-center w-full md:w-1/3 min-w-[180px]">
-            <div className="w-40 h-40 rounded-xl border bg-gray-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden mb-2">
+      <CardContent className="space-y-6">
+        <div className="grid grid-cols-1 gap-6">
+          {/* Product Image */}
+          <div>
+            <label className="block text-sm font-medium mb-2">Product Image</label>
+            <div className="w-32 h-32 rounded-xl border-2 border-dashed border-gray-300 dark:border-zinc-600 bg-gray-50 dark:bg-zinc-800 flex items-center justify-center overflow-hidden mb-2">
               {product.image ? (
-                <Image src={product.image} alt="Product Image" width={160} height={160} className="object-cover w-full h-full" />
+                <Image src={product.image} alt="Product Image" width={128} height={128} className="object-contain w-full h-full rounded-xl bg-white" />
               ) : (
-                <span className="text-gray-400">No Image</span>
+                <div className="text-center text-gray-400">
+                  <div className="text-3xl mb-1">📷</div>
+                  <div className="text-xs">No Image</div>
+                </div>
               )}
             </div>
             <Input
               name="image"
               value={product.image}
               onChange={handleProductChange}
-              placeholder="Image URL (https://...)"
-              className="mt-1 text-xs"
+              placeholder="Paste image URL here..."
+              className="text-sm"
               required={true}
             />
-            <span className="text-xs text-gray-400 mt-1">Paste a direct image URL</span>
+            {showRequired && !product.image && <span className="text-xs text-red-500">Image URL is required</span>}
           </div>
-          {/* Product details */}
-          <div className="grid grid-cols-1 gap-3 w-full md:w-2/3 min-w-[200px]">
+
+          {/* Product Details */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium mb-1">Product Name</label>
-              <Input name="name" value={product.name} onChange={handleProductChange} placeholder="e.g. Nike Dunk Low" required />
-              {showRequired && !product.name && <span className="text-xs text-red-500 mt-1">Required</span>}
+              <label className="block text-sm font-medium mb-2">Product Name *</label>
+              <Input 
+                name="name" 
+                value={product.name} 
+                onChange={handleProductChange} 
+                placeholder="e.g. Nike Dunk Low" 
+                className="text-sm"
+                required 
+              />
+              {showRequired && !product.name && <span className="text-xs text-red-500 mt-1">Required field</span>}
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1">Brand</label>
-              <Input name="brand" value={product.brand} onChange={handleProductChange} placeholder="e.g. Nike" required />
-              {showRequired && !product.brand && <span className="text-xs text-red-500 mt-1">Required</span>}
+              <label className="block text-sm font-medium mb-2">Brand *</label>
+              <Input 
+                name="brand" 
+                value={product.brand} 
+                onChange={handleProductChange} 
+                placeholder="e.g. Nike" 
+                className="text-sm"
+                required 
+              />
+              {showRequired && !product.brand && <span className="text-xs text-red-500 mt-1">Required field</span>}
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1">SKU</label>
-              <Input name="sku" value={product.sku} onChange={handleProductChange} placeholder="e.g. DD1391-100" required />
-              {showRequired && !product.sku && <span className="text-xs text-red-500 mt-1">Required</span>}
+              <label className="block text-sm font-medium mb-2">SKU *</label>
+              <Input 
+                name="sku" 
+                value={product.sku} 
+                onChange={handleProductChange} 
+                placeholder="e.g. DD1391-100" 
+                className="text-sm"
+                required 
+              />
+              {showRequired && !product.sku && <span className="text-xs text-red-500 mt-1">Required field</span>}
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1">Category</label>
-              <Input name="category" value={product.category} onChange={handleProductChange} placeholder="e.g. Sneakers" required />
-              {showRequired && !product.category && <span className="text-xs text-red-500 mt-1">Required</span>}
+              <label className="block text-sm font-medium mb-2">Category *</label>
+              <Input 
+                name="category" 
+                value={product.category} 
+                onChange={handleProductChange} 
+                placeholder="e.g. Sneakers" 
+                className="text-sm"
+                required 
+              />
+              {showRequired && !product.category && <span className="text-xs text-red-500 mt-1">Required field</span>}
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1">Size Category</label>
-              <select
-                name="sizeCategory"
+              <label className="block text-sm font-medium mb-2">Size Category *</label>
+              <Select
                 value={product.sizeCategory}
-                onChange={handleProductChange}
-                className="w-full rounded-md border px-3 py-2 text-sm bg-white dark:bg-zinc-900 dark:text-white"
+                onValueChange={val => setProduct(prev => ({ ...prev, sizeCategory: val }))}
               >
-                <option value="Men's">Men's</option>
-                <option value="Women's">Women's</option>
-                <option value="Unisex">Unisex</option>
-                <option value="Youth">Youth</option>
-                <option value="Toddlers">Toddlers</option>
-              </select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Size Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Men's">Men's</SelectItem>
+                  <SelectItem value="Women's">Women's</SelectItem>
+                  <SelectItem value="Unisex">Unisex</SelectItem>
+                  <SelectItem value="Youth">Youth</SelectItem>
+                  <SelectItem value="Toddlers">Toddlers</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="block text-xs font-medium mb-1">Original Price</label>
-                <Input name="originalPrice" value={product.originalPrice} onChange={handleProductChange} type="number" placeholder="0.00" required />
-                {showRequired && !product.originalPrice && <span className="text-xs text-red-500 mt-1">Required</span>}
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-medium mb-1">Sale Price</label>
-                <Input name="salePrice" value={product.salePrice} onChange={handleProductChange} type="number" placeholder="0.00" required />
-                {showRequired && !product.salePrice && <span className="text-xs text-red-500 mt-1">Required</span>}
-              </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Original Price *</label>
+              <Input 
+                name="originalPrice" 
+                value={product.originalPrice} 
+                onChange={handleProductChange} 
+                type="number" 
+                step="0.01"
+                placeholder="0.00" 
+                className="text-sm"
+                required 
+              />
+              {showRequired && !product.originalPrice && <span className="text-xs text-red-500 mt-1">Required field</span>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Sale Price *</label>
+              <Input 
+                name="salePrice" 
+                value={product.salePrice} 
+                onChange={handleProductChange} 
+                type="number" 
+                step="0.01"
+                placeholder="0.00" 
+                className="text-sm"
+                required 
+              />
+              {showRequired && !product.salePrice && <span className="text-xs text-red-500 mt-1">Required field</span>}
+            </div>
+          </div>
+
+          {/* Inventory Details (Size, Location, Quantity) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+            <div>
+              <label className="block text-sm font-medium mb-2">Size Label *</label>
+              <Select
+                value={sizeLabel}
+                onValueChange={val => {
+                  setSizeLabel(val);
+                  // Reset size if label changes
+                  setVariants(prev => prev.map((v, i) => i === 0 ? { ...v, size: "" } : v));
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Size Label" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="US">US</SelectItem>
+                  <SelectItem value="UK">UK</SelectItem>
+                  <SelectItem value="EU">EU</SelectItem>
+                  <SelectItem value="CM">CM</SelectItem>
+                  <SelectItem value="TD">TD</SelectItem>
+                  <SelectItem value="YC">YC</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Size *</label>
+              <Select
+                value={variants[0].size}
+                onValueChange={val => handleVariantChange(0, { target: { name: 'size', value: val } } as any)}
+                disabled={!sizeLabel || !product.sizeCategory}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Size" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getDynamicSizes(product.sizeCategory, sizeLabel).length > 0 ? (
+                    getDynamicSizes(product.sizeCategory, sizeLabel).map(sizeOpt => (
+                      <SelectItem key={sizeOpt} value={sizeOpt}>{sizeOpt}</SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="placeholder-size-select" disabled>
+                      Select Size Label & Category First
+                    </SelectItem>
+                  )}
+                  <SelectItem value="custom-size-input">Custom Size...</SelectItem>
+                </SelectContent>
+              </Select>
+              {variants[0].size === "custom-size-input" && (
+                <Input
+                  placeholder="Enter custom size"
+                  value={variants[0].size === "custom-size-input" ? "" : variants[0].size}
+                  onChange={e => handleVariantChange(0, { target: { name: 'size', value: e.target.value } } as any)}
+                  className="mt-2 text-xs"
+                />
+              )}
+              {showRequired && !variants[0].size && <span className="text-xs text-red-500 mt-1">Required field</span>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Location *</label>
+              <Select
+                value={variants[0].location}
+                onValueChange={val => handleVariantChange(0, { target: { name: 'location', value: val } } as any)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {customLocations.map(loc => (
+                    <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {showRequired && !variants[0].location && <span className="text-xs text-red-500 mt-1">Required field</span>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Quantity *</label>
+              <Input
+                name="quantity"
+                type="number"
+                min={1}
+                value={variants[0].quantity}
+                onChange={e => handleVariantChange(0, e)}
+                placeholder="1"
+                className="text-sm"
+                required
+              />
             </div>
           </div>
         </div>
-        {/* Variants Section */}
-        <div className="mt-8">
-          <h4 className="font-semibold mb-2 text-lg">Variants</h4>
-          <div className="flex flex-col gap-2">
-            {variants.map((variant, idx) => {
-              return (
-                <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end bg-gray-50 dark:bg-zinc-800 rounded-lg p-2">
-                  <div className="flex flex-col">
-                    <div className="flex gap-2">
-                      <Select
-                        value={variant.size}
-                        onValueChange={val => handleVariantChange(idx, { target: { name: "size", value: val } } as any)}
-                      >
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Select Size" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {getDynamicSizes(product.sizeCategory, sizeLabel).map(sizeOpt => (
-                            <SelectItem key={sizeOpt} value={sizeOpt}>{sizeOpt}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select
-                        value={sizeLabel}
-                        onValueChange={val => setSizeLabel(val)}
-                      >
-                        <SelectTrigger style={{ minWidth: 60 }}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="US">US</SelectItem>
-                          <SelectItem value="UK">UK</SelectItem>
-                          <SelectItem value="EU">EU</SelectItem>
-                          <SelectItem value="CM">CM</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {showRequired && !variant.size && idx === variants.length - 1 && <span className="text-xs text-red-500 mt-1">Required</span>}
-                  </div>
-                  <div className="flex flex-col">
-                    <div className="flex gap-2 items-center">
-                      <Select
-                        value={variant.location}
-                        onValueChange={val => handleVariantChange(idx, { target: { name: "location", value: val } } as any)}
-                      >
-                        <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select Location" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {/* User's custom locations + placeholders */}
-                        {customLocations.map(loc => (
-                          <SelectItem key={loc} value={loc}>{loc}</SelectItem>
-                        ))}
-                      </SelectContent>
-                      </Select>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="px-2 py-1"
-                        onClick={() => setAddingLocationIdx(idx)}
-                        disabled={addingLocationIdx === idx}
-                      >
-                        Add
-                      </Button>
-                    </div>
-                    {/* Show add location input below if adding for this variant */}
-                    {addingLocationIdx === idx && (
-                      <div className="flex gap-2 mt-2">
-                        <Input
-                          value={newLocation}
-                          onChange={e => setNewLocation(e.target.value)}
-                          placeholder="New location name"
-                          className="flex-1"
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => {
-                            if (newLocation && !variants.some(v => v.location === newLocation)) {
-                              // Set this variant's location to newLocation
-                              setVariants(prev => prev.map((v, i) => i === idx ? { ...v, location: newLocation } : v));
-                              setNewLocation("");
-                              setAddingLocationIdx(null);
-                            }
-                          }}
-                          disabled={!newLocation || variants.some(v => v.location === newLocation)}
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => { setAddingLocationIdx(null); setNewLocation(""); }}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    )}
-                    {showRequired && !variant.location && idx === variants.length - 1 && <span className="text-xs text-red-500 mt-1">Required</span>}
-                  </div>
-                  <div className="flex flex-col">
-                    <Input
-                      name="quantity"
-                      type="number"
-                      min={1}
-                      value={variant.quantity}
-                      onChange={e => handleVariantChange(idx, e)}
-                      required
-                      placeholder="Quantity"
-                    />
-                  </div>
-                  <Button variant="destructive" size="sm" onClick={() => removeVariant(idx)} disabled={variants.length === 1}>Remove</Button>
-                </div>
-              )
-            })}
-            <Button variant="outline" size="sm" onClick={addVariant} className="mt-2 self-start">Add Variant</Button>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t">
+          <div className="flex-1">
+            <p className="text-sm text-gray-500 mb-2">
+              Ready to save? Make sure all required fields are filled out.
+            </p>
+           
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 sm:w-auto w-full">
+            {onClose && (
+              <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
+                Cancel
+              </Button>
+            )}
+            <Button 
+              onClick={handleManualSave} 
+              disabled={isSaving || isPending || isProductMissing || isVariantMissing}
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+            >
+              {isSaving || isPending ? "Saving..." : "Save Product"}
+            </Button>
           </div>
         </div>
-        <div className="flex flex-col md:flex-row gap-2 mt-8 justify-end">
-          <Button className="w-full md:w-auto" onClick={handleManualSave} disabled={isSaving || isPending || isProductMissing || isVariantMissing}>
-            {isSaving || isPending ? "Saving..." : "Save Product"}
-          </Button>
-          {onClose && (
-            <Button variant="outline" className="w-full md:w-auto" onClick={onClose}>Cancel</Button>
-          )}
-        </div>
-        <p className="text-xs text-gray-500 mt-4 text-center">This will save your product and variants directly to Supabase.</p>
       </CardContent>
     </Card>
   )

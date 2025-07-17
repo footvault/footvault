@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Search, Loader2, Plus, CircleCheck } from "lucide-react"
 import Image from "next/image"
 import { fetchKicksDevProduct } from "@/lib/fetchKicksDevProduct";
-import { KicksDevSearchItem } from "@/app/actions"
 import { AddProductForm } from "@/components/add-product-form"
 import { ManualAddProduct } from "./ManualAddProduct"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
@@ -48,7 +47,7 @@ export default function AddProductPage() {
   }
 
   const [searchTerm, setSearchTerm] = useState("")
-  const [searchResults, setSearchResults] = useState<Array<KicksDevSearchItem>>([])
+  const [searchResults, setSearchResults] = useState<any[]>([])
   const [isSearching, startSearchTransition] = useTransition()
   const [selectedProductForModal, setSelectedProductForModal] = useState<KicksDevProductData | null>(null)
   const [existingProductDetails, setExistingProductDetails] = useState<any | null>(null)

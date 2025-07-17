@@ -44,6 +44,9 @@ import Image from "next/image"
 import EditProductModal from "@/components/edit-product-modal"
 import { ConfirmationModal } from "@/components/confirmation-modal"
 import { EditVariantModal } from "@/components/edit-variant-modal"
+import { VariantsStatsCard } from "@/components/variants-stats-card"
+
+
 
 import { Badge } from "@/components/ui/badge"
 
@@ -60,6 +63,45 @@ export function ShoesVariantsTable() {
   const [loading, setLoading] = useState(true)
   const [editModal, setEditModal] = useState<{ open: boolean, variant?: Variant }>({ open: false })
   const [deleteModal, setDeleteModal] = useState<{ open: boolean, variant?: Variant }>({ open: false })
+
+  // Stats state
+  const [statsData, setStatsData] = useState({
+    totalVariants: 0,
+    totalCostValue: 0,
+    totalSaleValue: 0,
+    profit: 0,
+  })
+  const [statsLoading, setStatsLoading] = useState(true)
+
+ // Fetch stats from API
+ const fetchVariantStats = async () => {
+   setStatsLoading(true);
+   try {
+     const { data: { user } } = await supabase.auth.getUser();
+     if (!user) throw new Error("No user");
+     const res = await fetch("/api/variant-summary", {
+       method: "POST",
+       headers: { "Content-Type": "application/json" },
+       body: JSON.stringify({ user_id: user.id })
+     });
+     if (!res.ok) throw new Error("Failed to fetch stats");
+     const stats = await res.json();
+     setStatsData({
+       totalVariants: stats.total_variants ?? 0,
+       totalCostValue: stats.total_cost ?? 0,
+       totalSaleValue: stats.total_sale ?? 0,
+       profit: stats.profit ?? 0
+     });
+   } catch (e) {
+     setStatsData({ totalVariants: 0, totalCostValue: 0, totalSaleValue: 0, profit: 0 });
+   } finally {
+     setStatsLoading(false);
+   }
+ };
+  // Debug logging for stats data changes
+  useEffect(() => {
+    console.log('Stats data changed:', statsData);
+  }, [statsData]);
 
 
   // New filter state
@@ -113,6 +155,8 @@ export function ShoesVariantsTable() {
       if (error) {
         console.error('Error fetching variants:', error)
       } else {
+        console.log('Variants loaded:', data?.length, 'variants');
+        console.log('Sample variant data:', data?.[0]);
         setVariants(data || [])
       }
     } catch (error) {
@@ -122,8 +166,11 @@ export function ShoesVariantsTable() {
     }
   }
 
+
   useEffect(() => {
+    console.log('Component mounted, calling fetchVariants and fetchStats');
     fetchVariants()
+   fetchVariantStats();
   }, [])
 
   // Debug: Log sorting state
@@ -170,7 +217,7 @@ export function ShoesVariantsTable() {
 
   // Filtered variants (all filters except status, which is handled by table column filter)
   const filteredVariants = useMemo(() => {
-    const result = variants.filter(v => {
+    let result = variants.filter(v => {
       const brand = (v as any).product_brand || (v as any).product?.brand;
       const sizeCategory = (v as any).product?.size_category;
       return (
@@ -180,10 +227,20 @@ export function ShoesVariantsTable() {
         (sizeCategoryFilter === "all" || sizeCategory === sizeCategoryFilter)
       );
     });
+    // Global search: serial number, name, sku
+    if (globalFilter.trim() !== "") {
+      const search = globalFilter.trim().toLowerCase();
+      result = result.filter(v => {
+        const serial = String((v as any).serial_number ?? "").toLowerCase();
+        const name = ((v as any).product?.name ?? "").toLowerCase();
+        const sku = ((v as any).product?.sku ?? "").toLowerCase();
+        return serial.includes(search) || name.includes(search) || sku.includes(search);
+      });
+    }
     console.log('Filtered serial_numbers:', result.map(v => (v as any).serial_number));
     console.log('Full filteredVariants:', result);
     return result;
-  }, [variants, locationFilter, sizeFilter, brandFilter, sizeCategoryFilter]);
+  }, [variants, locationFilter, sizeFilter, brandFilter, sizeCategoryFilter, globalFilter]);
 
   // Bulk selection state (must be after filteredVariants)
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -608,6 +665,16 @@ export function ShoesVariantsTable() {
 
   return (
     <div className="space-y-4">
+      {/* Stats Cards */}
+      <VariantsStatsCard 
+        totalVariants={statsData.totalVariants}
+        totalCostValue={statsData.totalCostValue}
+        totalSaleValue={statsData.totalSaleValue}
+        loading={statsLoading}
+      />
+      
+
+      
       {/* Bulk actions bar */}
       {selectedIds.length > 0 && (
         <div className="flex items-center gap-4 bg-muted px-4 py-2 rounded mb-2">
@@ -617,6 +684,7 @@ export function ShoesVariantsTable() {
             await supabase.from('variants').update({ isArchived: true }).in('id', selectedIds);
             setSelectedIds([]);
             fetchVariants();
+            fetchVariantStats();
           }}>Bulk Archive</Button>
           <Button size="sm" variant="default" onClick={() => {
             // Bulk PDF: open new tab with ids as query param
@@ -624,98 +692,184 @@ export function ShoesVariantsTable() {
           }}>Bulk Generate PDF</Button>
         </div>
       )}
-      {/* Filters */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <Input
-          placeholder="Search by name, brand, SKU, or stock..."
-          value={globalFilter ?? ""}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          className="max-w-sm"
-        />
-        <div className="flex gap-2 flex-wrap">
-          {/* Location Filter */}
-          <Select value={locationFilter} onValueChange={setLocationFilter}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="All Locations" />
-            </SelectTrigger>
-            <SelectContent>
-              {locationOptions.map(loc => (
-                <SelectItem key={loc} value={loc}>{loc === "all" ? "All Locations" : loc}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {/* Size Filter - searchable */}
+
+      {/* Filters - search left, filters right, responsive */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full mb-2">
+        {/* Search bar left */}
+        <div className="flex-1 flex items-center min-w-0">
+          <div className="relative w-full">
+            {/* Search icon */}
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+              <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-3.5-3.5"/></svg>
+            </span>
+            <Input
+              type="text"
+              placeholder="Search..."
+              value={globalFilter}
+              onChange={e => setGlobalFilter(e.target.value)}
+              className="w-full pl-8 pr-8 min-w-0"
+              style={{ width: '100%' }}
+            />
+            {/* X icon to clear */}
+            {globalFilter && (
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                onClick={() => setGlobalFilter("")}
+                aria-label="Clear search"
+              >
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            )}
+          </div>
+        </div>
+        {/* Filters right, responsive */}
+        <div className="flex flex-row gap-2 items-center mt-2 sm:mt-0">
+          {/* Size Dropdown with search inside */}
           <Select value={sizeFilter} onValueChange={setSizeFilter}>
             <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="All Sizes" />
+              <SelectValue placeholder="Size" />
             </SelectTrigger>
             <SelectContent>
-              <div className="px-2 py-1 sticky top-0 bg-white z-10">
-                <input
-                  type="text"
+              <div className="px-2 py-1">
+                <Input
                   placeholder="Search size..."
-                  className="w-full px-2 py-1 border rounded text-sm mb-1"
                   value={sizeSearch}
                   onChange={e => setSizeSearch(e.target.value)}
-                  onClick={e => e.stopPropagation()}
+                  className="w-full mb-1"
                 />
               </div>
-              {filteredSizeOptions.map(size => (
-                <SelectItem key={size} value={size}>{size === "all" ? "All Sizes" : size}</SelectItem>
-              ))}
+              {/* Group sizes by category (Men's, Women's, etc.) */}
+              {['Men\'s', 'Women\'s', 'Kids', 'Unisex'].map(category => {
+                const options = filteredSizeOptions.filter(option => {
+                  if (option === 'all') return false;
+                  return variants.some(v => v.size === option && ((v as any).product?.size_category === category));
+                });
+                if (options.length === 0) return null;
+                return (
+                  <React.Fragment key={category}>
+                    <div className="px-2 py-1 text-xs text-muted-foreground font-semibold">{category}</div>
+                    {options.map(option => (
+                      <SelectItem key={option} value={option}>{option}</SelectItem>
+                    ))}
+                  </React.Fragment>
+                );
+              })}
+              {/* All sizes option at top */}
+              <SelectItem value="all">All Sizes</SelectItem>
             </SelectContent>
           </Select>
-          {/* Brand Filter */}
-          <Select value={brandFilter} onValueChange={setBrandFilter}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="All Brands" />
-            </SelectTrigger>
-            <SelectContent>
-              {brandOptions.map(brand => (
-                <SelectItem key={brand} value={brand}>{brand === "all" ? "All Brands" : brand}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {/* Size Category Filter */}
-          <Select value={sizeCategoryFilter} onValueChange={setSizeCategoryFilter}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="All Categories" />
-            </SelectTrigger>
-            <SelectContent>
-              {sizeCategoryOptions.map(category => (
-                <SelectItem key={category} value={category}>
-                  {category === "all" ? "All Categories" : category}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {/* Status Filter (existing) */}
-          <Select
-            value={(table.getColumn("status")?.getFilterValue() as string) ?? "all status"}
-            onValueChange={(value) => table.getColumn("status")?.setFilterValue(value === "all status" ? undefined : value)}
-          >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all status">All Status</SelectItem>
-              <SelectItem value="Available">Available</SelectItem>
-              <SelectItem value="Sold">Sold</SelectItem>
-              <SelectItem value="PullOut">PullOut</SelectItem>
-              <SelectItem value="Reserved">Reserved</SelectItem>
-              <SelectItem value="PreOrder">PreOrder</SelectItem>
-            </SelectContent>
-          </Select>
+
+          {/* Responsive: show other filters in popover on mobile, inline on desktop */}
+          <div className="hidden sm:flex flex-row gap-2 items-center">
+            {/* Location Filter */}
+            <Select value={locationFilter} onValueChange={setLocationFilter}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Location" />
+              </SelectTrigger>
+              <SelectContent>
+                {locationOptions.map(option => (
+                  <SelectItem key={option} value={option}>{option === "all" ? "All Locations" : option}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* Brand Filter */}
+            <Select value={brandFilter} onValueChange={setBrandFilter}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Brand" />
+              </SelectTrigger>
+              <SelectContent>
+                {brandOptions.map(option => (
+                  <SelectItem key={option} value={option}>{option === "all" ? "All Brands" : option}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* Status Filter */}
+            <Select value={
+              typeof columnFilters.find(f => f.id === "status")?.value === 'string'
+                ? String(columnFilters.find(f => f.id === "status")?.value)
+                : "all"
+            } onValueChange={value => {
+              setColumnFilters(filters => {
+                const other = filters.filter(f => f.id !== "status");
+                return value === "all" ? other : [...other, { id: "status", value }];
+              });
+            }}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="Available">Available</SelectItem>
+               
+                <SelectItem value="PullOut">PullOut</SelectItem>
+                <SelectItem value="Reserved">Reserved</SelectItem>
+                <SelectItem value="PreOrder">PreOrder</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Mobile: filter icon popover for other filters */}
+          <div className="sm:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="icon" variant="outline" aria-label="Filters">
+                  <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 4a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v2a1 1 0 0 1-.293.707l-6.414 6.414A1 1 0 0 0 13 13.414V19a1 1 0 0 1-1.447.894l-2-1A1 1 0 0 1 9 18v-4.586a1 1 0 0 0-.293-.707L2.293 6.707A1 1 0 0 1 2 6V4z"/></svg>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <div className="flex flex-col gap-2 p-2">
+                  <Select value={locationFilter} onValueChange={setLocationFilter}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Location" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {locationOptions.map(option => (
+                        <SelectItem key={option} value={option}>{option === "all" ? "All Locations" : option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={brandFilter} onValueChange={setBrandFilter}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brandOptions.map(option => (
+                        <SelectItem key={option} value={option}>{option === "all" ? "All Brands" : option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={typeof columnFilters.find(f => f.id === "status")?.value === 'string' ? String(columnFilters.find(f => f.id === "status")?.value) : "all"} onValueChange={value => {
+                    setColumnFilters(filters => {
+                      const other = filters.filter(f => f.id !== "status");
+                      return value === "all" ? other : [...other, { id: "status", value }];
+                    });
+                  }}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="Available">Available</SelectItem>
+                      <SelectItem value="Sold">Sold</SelectItem>
+                      <SelectItem value="PullOut">PullOut</SelectItem>
+                      <SelectItem value="Reserved">Reserved</SelectItem>
+                      <SelectItem value="PreOrder">PreOrder</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
 
       {/* Table with horizontal scroll */}
       <div className="overflow-x-auto rounded-md border">
         <Table className="min-w-[1000px] w-full">
-          <TableHeader className="bg-muted sticky top-0 z-10">
-            {table.getHeaderGroups().map((headerGroup) => (
+          <TableHeader>
+            {table.getHeaderGroups().map(headerGroup => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
+                {headerGroup.headers.map(header => (
                   <TableHead key={header.id} className="whitespace-nowrap">
                     {header.isPlaceholder
                       ? null
@@ -795,6 +949,7 @@ export function ShoesVariantsTable() {
           setEditModal({ open: false })
           if (updated) {
             fetchVariants(); // Refresh the table data
+            fetchVariantStats(); // Refresh stats data
             setSorting([{ id: "serial_number", desc: true }]); // Reset sort to Stock descending
           }
         }}
@@ -813,6 +968,7 @@ export function ShoesVariantsTable() {
           }
           setDeleteModal({ open: false });
           await fetchVariants();
+          fetchVariantStats(); // Refresh stats data
           setSorting([{ id: "serial_number", desc: true }]); // Reset sort to Stock descending
         }}
       />
