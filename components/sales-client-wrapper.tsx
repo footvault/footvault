@@ -8,10 +8,7 @@ import type { ProfitDistributionTemplateDetail, Sale, SalesStats } from "@/lib/t
 import { SalesStatsCard } from "@/components/sales-stats-card"
 import { AvatarManagementModal } from "@/components/avatar-management-modal"
 import { ProfitTemplateManagementModal } from "@/components/profit-template-management-modal"
-import {
-  getSales,
-  calculateAvatarProfits,
-} from "@/app/actions"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -349,8 +346,7 @@ export function SalesClientWrapper({
           )}
         </CardContent>
       </Card>
-      {/* ...rest of your modals... */}
-      {/* ...existing code for modals and management... */}
+   
       {selectedSale && (
         <SaleDetailModal
           open={showDetailModal}

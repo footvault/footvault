@@ -16,7 +16,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Trash2, Loader2, Edit, Save } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { deleteProfitDistributionTemplate } from "@/app/actions"
 import { Avatar as UIAvatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { ProfitDistributionTemplateDetail } from "@/lib/types"
 
@@ -171,20 +170,36 @@ export function ProfitTemplateManagementModal({
   }
 
   const handleDelete = async () => {
-    if (!selectedTemplate || !confirm(`Are you sure you want to delete template \"${selectedTemplate.name}\"?`)) return
+    if (!selectedTemplate || !confirm(`Are you sure you want to delete template "${selectedTemplate.name}"?`)) return
 
     startTransition(async () => {
-      const result = await deleteProfitDistributionTemplate(selectedTemplate.id)
-      if (result.success) {
-        toast({ title: "Success", description: "Template deleted successfully!" })
-        onClose()
-      } else {
-        toast({ title: "Error", description: result.error || "Failed to delete template.", variant: "destructive" })
+      try {
+        const { createClient } = await import("@/lib/supabase/client")
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        const response = await fetch("/api/delete-profit-template", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token || ''}`,
+          },
+          body: JSON.stringify({ id: selectedTemplate.id }),
+        })
+        const result = await response.json()
+        if (result.success) {
+          toast({ title: "Success", description: "Template deleted successfully!" })
+          onClose()
+        } else {
+          toast({ title: "Error", description: result.error || "Failed to delete template.", variant: "destructive" })
+        }
+      } catch {
+        toast({ title: "Error", description: "Unexpected error deleting template.", variant: "destructive" })
       }
     })
   }
 
   return (
+    <div>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -286,5 +301,9 @@ export function ProfitTemplateManagementModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </div>
   )
 }
+
+
+export default ProfitTemplateManagementModal;

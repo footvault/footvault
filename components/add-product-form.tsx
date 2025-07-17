@@ -11,13 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Loader2, Trash2, Edit, Save, CheckCircle, XCircle } from "lucide-react"
 import Image from "next/image"
-import {
-  addProduct,
-  addCustomLocation,
-  getCustomLocations,
-  checkSerialNumberUniqueness,
-  addVariant,
-} from "@/app/actions" // Our existing server action
+
 import { toast } from "@/hooks/use-toast" // Assuming this toast hook exists
 import { Card } from "@/components/ui/card"
 import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency"

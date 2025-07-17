@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Edit, Trash2, Loader2, Users, Percent, Save, XCircle, Star } from "lucide-react"
-import { updateAvatar, deleteAvatar } from "@/app/actions"
+
 import { toast } from "@/hooks/use-toast"
 import type { Avatar, AvatarFormValues } from "@/lib/types"
 import PremiumFeatureModal from "./PremiumFeatureModal"
@@ -40,6 +40,65 @@ export function AvatarManagementModal({
   useEffect(() => {
     setAvatars(initialAvatars)
   }, [initialAvatars])
+
+  // Ensure main avatar exists if none found
+  const createMainAvatarIfMissing = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!session || !user) return;
+      // Use user's name or fallback
+      const mainName = user.user_metadata?.full_name || user.email || 'Main Account';
+      const response = await fetch('/api/create-avatar', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        },
+        body: (() => {
+          const fd = new FormData();
+          fd.append('name', mainName);
+          fd.append('default_percentage', '100');
+          return fd;
+        })()
+      });
+      // No need to handle result, fetchAvatars will refresh
+    } catch {}
+  }, []);
+
+  // Fetch current user's avatars from API
+  const fetchAvatars = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const response = await fetch('/api/get-avatars', {
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      });
+      const result = await response.json();
+      if (result.success && result.data) {
+        setAvatars(result.data);
+        if (result.data.length === 0) {
+          await createMainAvatarIfMissing();
+          // Re-fetch avatars after creating main
+          const refetch = await fetch('/api/get-avatars', {
+            headers: { 'Authorization': `Bearer ${session.access_token}` },
+          });
+          const refetchResult = await refetch.json();
+          if (refetchResult.success && refetchResult.data) {
+            setAvatars(refetchResult.data);
+          }
+        }
+      }
+    } catch (err) {
+      // Optionally handle error
+    }
+  }, [createMainAvatarIfMissing]);
+
+  // Always fetch avatars when modal opens
+  useEffect(() => {
+    if (open) fetchAvatars();
+  }, [open, fetchAvatars]);
 
   const fetchUserPlan = useCallback(async () => {
     try {
@@ -176,28 +235,46 @@ export function AvatarManagementModal({
 
     startTransition(async () => {
       const formData = new FormData()
+      formData.append("id", avatarId)
       formData.append("name", editingAvatarValues.name)
       formData.append("default_percentage", editingAvatarValues.default_percentage.toString())
-      const result = await updateAvatar(avatarId, formData)
-      if (result.success) {
-        toast({ title: "Avatar Updated", description: result.message })
-        setEditingAvatarId(null)
-        setEditingAvatarValues(null)
-        await refreshAvatars()
-      } else {
-        toast({ title: "Failed to Update Avatar", description: result.message, variant: "destructive" })
+      try {
+        const response = await fetch("/api/update-avatar", {
+          method: "POST",
+          body: formData,
+        });
+        const result = await response.json();
+        if (result.success) {
+          toast({ title: "Avatar Updated", description: result.message })
+          setEditingAvatarId(null)
+          setEditingAvatarValues(null)
+          await refreshAvatars()
+        } else {
+          toast({ title: "Failed to Update Avatar", description: result.message, variant: "destructive" })
+        }
+      } catch (err) {
+        toast({ title: "Failed to Update Avatar", description: "Unexpected error.", variant: "destructive" })
       }
     })
   }
 
   const handleDeleteAvatar = async (avatarId: string) => {
     startTransition(async () => {
-      const result = await deleteAvatar(avatarId)
-      if (result.success) {
-        toast({ title: "Avatar Deleted", description: result.message })
-        await refreshAvatars()
-      } else {
-        toast({ title: "Failed to Delete Avatar", description: result.message, variant: "destructive" })
+      try {
+        const response = await fetch("/api/delete-avatar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: avatarId }),
+        });
+        const result = await response.json();
+        if (result.success) {
+          toast({ title: "Avatar Deleted", description: result.message })
+          await refreshAvatars()
+        } else {
+          toast({ title: "Failed to Delete Avatar", description: result.message, variant: "destructive" })
+        }
+      } catch (err) {
+        toast({ title: "Failed to Delete Avatar", description: "Unexpected error.", variant: "destructive" })
       }
     })
   }
