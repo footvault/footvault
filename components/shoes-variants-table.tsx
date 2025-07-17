@@ -150,6 +150,7 @@ export function ShoesVariantsTable() {
         `)
         .eq('user_id', user.id)
         .eq('isArchived', false)
+        .neq('status', 'Sold')
         .order('serial_number', { ascending: false }) // Sort by serial number descending
 
       if (error) {
@@ -566,9 +567,9 @@ export function ShoesVariantsTable() {
       cell: (info) => <div className="whitespace-nowrap min-w-[120px]">{new Date(info.getValue() as string).toLocaleDateString()}</div>,
       enableSorting: true,
     }),
-    // Date Sold
-    columnHelper.display({
-      id: "date_sold",
+    
+    // Location
+    columnHelper.accessor("location", {
       header: ({ column }) => {
         return (
           <Button
@@ -576,30 +577,18 @@ export function ShoesVariantsTable() {
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             className="p-0 h-auto font-medium hover:bg-transparent"
           >
-            Date Sold
+            Location
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         )
       },
       cell: (info) => {
-        const variant = info.row.original as any;
-        const dateSold = variant.date_sold;
-        return (
-          <div className="whitespace-nowrap min-w-[120px]">
-            {dateSold ? new Date(dateSold).toLocaleDateString() : 'Empty'}
-          </div>
-        );
+        const location = info.getValue() as string;
+        return <div className="min-w-[100px]">{location || 'Unknown'}</div>;
       },
       enableSorting: true,
-      sortingFn: (rowA, rowB) => {
-        const a = (rowA.original as any).date_sold;
-        const b = (rowB.original as any).date_sold;
-        if (!a && !b) return 0;
-        if (!a) return 1; // Empty dates go to bottom
-        if (!b) return -1;
-        return new Date(a).getTime() - new Date(b).getTime();
-      },
     }),
+
     // Actions
     columnHelper.display({
       id: "actions",
