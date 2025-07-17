@@ -16,8 +16,8 @@ export default async function HomePage() {
         <h1 className="text-xl font-semibold">Inventory</h1>
       </header>
       <div className="max-w-7xl mx-auto px-4 py-8 w-full">
-      <div className="container mx-auto py-8">
-          <ShoesInventoryTable initialShoesData={shoesData} />
+        <div className="container mx-auto py-8">
+          <ShoesInventoryTable />
         </div>
       </div>
     </SidebarInset>

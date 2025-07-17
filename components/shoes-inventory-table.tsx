@@ -37,7 +37,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, ShoppingCart, ReceiptText } from "lucide-react"
+import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, ShoppingCart, ReceiptText, Filter } from "lucide-react"
 import jsPDF from "jspdf"
 import QRCode from "qrcode"
 import { createClient } from "@/lib/supabase/client"
@@ -98,7 +98,18 @@ export function ShoesInventoryTable() {
   const [loading, setLoading] = useState(true)
   const [editModal, setEditModal] = useState<{ open: boolean, product?: Product }>({ open: false })
   const [deleteModal, setDeleteModal] = useState<{ open: boolean, product?: Product }>({ open: false })
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
 
+  // Track screen width for responsive design
+  const [screenWidth, setScreenWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1400);
+  useEffect(() => {
+    const handleResize = () => setScreenWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isDesktop = screenWidth >= 1380;
+  const isMobile = screenWidth < 640;
 
   // New filter state
   const [brandFilter, setBrandFilter] = useState<string>("all")
@@ -519,22 +530,44 @@ export function ShoesInventoryTable() {
         >
           + Add Product
         </Button>
-        <Button
-          variant="outline"
-          onClick={() => window.location.href = "/sales"}
-          className="flex items-center gap-2"
-        >
-          <ReceiptText className="w-4 h-4" />
-          Sales History
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => window.location.href = "/checkout"}
-          className="flex items-center gap-2"
-        >
-          <ShoppingCart className="w-4 h-4" />
-          Checkout
-        </Button>
+        {isMobile ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => window.location.href = "/sales"} className="flex items-center gap-2">
+                <ReceiptText className="w-4 h-4" />
+                Sales History
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.location.href = "/checkout"} className="flex items-center gap-2">
+                <ShoppingCart className="w-4 h-4" />
+                Checkout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              onClick={() => window.location.href = "/sales"}
+              className="flex items-center gap-2"
+            >
+              <ReceiptText className="w-4 h-4" />
+              Sales History
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => window.location.href = "/checkout"}
+              className="flex items-center gap-2"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Checkout
+            </Button>
+          </>
+        )}
       </div>
       {/* Bulk actions bar */}
       {selectedIds.length > 0 && (
@@ -550,108 +583,186 @@ export function ShoesInventoryTable() {
       )}
       {/* Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <Input
-          placeholder="Search by name, brand, SKU, or stock..."
-          value={globalFilter ?? ""}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          className="max-w-sm"
-        />
-      <div className="flex gap-2 flex-wrap">
-        {/* Brand Filter */}
-        <Select value={brandFilter} onValueChange={setBrandFilter}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="All Brands" />
-          </SelectTrigger>
-          <SelectContent>
-            {brandOptions.map(brand => (
-              <SelectItem key={brand} value={brand}>{brand === "all" ? "All Brands" : brand}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {/* Size Category Filter */}
-        <Select value={sizeCategoryFilter} onValueChange={setSizeCategoryFilter}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="All Categories" />
-          </SelectTrigger>
-          <SelectContent>
-            {sizeCategoryOptions.map(category => (
-              <SelectItem key={category} value={category}>
-                {category === "all" ? "All Categories" : category}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {/* Size Filter (multi-select with checkboxes, grouped by size category, searchable, input inside dropdown) */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="w-[220px] justify-between">
-              <span className="truncate">
-                {sizeFilter.length === 0 ? "All Sizes" : sizeFilter.join(", ")}
-              </span>
-              <svg className="ml-2 h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none"><path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[220px] max-h-72 overflow-y-auto p-0">
-            <div className="px-2 py-1">
-              <Input
-                placeholder="Search size..."
-                value={sizeSearch}
-                onChange={e => setSizeSearch(e.target.value)}
-                className="mb-2 text-xs"
-                autoFocus
-              />
-              <div className="mb-2">
-                <Checkbox
-                  id="all-sizes"
-                  checked={sizeFilter.length === 0}
-                  onCheckedChange={checked => {
-                    if (checked) setSizeFilter([]);
-                  }}
+        <div className="flex flex-wrap gap-2 items-center">
+          <Input
+            placeholder="Search by name, brand, SKU, or stock..."
+            value={globalFilter ?? ""}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            className="max-w-sm"
+          />
+          
+          {/* Size Filter - Always visible regardless of screen size */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="shrink-0 justify-between min-w-[140px]">
+                <span className="truncate">
+                  {sizeFilter.length === 0 ? "All Sizes" : sizeFilter.join(", ")}
+                </span>
+                <svg className="ml-2 h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none"><path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[220px] max-h-72 overflow-y-auto p-0">
+              <div className="px-2 py-1">
+                <Input
+                  placeholder="Search size..."
+                  value={sizeSearch}
+                  onChange={e => setSizeSearch(e.target.value)}
+                  className="mb-2 text-xs"
+                  autoFocus
                 />
-                <label htmlFor="all-sizes" className="ml-2 text-xs cursor-pointer select-none">All Sizes</label>
+                <div className="mb-2">
+                  <Checkbox
+                    id="all-sizes"
+                    checked={sizeFilter.length === 0}
+                    onCheckedChange={checked => {
+                      if (checked) setSizeFilter([]);
+                    }}
+                  />
+                  <label htmlFor="all-sizes" className="ml-2 text-xs cursor-pointer select-none">All Sizes</label>
+                </div>
               </div>
-            </div>
-            {Object.entries(sizeOptionsByCategory).map(([cat, sizes]) => (
-              <React.Fragment key={cat}>
-                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/50 sticky top-0 z-10">{cat}</div>
-                {sizes.filter(size => sizeSearch === "" || String(size).toLowerCase().includes(sizeSearch.toLowerCase())).map(size => {
-                  const checked = sizeFilter.includes(size);
-                  return (
-                    <div key={cat + "-" + size} className="flex items-center px-2 py-1 cursor-pointer hover:bg-muted/30 rounded">
-                      <Checkbox
-                        id={`size-${cat}-${size}`}
-                        checked={checked}
-                        onCheckedChange={checked => {
-                          if (checked) setSizeFilter(prev => [...prev, size]);
-                          else setSizeFilter(prev => prev.filter(s => s !== size));
-                        }}
-                      />
-                      <label htmlFor={`size-${cat}-${size}`} className="ml-2 text-xs cursor-pointer select-none">{size}</label>
+              {Object.entries(sizeOptionsByCategory).map(([cat, sizes]) => (
+                <React.Fragment key={cat}>
+                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/50 sticky top-0 z-10">{cat}</div>
+                  {sizes.filter(size => sizeSearch === "" || String(size).toLowerCase().includes(sizeSearch.toLowerCase())).map(size => {
+                    const checked = sizeFilter.includes(size);
+                    return (
+                      <div key={cat + "-" + size} className="flex items-center px-2 py-1 cursor-pointer hover:bg-muted/30 rounded">
+                        <Checkbox
+                          id={`size-${cat}-${size}`}
+                          checked={checked}
+                          onCheckedChange={checked => {
+                            if (checked) setSizeFilter(prev => [...prev, size]);
+                            else setSizeFilter(prev => prev.filter(s => s !== size));
+                          }}
+                        />
+                        <label htmlFor={`size-${cat}-${size}`} className="ml-2 text-xs cursor-pointer select-none">{size}</label>
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
+            </PopoverContent>
+          </Popover>
+          
+          {/* Other filters in filter button on mobile/tablet */}
+          {!isDesktop && (
+            <Popover open={showFiltersModal} onOpenChange={setShowFiltersModal}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="icon" className="shrink-0">
+                  <Filter className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-4" align="end">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">Filters</h3>
+                  <div className="space-y-2">
+                    {/* Brand Filter */}
+                    <div className="flex flex-col space-y-1">
+                      <label className="text-xs">Brand</label>
+                      <Select value={brandFilter} onValueChange={setBrandFilter}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="All Brands" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {brandOptions.map(brand => (
+                            <SelectItem key={brand} value={brand}>{brand === "all" ? "All Brands" : brand}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  );
-                })}
-              </React.Fragment>
-            ))}
-          </PopoverContent>
-        </Popover>
-        {/* Status Filter (existing) */}
-        <Select
-          value={(table.getColumn("status")?.getFilterValue() as string) ?? "all"}
-          onValueChange={(value) => table.getColumn("status")?.setFilterValue(value === "all" ? undefined : value)}
-        >
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="All Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="Available">Available</SelectItem>
-            <SelectItem value="Sold">Sold</SelectItem>
-            <SelectItem value="PullOut">PullOut</SelectItem>
-            <SelectItem value="Reserved">Reserved</SelectItem>
-            <SelectItem value="PreOrder">PreOrder</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+                    
+                    {/* Size Category Filter */}
+                    <div className="flex flex-col space-y-1">
+                      <label className="text-xs">Category</label>
+                      <Select value={sizeCategoryFilter} onValueChange={setSizeCategoryFilter}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="All Categories" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sizeCategoryOptions.map(category => (
+                            <SelectItem key={category} value={category}>
+                              {category === "all" ? "All Categories" : category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {/* Status Filter */}
+                    <div className="flex flex-col space-y-1">
+                      <label className="text-xs">Status</label>
+                      <Select
+                        value={(table.getColumn("status")?.getFilterValue() as string) ?? "all"}
+                        onValueChange={(value) => table.getColumn("status")?.setFilterValue(value === "all" ? undefined : value)}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="All Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="Available">Available</SelectItem>
+                          <SelectItem value="Sold">Sold</SelectItem>
+                          <SelectItem value="PullOut">PullOut</SelectItem>
+                          <SelectItem value="Reserved">Reserved</SelectItem>
+                          <SelectItem value="PreOrder">PreOrder</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
+
+        {isDesktop && (
+          <div className="flex gap-2 flex-wrap">
+            {/* Brand Filter */}
+            <Select value={brandFilter} onValueChange={setBrandFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="All Brands" />
+              </SelectTrigger>
+              <SelectContent>
+                {brandOptions.map(brand => (
+                  <SelectItem key={brand} value={brand}>{brand === "all" ? "All Brands" : brand}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {/* Size Category Filter */}
+            <Select value={sizeCategoryFilter} onValueChange={setSizeCategoryFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                {sizeCategoryOptions.map(category => (
+                  <SelectItem key={category} value={category}>
+                    {category === "all" ? "All Categories" : category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {/* Status Filter (existing) */}
+            <Select
+              value={(table.getColumn("status")?.getFilterValue() as string) ?? "all"}
+              onValueChange={(value) => table.getColumn("status")?.setFilterValue(value === "all" ? undefined : value)}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="Available">Available</SelectItem>
+                <SelectItem value="Sold">Sold</SelectItem>
+                <SelectItem value="PullOut">PullOut</SelectItem>
+                <SelectItem value="Reserved">Reserved</SelectItem>
+                <SelectItem value="PreOrder">PreOrder</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {/* Table with horizontal scroll */}

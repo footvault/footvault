@@ -691,14 +691,14 @@ export function ShoesVariantsTable() {
           </Select>
           {/* Status Filter (existing) */}
           <Select
-            value={(table.getColumn("status")?.getFilterValue() as string) ?? "all"}
-            onValueChange={(value) => table.getColumn("status")?.setFilterValue(value === "all" ? undefined : value)}
+            value={(table.getColumn("status")?.getFilterValue() as string) ?? "all status"}
+            onValueChange={(value) => table.getColumn("status")?.setFilterValue(value === "all status" ? undefined : value)}
           >
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="all status">All Status</SelectItem>
               <SelectItem value="Available">Available</SelectItem>
               <SelectItem value="Sold">Sold</SelectItem>
               <SelectItem value="PullOut">PullOut</SelectItem>
