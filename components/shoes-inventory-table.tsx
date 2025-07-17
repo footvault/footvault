@@ -405,14 +405,34 @@ export function ShoesInventoryTable() {
       },
       cell: (info) => {
         const product = info.row.original as Product;
-        const status = product.status;
+        const variants = rowVariants[product.id] || [];
+        const quantity = variants.length;
+        let status = product.status;
         let badgeVariant: any = "default";
-        if (status === "Sold") badgeVariant = "secondary";
-        else if (["PullOut", "Reserved", "PreOrder"].includes(status)) badgeVariant = "outline";
-        else if (status !== "Available" && status !== "In Stock") badgeVariant = "destructive";
+        if (quantity > 0) {
+          status = "In Stock";
+          badgeVariant = "success";
+        } else {
+          status = "Out of Stock";
+          badgeVariant = "destructive";
+        }
         return (
           <div className="min-w-[100px]">
-            <Badge variant={badgeVariant}>{status}</Badge>
+            <span
+  className={`
+    inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
+    shadow-sm transition-colors duration-200
+    ${
+      badgeVariant === "success"
+        ? "bg-green-100 text-green-800"
+        : badgeVariant === "destructive"
+        ? "bg-red-100 text-red-800"
+        : "bg-gray-100 text-gray-800"
+    }
+  `}
+>
+  {status}
+</span>
           </div>
         );
       },
@@ -480,14 +500,10 @@ export function ShoesInventoryTable() {
                   Delete
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => { if (productId) { window.open(`/products/${productId}/variants`, "_blank"); }}}>
+                    <Trash2 className="mr-2 h-4 w-4" />
                   View All Variants
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { if (productId) { window.open(`/sales?s=${productId}`, "_blank"); }}}>
-                  Sales History
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { if (productId) { window.open(`/sales/new?s=${productId}`, "_blank"); }}}>
-                  Sale
-                </DropdownMenuItem>
+               
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -518,7 +534,7 @@ export function ShoesInventoryTable() {
     },
     enableSorting: true,
     manualSorting: false, // Let react-table handle sorting
-  })
+  });
 
   return (
     <div className="space-y-4">
@@ -590,61 +606,61 @@ export function ShoesInventoryTable() {
             onChange={(e) => setGlobalFilter(e.target.value)}
             className="max-w-sm"
           />
-          
-          {/* Size Filter - Always visible regardless of screen size */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="shrink-0 justify-between min-w-[140px]">
-                <span className="truncate">
-                  {sizeFilter.length === 0 ? "All Sizes" : sizeFilter.join(", ")}
-                </span>
-                <svg className="ml-2 h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none"><path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[220px] max-h-72 overflow-y-auto p-0">
-              <div className="px-2 py-1">
-                <Input
-                  placeholder="Search size..."
-                  value={sizeSearch}
-                  onChange={e => setSizeSearch(e.target.value)}
-                  className="mb-2 text-xs"
-                  autoFocus
-                />
-                <div className="mb-2">
-                  <Checkbox
-                    id="all-sizes"
-                    checked={sizeFilter.length === 0}
-                    onCheckedChange={checked => {
-                      if (checked) setSizeFilter([]);
-                    }}
+          {/* Size Filter - Always visible regardless of screen size, but for desktop move before brand filter */}
+          {!isDesktop && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="shrink-0 justify-between min-w-[140px]">
+                  <span className="truncate">
+                    {sizeFilter.length === 0 ? "All Sizes" : sizeFilter.join(", ")}
+                  </span>
+                  <svg className="ml-2 h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none"><path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[220px] max-h-72 overflow-y-auto p-0">
+                <div className="px-2 py-1">
+                  <Input
+                    placeholder="Search size..."
+                    value={sizeSearch}
+                    onChange={e => setSizeSearch(e.target.value)}
+                    className="mb-2 text-xs"
+                    autoFocus
                   />
-                  <label htmlFor="all-sizes" className="ml-2 text-xs cursor-pointer select-none">All Sizes</label>
+                  <div className="mb-2">
+                    <Checkbox
+                      id="all-sizes"
+                      checked={sizeFilter.length === 0}
+                      onCheckedChange={checked => {
+                        if (checked) setSizeFilter([]);
+                      }}
+                    />
+                    <label htmlFor="all-sizes" className="ml-2 text-xs cursor-pointer select-none">All Sizes</label>
+                  </div>
                 </div>
-              </div>
-              {Object.entries(sizeOptionsByCategory).map(([cat, sizes]) => (
-                <React.Fragment key={cat}>
-                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/50 sticky top-0 z-10">{cat}</div>
-                  {sizes.filter(size => sizeSearch === "" || String(size).toLowerCase().includes(sizeSearch.toLowerCase())).map(size => {
-                    const checked = sizeFilter.includes(size);
-                    return (
-                      <div key={cat + "-" + size} className="flex items-center px-2 py-1 cursor-pointer hover:bg-muted/30 rounded">
-                        <Checkbox
-                          id={`size-${cat}-${size}`}
-                          checked={checked}
-                          onCheckedChange={checked => {
-                            if (checked) setSizeFilter(prev => [...prev, size]);
-                            else setSizeFilter(prev => prev.filter(s => s !== size));
-                          }}
-                        />
-                        <label htmlFor={`size-${cat}-${size}`} className="ml-2 text-xs cursor-pointer select-none">{size}</label>
-                      </div>
-                    );
-                  })}
-                </React.Fragment>
-              ))}
-            </PopoverContent>
-          </Popover>
-          
+                {Object.entries(sizeOptionsByCategory).map(([cat, sizes]) => (
+                  <React.Fragment key={cat}>
+                    <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/50 sticky top-0 z-10">{cat}</div>
+                    {sizes.filter(size => sizeSearch === "" || String(size).toLowerCase().includes(sizeSearch.toLowerCase())).map(size => {
+                      const checked = sizeFilter.includes(size);
+                      return (
+                        <div key={cat + "-" + size} className="flex items-center px-2 py-1 cursor-pointer hover:bg-muted/30 rounded">
+                          <Checkbox
+                            id={`size-${cat}-${size}`}
+                            checked={checked}
+                            onCheckedChange={checked => {
+                              if (checked) setSizeFilter(prev => [...prev, size]);
+                              else setSizeFilter(prev => prev.filter(s => s !== size));
+                            }}
+                          />
+                          <label htmlFor={`size-${cat}-${size}`} className="ml-2 text-xs cursor-pointer select-none">{size}</label>
+                        </div>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
+              </PopoverContent>
+            </Popover>
+          )}
           {/* Other filters in filter button on mobile/tablet */}
           {!isDesktop && (
             <Popover open={showFiltersModal} onOpenChange={setShowFiltersModal}>
@@ -671,7 +687,6 @@ export function ShoesInventoryTable() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
                     {/* Size Category Filter */}
                     <div className="flex flex-col space-y-1">
                       <label className="text-xs">Category</label>
@@ -688,7 +703,6 @@ export function ShoesInventoryTable() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
                     {/* Status Filter */}
                     <div className="flex flex-col space-y-1">
                       <label className="text-xs">Status</label>
@@ -718,6 +732,59 @@ export function ShoesInventoryTable() {
 
         {isDesktop && (
           <div className="flex gap-2 flex-wrap">
+            {/* Size Filter - move before Brand Filter for desktop */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="shrink-0 justify-between min-w-[140px]">
+                  <span className="truncate">
+                    {sizeFilter.length === 0 ? "All Sizes" : sizeFilter.join(", ")}
+                  </span>
+                  <svg className="ml-2 h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none"><path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[220px] max-h-72 overflow-y-auto p-0">
+                <div className="px-2 py-1">
+                  <Input
+                    placeholder="Search size..."
+                    value={sizeSearch}
+                    onChange={e => setSizeSearch(e.target.value)}
+                    className="mb-2 text-xs"
+                    autoFocus
+                  />
+                  <div className="mb-2">
+                    <Checkbox
+                      id="all-sizes"
+                      checked={sizeFilter.length === 0}
+                      onCheckedChange={checked => {
+                        if (checked) setSizeFilter([]);
+                      }}
+                    />
+                    <label htmlFor="all-sizes" className="ml-2 text-xs cursor-pointer select-none">All Sizes</label>
+                  </div>
+                </div>
+                {Object.entries(sizeOptionsByCategory).map(([cat, sizes]) => (
+                  <React.Fragment key={cat}>
+                    <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/50 sticky top-0 z-10">{cat}</div>
+                    {sizes.filter(size => sizeSearch === "" || String(size).toLowerCase().includes(sizeSearch.toLowerCase())).map(size => {
+                      const checked = sizeFilter.includes(size);
+                      return (
+                        <div key={cat + "-" + size} className="flex items-center px-2 py-1 cursor-pointer hover:bg-muted/30 rounded">
+                          <Checkbox
+                            id={`size-${cat}-${size}`}
+                            checked={checked}
+                            onCheckedChange={checked => {
+                              if (checked) setSizeFilter(prev => [...prev, size]);
+                              else setSizeFilter(prev => prev.filter(s => s !== size));
+                            }}
+                          />
+                          <label htmlFor={`size-${cat}-${size}`} className="ml-2 text-xs cursor-pointer select-none">{size}</label>
+                        </div>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
+              </PopoverContent>
+            </Popover>
             {/* Brand Filter */}
             <Select value={brandFilter} onValueChange={setBrandFilter}>
               <SelectTrigger className="w-[140px]">
@@ -729,7 +796,6 @@ export function ShoesInventoryTable() {
                 ))}
               </SelectContent>
             </Select>
-            
             {/* Size Category Filter */}
             <Select value={sizeCategoryFilter} onValueChange={setSizeCategoryFilter}>
               <SelectTrigger className="w-[140px]">
@@ -743,7 +809,6 @@ export function ShoesInventoryTable() {
                 ))}
               </SelectContent>
             </Select>
-            
             {/* Status Filter (existing) */}
             <Select
               value={(table.getColumn("status")?.getFilterValue() as string) ?? "all"}
@@ -783,11 +848,16 @@ export function ShoesInventoryTable() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="text-center h-24">
-                  Loading...
-                </TableCell>
-              </TableRow>
+              // Skeleton loader for table rows
+              Array.from({ length: 5 }).map((_, idx) => (
+                <TableRow key={idx}>
+                  {columns.map((col, colIdx) => (
+                    <TableCell key={colIdx} className="px-4 py-2">
+                      <div className="h-4 bg-gray-200 rounded animate-pulse w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
             ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => {
                 const product = row.original as Product;
@@ -901,18 +971,17 @@ export function ShoesInventoryTable() {
 
 
       {/* Edit Modal */}
-      {/* Edit Modal (replace with your Product edit modal if available) */}
-      {/* <EditProductModal
-        open={editModal.open}
-        product={editModal.product}
-        onClose={(updated) => {
-          setEditModal({ open: false })
-          if (updated) {
-            fetchProducts(); // Refresh the table data
+      {editModal.open && editModal.product && (
+        <EditProductModal
+          open={editModal.open}
+          product={editModal.product}
+          onOpenChange={(open) => setEditModal({ open, product: open ? editModal.product : undefined })}
+          onProductUpdated={async () => {
+            await fetchProducts();
             setSorting([]); // Reset sort
-          }
-        }}
-      /> */}
+          }}
+        />
+      )}
 
       {/* Delete Modal */}
       <ConfirmationModal

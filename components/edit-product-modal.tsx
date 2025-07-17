@@ -29,7 +29,7 @@ export default function EditProductModal({
     category: product.category || "",
     original_price: product.original_price ?? product.originalPrice ?? 0,
     sale_price: product.sale_price ?? product.salePrice ?? 0,
-    status: product.status || "",
+   
     image: product.image || "",
     size_category: product.size_category ?? product.sizeCategory ?? "",
   });
@@ -91,7 +91,7 @@ export default function EditProductModal({
               { name: "category", label: "Category" },
               { name: "original_price", label: "Original Price", type: "number" },
               { name: "sale_price", label: "Sale Price", type: "number" },
-              { name: "status", label: "Status" },
+             
               { name: "image", label: "Image URL" },
             ].map(({ name, label, type = "text" }) => (
               <div key={name} className="space-y-1">
