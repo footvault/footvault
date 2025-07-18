@@ -340,8 +340,9 @@ export function SalesClientWrapper({
             <div className="overflow-x-auto">
               
               <SalesList sales={filteredSales}
+              onRefunded={fetchSalesFromApi}
               // @ts-ignore
-                onSelectSale={handleViewDetails} />
+              onSelectSale={handleViewDetails} />
             </div>
           )}
         </CardContent>

@@ -56,6 +56,7 @@ interface DatabaseSale {
   payment_type?: string | null;
   sale_items: DatabaseSaleItem[];
   sale_profit_distributions: DatabaseProfitDistribution[];
+  status?: string; // <-- add status field
 }
 
 export async function GET(request: Request) {
@@ -160,6 +161,7 @@ export async function GET(request: Request) {
       updated_at: sale.updated_at,
       sales_no: sale.sales_no ?? null,
       payment_type: sale.payment_type ?? null,
+      status: sale.status || 'completed',
       items: (sale.sale_items || []).map((item: DatabaseSaleItem) => {
         const variant = item.variant;
         const product = variant && variant.product;

@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { createClient } from "@/lib/supabase/client"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Eye, Trash2 } from "lucide-react"
+import { MoreHorizontal, Eye, Trash2, RotateCcw } from "lucide-react"
 import type { Sale } from "@/lib/types"
 import { SaleDetailModal } from "./sale-detail-modal"
 import { ConfirmationModal } from "./confirmation-modal"
@@ -15,15 +16,57 @@ import { useCurrency } from "@/context/CurrencyContext"
 
 interface SalesListProps {
   sales: Sale[]
+  onRefunded?: () => void // Optional callback to refresh sales after refund
 }
 
-const SalesList: React.FC<SalesListProps> = ({ sales }) => {
+const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded }) => {
   const { currency } = useCurrency()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
   const [saleToDelete, setSaleToDelete] = useState<string | null>(null)
+  const [saleToRefund, setSaleToRefund] = useState<string | null>(null)
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
+  const handleRefundClick = (saleId: string) => {
+    setSaleToRefund(saleId)
+    setIsRefundModalOpen(true)
+  }
+
+  const handleConfirmRefund = async () => {
+    if (!saleToRefund) return;
+    const supabase = createClient();
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.error("[Refund Debug] No user session or access token");
+        return;
+      }
+      const res = await fetch("/api/refund-sale", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ saleId: saleToRefund }),
+      });
+      const result = await res.json();
+      console.log("[Refund Debug] API response:", result); // Debug log
+      if (result.success) {
+        // Optionally log the updated sale status if returned
+        if (result.sale) {
+          console.log("[Refund Debug] Updated sale:", result.sale);
+        }
+        if (onRefunded) onRefunded(); // Call parent to refresh sales
+      } else {
+        console.error("[Refund Debug] Failed:", result.error);
+      }
+    } catch (err) {
+      console.error("[Refund Debug] Error refunding:", err);
+    }
+    setIsRefundModalOpen(false);
+    setSaleToRefund(null);
+  }
 
   const [page, setPage] = useState(1)
   const pageSize = 10
@@ -147,6 +190,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales }) => {
               <TableHead>Phone</TableHead>
               <TableHead>Items</TableHead>
               <TableHead>Payment Type</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead className="text-right cursor-pointer select-none" onClick={() => {
                 if (sortBy === 'total') setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
                 else { setSortBy('total'); setSortDir('desc'); }
@@ -217,6 +261,21 @@ const SalesList: React.FC<SalesListProps> = ({ sales }) => {
                       )}
                     </TableCell>
                     <TableCell>{paymentTypeName}</TableCell>
+                    <TableCell>
+                      {sale.status ? (
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                          sale.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          sale.status === 'refunded' ? 'bg-yellow-100 text-yellow-800' :
+                          sale.status === 'voided' ? 'bg-gray-200 text-gray-700' :
+                          sale.status === 'downpayment' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {sale.status.charAt(0).toUpperCase() + sale.status.slice(1)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 italic">N/A</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right font-medium">
                       {formatCurrency(sale.total_amount, currency)}
                     </TableCell>
@@ -234,6 +293,13 @@ const SalesList: React.FC<SalesListProps> = ({ sales }) => {
                           <DropdownMenuItem onClick={() => handleViewDetails(sale)}>
                             <Eye className="h-4 w-4 mr-2" />
                             View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleRefundClick(sale.id)}
+                            className="text-yellow-600"
+                          >
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Refund Sale
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleDeleteClick(sale.id)}
@@ -287,6 +353,14 @@ const SalesList: React.FC<SalesListProps> = ({ sales }) => {
         />
       )}
 
+      <ConfirmationModal
+        open={isRefundModalOpen}
+        onOpenChange={setIsRefundModalOpen}
+        title="Confirm Refund"
+        description="Are you sure you want to refund this sale? This will mark the sale as refunded, return items to inventory, and remove profit distributions. This action cannot be undone."
+        onConfirm={handleConfirmRefund}
+        isConfirming={false}
+      />
       <ConfirmationModal
         open={isConfirmModalOpen}
         onOpenChange={setIsConfirmModalOpen}
