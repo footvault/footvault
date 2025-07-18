@@ -17,9 +17,10 @@ import { useCurrency } from "@/context/CurrencyContext"
 interface SalesListProps {
   sales: Sale[]
   onRefunded?: () => void // Optional callback to refresh sales after refund
+  onDeleted?: () => void // Optional callback to refresh sales after deletion
 }
 
-const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded }) => {
+const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) => {
   const { currency } = useCurrency()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
@@ -29,6 +30,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded }) => {
   const [saleToRefund, setSaleToRefund] = useState<string | null>(null)
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
   const [isRefunding, setIsRefunding] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const handleRefundClick = (saleId: string) => {
     setSaleToRefund(saleId)
     setIsRefundModalOpen(true)
@@ -140,23 +142,41 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded }) => {
 
   const handleConfirmDelete = async () => {
     if (!saleToDelete) return
+    setIsDeleting(true)
+    const supabase = createClient()
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        console.error("No user session or access token")
+        return
+      }
       const res = await fetch("/api/delete-sale", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({ saleId: saleToDelete }),
       })
       const result = await res.json()
       if (result.success) {
         console.log("Deleted!")
+        // Call parent to refresh sales and wait for it to complete
+        if (onDeleted) {
+          // Small delay to ensure database changes are propagated
+          await new Promise(resolve => setTimeout(resolve, 500))
+          await onDeleted() // Wait for the refresh to complete
+        }
       } else {
         console.error("Failed:", result.error)
       }
     } catch (err) {
       console.error("Error deleting:", err)
+    } finally {
+      setIsDeleting(false)
+      setIsConfirmModalOpen(false)
+      setSaleToDelete(null)
     }
-    setIsConfirmModalOpen(false)
-    setSaleToDelete(null)
   }
 
   return (
@@ -376,7 +396,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded }) => {
         title="Confirm Deletion"
         description="Are you sure you want to delete this sale? This action cannot be undone."
         onConfirm={handleConfirmDelete}
-        isConfirming={false}
+        isConfirming={isDeleting}
       />
     </div>
   )

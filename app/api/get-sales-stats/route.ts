@@ -44,8 +44,9 @@ export async function GET(request: Request) {
     // Build the query
     let query = authenticatedSupabase
       .from('sales')
-      .select('total_amount, net_profit, sale_date')
-      .eq('user_id', user.id);
+      .select('total_amount, net_profit, sale_date, status')
+      .eq('user_id', user.id)
+      .neq('status', 'refunded'); // Exclude refunded sales
 
     if (fromDate) {
       query = query.gte('sale_date', fromDate.split('T')[0]);

@@ -59,6 +59,37 @@ export function SalesClientWrapper({
   const [userPlan, setUserPlan] = useState<string | null>(null);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
 
+  // Function to calculate avatar profits from sales data
+  const calculateAvatarProfits = (salesData: Sale[], avatarData: Avatar[]) => {
+    const avatarProfitMap = new Map<string, {
+      avatarUrl: string;
+      name: string;
+      profit: number;
+    }>();
+
+    avatarData.forEach(avatar => {
+      avatarProfitMap.set(avatar.id, {
+        avatarUrl: avatar.image || '/placeholder.svg',
+        name: avatar.name,
+        profit: 0
+      });
+    });
+
+    // Filter out refunded sales
+    const nonRefundedSales = salesData.filter(sale => sale.status !== 'refunded');
+
+    nonRefundedSales.forEach(sale => {
+      (sale.profitDistribution || []).forEach((dist: any) => {
+        const currentProfit = avatarProfitMap.get(dist.avatar?.id);
+        if (currentProfit && dist.amount) {
+          currentProfit.profit += Number(dist.amount);
+        }
+      });
+    });
+
+    return Array.from(avatarProfitMap.values());
+  };
+
   // Function to handle date range changes from SalesStatsCard
   const handleDateRangeChange = (startDate: Date | null, endDate: Date | null) => {
     setDateRange({ from: startDate, to: endDate })
@@ -123,6 +154,9 @@ export function SalesClientWrapper({
       if (result.success && result.data) {
         console.log('Fetched sales from API:', result.data);
         setSales(result.data);
+        // Recalculate avatar profits with the updated sales data
+        const updatedAvatarProfits = calculateAvatarProfits(result.data, avatars);
+        setAvatarProfits(updatedAvatarProfits);
       } else {
         console.error('Failed to fetch sales:', result.error);
       }
@@ -150,6 +184,9 @@ export function SalesClientWrapper({
         const { success, data: refreshedAvatars, error: avatarError } = await response.json()
         if (success && refreshedAvatars) {
           setAvatars(refreshedAvatars)
+          // Recalculate avatar profits with updated avatars
+          const updatedAvatarProfits = calculateAvatarProfits(sales, refreshedAvatars);
+          setAvatarProfits(updatedAvatarProfits);
         } else {
           console.error("Failed to refresh avatars:", avatarError)
         }
@@ -202,7 +239,9 @@ export function SalesClientWrapper({
       }
       if (refreshedSales) {
         setSales(refreshedSales)
-       
+        // Recalculate avatar profits with updated sales data
+        const updatedAvatarProfits = calculateAvatarProfits(refreshedSales, avatars);
+        setAvatarProfits(updatedAvatarProfits);
       } else {
         console.error("Failed to refresh sales after management data update:", salesError)
       }
@@ -341,6 +380,7 @@ export function SalesClientWrapper({
               
               <SalesList sales={filteredSales}
               onRefunded={fetchSalesFromApi}
+              onDeleted={fetchSalesFromApi}
               // @ts-ignore
               onSelectSale={handleViewDetails} />
             </div>
