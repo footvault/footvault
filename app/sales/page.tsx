@@ -156,11 +156,25 @@ export default async function SalesPage() {
   const initialAvatarProfits = await calculateAvatarProfits(initialSales, initialAvatars);
 
   return (
-    <SalesClientWrapper
+     <SidebarInset>
+          {" "}
+          {/* Wrap content with SidebarInset */}
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+            <SidebarTrigger className="-ml-1 hidden md:flex" /> {/* Add SidebarTrigger for desktop */}
+            <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" /> {/* Add separator */}
+            <h1 className="text-xl font-semibold">Sales</h1>
+          </header>
+          <div className="max-w-7xl mx-auto px-4 py-8 w-full">
+            <div className="container mx-auto py-8">
+              <SalesClientWrapper
       initialSales={initialSales}
       initialAvatars={initialAvatars}
       initialProfitTemplates={initialProfitTemplates}
       initialAvatarProfits={initialAvatarProfits}
     />
+            </div>
+          </div>
+        </SidebarInset>
+   
   );
 }
