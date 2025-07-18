@@ -43,6 +43,7 @@ interface DatabaseProfitDistribution {
 }
 
 interface DatabaseSale {
+  sales_no: null;
   id: string;
   sale_date: string;
   total_amount: number;
@@ -52,6 +53,7 @@ interface DatabaseSale {
   customer_phone: string | null;
   created_at: string;
   updated_at: string;
+  payment_type?: string | null;
   sale_items: DatabaseSaleItem[];
   sale_profit_distributions: DatabaseProfitDistribution[];
 }
@@ -92,7 +94,17 @@ export async function GET(request: Request) {
     const { data: sales, error: salesError } = await authenticatedSupabase
       .from('sales')
       .select(`
-        *,
+        id,
+        sale_date,
+        total_amount,
+        total_discount,
+        net_profit,
+        customer_name,
+        customer_phone,
+        created_at,
+        updated_at,
+        sales_no,
+        payment_type,
         sale_items (
           id,
           sold_price,
@@ -136,7 +148,7 @@ export async function GET(request: Request) {
     }
 
     // Transform the data to match the expected format
-    const transformedSales = (sales as DatabaseSale[] | null)?.map(sale => ({
+    const transformedSales = (sales as unknown as DatabaseSale[] | null)?.map(sale => ({
       id: sale.id,
       sale_date: sale.sale_date,
       total_amount: sale.total_amount,
@@ -146,6 +158,8 @@ export async function GET(request: Request) {
       customer_phone: sale.customer_phone || '',
       created_at: sale.created_at,
       updated_at: sale.updated_at,
+      sales_no: sale.sales_no ?? null,
+      payment_type: sale.payment_type ?? null,
       items: (sale.sale_items || []).map((item: DatabaseSaleItem) => {
         const variant = item.variant;
         const product = variant && variant.product;

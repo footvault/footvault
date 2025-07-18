@@ -7,6 +7,7 @@ import { ShoppingCart, Trash2 } from "lucide-react"
 import Image from "next/image"
 import { formatCurrency } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
+import { useState } from "react"
 
 interface TransformedVariant {
   id: string;
@@ -33,8 +34,11 @@ interface CheckoutCartProps {
 }
 
 export function CheckoutCart({ selectedVariants, onRemove }: CheckoutCartProps) {
+  const { currency } = useCurrency();
 
-  const { currency } = useCurrency(); // Get the user's selected currency
+
+  // Calculate total
+  const total = selectedVariants.reduce((sum, v) => sum + v.productSalePrice, 0);
 
   return (
     <Card>
@@ -44,6 +48,9 @@ export function CheckoutCart({ selectedVariants, onRemove }: CheckoutCartProps) 
         </CardTitle>
       </CardHeader>
       <CardContent>
+
+
+        {/* Cart Items */}
         {selectedVariants.length === 0 ? (
           <p className="text-center text-gray-500 py-8">No items in cart</p>
         ) : (
@@ -88,6 +95,14 @@ export function CheckoutCart({ selectedVariants, onRemove }: CheckoutCartProps) 
             ))}
           </ul>
         )}
+
+        {/* Payment summary */}
+        <div className="mt-6 border-t pt-4 space-y-2">
+          <div className="flex justify-between text-sm font-medium">
+            <span>Subtotal:</span>
+            <span>{formatCurrency(total, currency)}</span>
+          </div>
+        </div>
       </CardContent>
     </Card>
   )

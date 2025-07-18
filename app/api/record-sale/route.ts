@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     console.log('Request body:', body);
-    const { saleDate, totalAmount, totalDiscount, netProfit, customerName, customerPhone, items, profitDistribution } = body;
+    const { saleDate, totalAmount, totalDiscount, netProfit, customerName, customerPhone, items, profitDistribution, paymentType } = body;
 
     // Get user from token for RLS
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     }
     console.log('User:', user.id);
 
-    // Insert sale with user_id and correct fields
+    // Insert sale with user_id and correct fields, including payment_type JSONB
     const saleInsert = {
       sale_date: saleDate,
       total_amount: totalAmount,
@@ -37,7 +37,8 @@ export async function POST(request: Request) {
       net_profit: netProfit,
       customer_name: customerName,
       customer_phone: customerPhone,
-      user_id: user.id
+      user_id: user.id,
+      payment_type: paymentType || null
     };
     console.log('Inserting sale:', saleInsert);
     const { data: saleData, error: saleError } = await supabase

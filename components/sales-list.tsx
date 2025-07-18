@@ -28,9 +28,12 @@ const SalesList: React.FC<SalesListProps> = ({ sales }) => {
   const [page, setPage] = useState(1)
   const pageSize = 10
        
-  const formatCustomId = (n: number) => `#${n.toString().padStart(3, "0")}`
+  const formatSalesNo = (n: number | null | undefined) => n != null ? `#${n.toString().padStart(3, "0")}` : "#---";
 
-  // Filter and sort sales by date ascending (oldest first)
+  // Sorting state: by sales_no (default), can toggle asc/desc
+  const [sortBy, setSortBy] = useState<'sales_no' | 'date' | 'total' | 'profit'>('sales_no');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
   const filteredAndSortedSales = useMemo(() => {
     let filtered = sales;
     if (searchTerm) {
@@ -46,9 +49,29 @@ const SalesList: React.FC<SalesListProps> = ({ sales }) => {
         )
       );
     }
-    // Sort by sale_date ascending (oldest first)
-    return [...filtered].sort((a, b) => new Date(a.sale_date).getTime() - new Date(b.sale_date).getTime());
-  }, [sales, searchTerm]);
+    // Sort by selected column
+    return [...filtered].sort((a, b) => {
+      if (sortBy === 'sales_no') {
+        if (a.sales_no == null && b.sales_no == null) return 0;
+        if (a.sales_no == null) return 1;
+        if (b.sales_no == null) return -1;
+        return sortDir === 'desc' ? b.sales_no - a.sales_no : a.sales_no - b.sales_no;
+      } else if (sortBy === 'date') {
+        return sortDir === 'desc'
+          ? new Date(b.sale_date).getTime() - new Date(a.sale_date).getTime()
+          : new Date(a.sale_date).getTime() - new Date(b.sale_date).getTime();
+      } else if (sortBy === 'total') {
+        return sortDir === 'desc'
+          ? (b.total_amount ?? 0) - (a.total_amount ?? 0)
+          : (a.total_amount ?? 0) - (b.total_amount ?? 0);
+      } else if (sortBy === 'profit') {
+        return sortDir === 'desc'
+          ? (b.net_profit ?? 0) - (a.net_profit ?? 0)
+          : (a.net_profit ?? 0) - (b.net_profit ?? 0);
+      }
+      return 0;
+    });
+  }, [sales, searchTerm, sortBy, sortDir]);
 
   const totalPages = Math.ceil(filteredAndSortedSales.length / pageSize);
   const paginatedSales = filteredAndSortedSales.slice((page - 1) * pageSize, page * pageSize);
@@ -102,13 +125,46 @@ const SalesList: React.FC<SalesListProps> = ({ sales }) => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Sale #</TableHead>
-              <TableHead>Date</TableHead>
+            <TableHead className="cursor-pointer select-none" onClick={() => {
+                if (sortBy === 'sales_no') setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
+                else { setSortBy('sales_no'); setSortDir('desc'); }
+              }}>
+                Sale #
+                {sortBy === 'sales_no' && (
+                  <span className="ml-1" style={{ fontWeight: 'bold' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>
+                )}
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => {
+                if (sortBy === 'date') setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
+                else { setSortBy('date'); setSortDir('desc'); }
+              }}>
+                Date
+                {sortBy === 'date' && (
+                  <span className="ml-1" style={{ fontWeight: 'bold' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>
+                )}
+              </TableHead>
               <TableHead>Customer</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Items</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-              <TableHead className="text-right">Profit</TableHead>
+              <TableHead>Payment Type</TableHead>
+              <TableHead className="text-right cursor-pointer select-none" onClick={() => {
+                if (sortBy === 'total') setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
+                else { setSortBy('total'); setSortDir('desc'); }
+              }}>
+                Total
+                {sortBy === 'total' && (
+                  <span className="ml-1" style={{ fontWeight: 'bold' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>
+                )}
+              </TableHead>
+              <TableHead className="text-right cursor-pointer select-none" onClick={() => {
+                if (sortBy === 'profit') setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
+                else { setSortBy('profit'); setSortDir('desc'); }
+              }}>
+                Profit
+                {sortBy === 'profit' && (
+                  <span className="ml-1" style={{ fontWeight: 'bold' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>
+                )}
+              </TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -121,9 +177,21 @@ const SalesList: React.FC<SalesListProps> = ({ sales }) => {
               </TableRow>
             ) : (
               paginatedSales.map((sale) => {
-                // Find the index of this sale in the full sorted list for correct customId
-                const sortedIndex = filteredAndSortedSales.findIndex(s => s.id === sale.id);
-                const customId = sale.sales_custom_id || formatCustomId(sortedIndex + 1);
+                // Use sales_no for Sale #
+                const customId = formatSalesNo(sale.sales_no);
+                // Payment type name fallback logic
+                let paymentTypeName = "";
+                if (sale.payment_type && typeof sale.payment_type === "object" && sale.payment_type.name) {
+                  paymentTypeName = sale.payment_type.name;
+                } else if (typeof sale.payment_type === "string" && sale.payment_type.toLowerCase() === "cash") {
+                  paymentTypeName = "Cash";
+                } else if (sale.payment_type_name) {
+                  paymentTypeName = sale.payment_type_name;
+                } else if (!sale.payment_type) {
+                  paymentTypeName = "Cash";
+                } else {
+                  paymentTypeName = sale.payment_type;
+                }
                 return (
                   <TableRow key={sale.id}>
                     <TableCell className="font-mono text-sm">{customId}</TableCell>
@@ -148,6 +216,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales }) => {
                         <span className="text-gray-400 italic">No items</span>
                       )}
                     </TableCell>
+                    <TableCell>{paymentTypeName}</TableCell>
                     <TableCell className="text-right font-medium">
                       {formatCurrency(sale.total_amount, currency)}
                     </TableCell>
@@ -157,7 +226,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales }) => {
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button size="icon" variant="ghost">
+                          <Button size="icon" variant="ghost" className="visible">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -214,7 +283,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales }) => {
         <SaleDetailModal
           open={isDetailModalOpen}
           onOpenChange={setIsDetailModalOpen}
-          sale={selectedSale}
+          sale={{ ...selectedSale, items: selectedSale.items || [] }}
         />
       )}
 
@@ -224,8 +293,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales }) => {
         title="Confirm Deletion"
         description="Are you sure you want to delete this sale? This action cannot be undone."
         onConfirm={handleConfirmDelete}
-        confirmText="Delete"
-        cancelText="Cancel"
+        isConfirming={false}
       />
     </div>
   )

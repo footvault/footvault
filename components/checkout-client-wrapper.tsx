@@ -10,8 +10,9 @@ import { Label } from "@/components/ui/label"
 import { Search, Plus, X, DollarSign, Loader2, CheckCircle, User } from "lucide-react"
 import Image from "next/image"
 import { CheckoutCart } from "@/components/checkout-cart"
+import { useEffect } from "react"
 import { ProfitDistributionCalculator } from "@/components/profit-distribution-calculator"
-import { recordSale, getAllAvailableVariantsForClient } from "@/app/actions"
+
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { Avatar, ProfitDistributionTemplateDetail } from "@/lib/types"
@@ -112,9 +113,114 @@ export function CheckoutClientWrapper({
     setSelectedVariants((prev) => prev.filter((v) => v.id !== variantId))
   }
 
+
+
+  // Payment type state (API-driven)
+  const [paymentTypes, setPaymentTypes] = useState<any[]>([{ id: 'cash', name: "Cash", feeType: "none", feeValue: 0, appliesTo: "profit" }]);
+  const [selectedPaymentType, setSelectedPaymentType] = useState<string>("cash");
+  const [newPaymentName, setNewPaymentName] = useState("");
+  const [newFeeType, setNewFeeType] = useState("percent");
+  const [newFeeValue, setNewFeeValue] = useState(0);
+  const [newAppliesTo, setNewAppliesTo] = useState("profit");
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  const [editPaymentName, setEditPaymentName] = useState("");
+  const [editFeeType, setEditFeeType] = useState("percent");
+  const [editFeeValue, setEditFeeValue] = useState(0);
+  const [editAppliesTo, setEditAppliesTo] = useState("profit");
+  const [loadingPayments, setLoadingPayments] = useState(false);
+        // For delete confirmation modal
+        const [deleteModalId, setDeleteModalId] = useState<string | null>(null);
+
+  // Find selected payment type object
+  const selectedPayment = paymentTypes.find(pt => pt.id === selectedPaymentType) || paymentTypes[0];
+
+  // Fetch payment types from API
+  useEffect(() => {
+    const fetchPayments = async () => {
+      setLoadingPayments(true);
+      try {
+        const res = await fetch("/api/payment-types");
+        const result = await res.json();
+        if (result.data) {
+          setPaymentTypes([
+            { id: 'cash', name: "Cash", feeType: "none", feeValue: 0, appliesTo: "profit" },
+            ...result.data.map((pt: any) => ({
+              id: pt.id,
+              name: pt.name,
+              feeType: pt.fee_type,
+              feeValue: pt.fee_value,
+              appliesTo: pt.applies_to || "profit"
+            }))
+          ]);
+        }
+      } catch (e) {
+        // fallback to cash only
+        setPaymentTypes([{ id: 'cash', name: "Cash", feeType: "none", feeValue: 0, appliesTo: "profit" }]);
+      } finally {
+        setLoadingPayments(false);
+      }
+    };
+    fetchPayments();
+  }, []);
+
+  // Add new payment type via API
+  const handleAddPaymentType = async () => {
+    if (!newPaymentName.trim()) return;
+    const body = { name: newPaymentName.trim(), fee_type: newFeeType, fee_value: Number(newFeeValue), applies_to: newAppliesTo };
+    const res = await fetch("/api/payment-types", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const result = await res.json();
+    if (result.data) {
+      setPaymentTypes(prev => [...prev, { id: result.data.id, name: result.data.name, feeType: result.data.fee_type, feeValue: result.data.fee_value, appliesTo: result.data.applies_to || "profit" }]);
+      setSelectedPaymentType(result.data.id);
+      setNewPaymentName("");
+      setNewFeeType("percent");
+      setNewFeeValue(0);
+      setNewAppliesTo("profit");
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to add payment type.", variant: "destructive" });
+    }
+  };
+
+  // Edit payment type via API
+  const handleEditPaymentType = async (id: string) => {
+    if (!editPaymentName.trim()) return;
+    const body = { id, name: editPaymentName.trim(), fee_type: editFeeType, fee_value: Number(editFeeValue), applies_to: editAppliesTo };
+    const res = await fetch("/api/payment-types", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const result = await res.json();
+    if (result.data) {
+      setPaymentTypes(prev => prev.map(pt => pt.id === id ? { id, name: result.data.name, feeType: result.data.fee_type, feeValue: result.data.fee_value, appliesTo: result.data.applies_to || "profit" } : pt));
+      setEditingPaymentId(null);
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to update payment type.", variant: "destructive" });
+    }
+  };
+
+  // Delete payment type via API
+  const handleDeletePaymentType = async (id: string) => {
+    setDeleteModalId(id);
+    const res = await fetch("/api/payment-types", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    const result = await res.json();
+    if (result.success) {
+      setPaymentTypes(prev => prev.filter(pt => pt.id !== id));
+      if (selectedPaymentType === id) setSelectedPaymentType("cash");
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to delete payment type.", variant: "destructive" });
+    }
+  };
+
   const subtotal = useMemo(() => {
     return selectedVariants.reduce((sum, variant) => sum + variant.productSalePrice, 0)
   }, [selectedVariants])
+
+  // Payment fee calculation
+  let paymentFee = 0;
+  if (selectedPayment.feeType === "percent") {
+    paymentFee = subtotal * (selectedPayment.feeValue / 100);
+  } else if (selectedPayment.feeType === "fixed") {
+    paymentFee = selectedPayment.feeValue;
+  }
+  // Applies to: profit or cost
+  const paymentFeeAppliesTo = selectedPayment.appliesTo || "profit";
 
   const calculatedDiscount = useMemo(() => {
     if (discountType === "percentage") {
@@ -124,18 +230,32 @@ export function CheckoutClientWrapper({
     }
   }, [subtotal, discountType, discountValue])
 
-  const totalAmount = useMemo(() => {
-    return subtotal - calculatedDiscount
-  }, [subtotal, calculatedDiscount])
 
+  // Total amount due from customer: subtotal minus discount (add payment fee if applies to cost)
+  const totalAmount = useMemo(() => {
+    let total = subtotal - calculatedDiscount;
+    if (paymentFeeAppliesTo === "cost") {
+      total += paymentFee;
+    }
+    return total;
+  }, [subtotal, calculatedDiscount, paymentFee, paymentFeeAppliesTo]);
+
+  // Cost and profit calculations, payment fee can apply to cost or profit
   const totalCost = useMemo(() => {
-    return selectedVariants.reduce((sum, variant) => sum + variant.productOriginalPrice, 0)
-  }, [selectedVariants])
+    let baseCost = selectedVariants.reduce((sum, variant) => sum + variant.productOriginalPrice, 0);
+    if (paymentFeeAppliesTo === "cost") {
+      baseCost += paymentFee;
+    }
+    return baseCost;
+  }, [selectedVariants, paymentFee, paymentFeeAppliesTo]);
 
   const netProfit = useMemo(() => {
-    // PROFIT CALCULATION: sum of (sale_price - original_price) for each item, where original_price is the cost
-    return selectedVariants.reduce((sum, variant) => sum + (variant.productSalePrice - variant.productOriginalPrice), 0)
-  }, [selectedVariants])
+    let baseProfit = selectedVariants.reduce((sum, variant) => sum + (variant.productSalePrice - variant.productOriginalPrice), 0);
+    if (paymentFeeAppliesTo === "profit") {
+      baseProfit -= paymentFee;
+    }
+    return baseProfit;
+  }, [selectedVariants, paymentFee, paymentFeeAppliesTo]);
 
   const handleConfirmSale = async (profitDistribution: { avatarId: string; percentage: number; amount: number }[]) => {
     startConfirmSaleTransition(async () => {
@@ -152,6 +272,16 @@ export function CheckoutClientWrapper({
       console.log("Items being sent to recordSale:", items)
       // --- END CONSOLE LOG ---
 
+      // Compose payment type JSON for new sales.payment_type jsonb column
+      const paymentTypeJson = {
+        id: selectedPaymentType,
+        name: selectedPayment.name,
+        feeType: selectedPayment.feeType,
+        feeValue: selectedPayment.feeValue,
+        feeAmount: paymentFee,
+        appliesTo: paymentFeeAppliesTo
+      };
+
       const payload = {
         saleDate,
         totalAmount,
@@ -161,6 +291,7 @@ export function CheckoutClientWrapper({
         profitDistribution,
         customerName, // Add customer name
         customerPhone, // Add customer phone
+        paymentType: paymentTypeJson, // Save as JSONB
       }
 
       try {
@@ -276,6 +407,8 @@ export function CheckoutClientWrapper({
   const safeToFixed = (value: number | undefined, decimals: number = 2) => {
     return value !== undefined ? value.toFixed(decimals) : "0.00"
   }
+
+  // Remove setDeleteModalId, use handleDeletePaymentType directly
 
   return (
     <>
@@ -434,6 +567,7 @@ export function CheckoutClientWrapper({
                 </div>
               </CardContent>
             </Card>
+
             <CheckoutCart selectedVariants={selectedVariants} onRemove={handleRemoveVariantFromCart} />
 
             <Card>
@@ -443,6 +577,148 @@ export function CheckoutClientWrapper({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Payment Type Dropdown */}
+                <div className="mb-2">
+                  <Label className="block text-sm font-medium mb-1">Payment Type</Label>
+                  <Select value={selectedPaymentType} onValueChange={value => setSelectedPaymentType(value)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select payment type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentTypes.map(pt => (
+                        <div key={pt.id} className="flex items-center justify-between group">
+                          <SelectItem value={pt.id} className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span>{pt.name}</span>
+                              {pt.feeType !== "none" && (
+                                <span className="text-xs text-gray-500">{pt.feeType === "percent" ? `${pt.feeValue}%` : `₱${pt.feeValue}`}</span>
+                              )}
+                            </div>
+                          </SelectItem>
+                          {pt.id !== 'cash' && (
+                            <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button size="sm" variant="ghost" onClick={e => {
+                                e.stopPropagation();
+                                setEditingPaymentId(pt.id);
+                                setEditPaymentName(pt.name);
+                                setEditFeeType(pt.feeType);
+                                setEditFeeValue(pt.feeValue);
+                                setEditAppliesTo(pt.appliesTo || "profit");
+                                setSelectedPaymentType(pt.id); // close dropdown
+                              }}>
+                                Edit
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-red-500" onClick={e => {
+                                e.stopPropagation();
+                                setDeleteModalId(pt.id);
+                              }}>
+                                Delete
+                              </Button>
+      {/* Payment type delete confirmation modal */}
+      <ConfirmationModal
+        open={!!deleteModalId}
+        onOpenChange={open => {
+          if (!open) setDeleteModalId(null);
+        }}
+        title="Delete Payment Type"
+        description="Are you sure you want to delete this payment type? This action cannot be undone."
+        onConfirm={() => deleteModalId && handleDeletePaymentType(deleteModalId)}
+        isConfirming={false}
+      />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      <SelectItem value="__add_new__" className="text-blue-600">+ Add new...</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {selectedPaymentType === "__add_new__" && (
+                    <div className="mt-2 flex flex-col gap-2 border p-2 rounded bg-muted">
+                      <Input
+                        className="border rounded px-2 py-1"
+                        placeholder="Payment Name (e.g. GCash, Card)"
+                        value={newPaymentName}
+                        onChange={e => setNewPaymentName(e.target.value)}
+                      />
+                      <div className="flex gap-2 items-center flex-wrap">
+                        <label className="text-xs">Fee Type:</label>
+                        <Select value={newFeeType} onValueChange={setNewFeeType}>
+                          <SelectTrigger className="w-[120px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="percent">Percent (%)</SelectItem>
+                            <SelectItem value="fixed">Fixed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          className="border rounded px-2 py-1 w-24"
+                          type="number"
+                          min={0}
+                          value={newFeeValue}
+                          onChange={e => setNewFeeValue(Number(e.target.value))}
+                          placeholder={newFeeType === "percent" ? "%" : currency}
+                        />
+                        <label className="text-xs ml-2">Affects:</label>
+                        <Select value={newAppliesTo} onValueChange={setNewAppliesTo}>
+                          <SelectTrigger className="w-[100px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="profit">Profit</SelectItem>
+                            <SelectItem value="cost">Cost</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button size="sm" variant="default" onClick={handleAddPaymentType}>Add</Button>
+                      </div>
+                    </div>
+                  )}
+                  {editingPaymentId && (
+                    <div className="mt-2 flex flex-col gap-2 border p-2 rounded bg-muted">
+                      <Input
+                        className="border rounded px-2 py-1"
+                        placeholder="Payment Name (e.g. GCash, Card)"
+                        value={editPaymentName}
+                        onChange={e => setEditPaymentName(e.target.value)}
+                      />
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <label className="text-xs">Fee Type:</label>
+                        <Select value={editFeeType} onValueChange={setEditFeeType}>
+                          <SelectTrigger className="w-[120px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="percent">Percent (%)</SelectItem>
+                            <SelectItem value="fixed">Fixed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          className="border rounded px-2 py-1 w-24"
+                          type="number"
+                          min={0}
+                          value={editFeeValue}
+                          onChange={e => setEditFeeValue(Number(e.target.value))}
+                          placeholder={editFeeType === "percent" ? "%" : currency}
+                        />
+                        <label className="text-xs ml-2">Affects:</label>
+                        <Select value={editAppliesTo} onValueChange={setEditAppliesTo}>
+                          <SelectTrigger className="w-[100px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="profit">Profit</SelectItem>
+                            <SelectItem value="cost">Cost</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <div className="flex gap-2 flex-nowrap">
+                          <Button size="sm" variant="default" onClick={() => handleEditPaymentType(editingPaymentId)}>Save</Button>
+                          <Button size="sm" variant="outline" onClick={() => setEditingPaymentId(null)}>Cancel</Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex justify-between text-sm">
                   <span>Subtotal ({selectedVariants.length} items)</span>
                   <span>{formatCurrency(subtotal, currency)}</span>
@@ -483,6 +759,13 @@ export function CheckoutClientWrapper({
                     </p>
                   )}
                 </div>
+
+                {selectedPayment.feeType !== "none" && selectedPayment.feeValue > 0 && (
+                  <div className="flex justify-between text-sm font-medium">
+                    <span>Payment Fee ({selectedPayment.feeType === "percent" ? `${selectedPayment.feeValue}%` : formatCurrency(selectedPayment.feeValue, currency)}):</span>
+                    <span className="text-red-500">- {formatCurrency(paymentFee, currency)} <span className="text-xs">(applies to {paymentFeeAppliesTo})</span></span>
+                  </div>
+                )}
 
                 <div className="flex justify-between font-bold text-lg border-t pt-4">
                   <span>Total</span>
