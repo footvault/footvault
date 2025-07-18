@@ -50,13 +50,20 @@ export async function POST(req: NextRequest) {
     )
 
     // Call the refund_sale function in Supabase with authenticated client
-    const { error } = await authenticatedSupabase.rpc("refund_sale", { sale_to_refund: saleId })
+    const { data, error } = await authenticatedSupabase.rpc("refund_sale", { sale_to_refund: saleId })
 
     if (error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true })
+    // Optionally fetch the updated sale to return in response
+    const { data: updatedSale } = await authenticatedSupabase
+      .from('sales')
+      .select('*')
+      .eq('id', saleId)
+      .single()
+
+    return NextResponse.json({ success: true, sale: updatedSale, data })
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e.message }, { status: 500 })
   }

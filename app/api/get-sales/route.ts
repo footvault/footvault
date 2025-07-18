@@ -106,6 +106,7 @@ export async function GET(request: Request) {
         updated_at,
         sales_no,
         payment_type,
+        status,
         sale_items (
           id,
           sold_price,

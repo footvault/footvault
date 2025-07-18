@@ -28,6 +28,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded }) => {
   const [saleToDelete, setSaleToDelete] = useState<string | null>(null)
   const [saleToRefund, setSaleToRefund] = useState<string | null>(null)
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
+  const [isRefunding, setIsRefunding] = useState(false)
   const handleRefundClick = (saleId: string) => {
     setSaleToRefund(saleId)
     setIsRefundModalOpen(true)
@@ -35,6 +36,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded }) => {
 
   const handleConfirmRefund = async () => {
     if (!saleToRefund) return;
+    setIsRefunding(true);
     const supabase = createClient();
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -57,15 +59,22 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded }) => {
         if (result.sale) {
           console.log("[Refund Debug] Updated sale:", result.sale);
         }
-        if (onRefunded) onRefunded(); // Call parent to refresh sales
+        // Call parent to refresh sales and wait for it to complete
+        if (onRefunded) {
+          // Small delay to ensure database changes are propagated
+          await new Promise(resolve => setTimeout(resolve, 500));
+          await onRefunded(); // Wait for the refresh to complete
+        }
       } else {
         console.error("[Refund Debug] Failed:", result.error);
       }
     } catch (err) {
       console.error("[Refund Debug] Error refunding:", err);
+    } finally {
+      setIsRefunding(false);
+      setIsRefundModalOpen(false);
+      setSaleToRefund(null);
     }
-    setIsRefundModalOpen(false);
-    setSaleToRefund(null);
   }
 
   const [page, setPage] = useState(1)
@@ -359,7 +368,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded }) => {
         title="Confirm Refund"
         description="Are you sure you want to refund this sale? This will mark the sale as refunded, return items to inventory, and remove profit distributions. This action cannot be undone."
         onConfirm={handleConfirmRefund}
-        isConfirming={false}
+        isConfirming={isRefunding}
       />
       <ConfirmationModal
         open={isConfirmModalOpen}
