@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AuthForm } from "@/components/auth-form";
+import { Toaster } from "@/components/ui/toaster";
 import type { User } from "@supabase/supabase-js";
 
 interface ClientLayoutProps {
@@ -19,7 +20,12 @@ export default function ClientLayout({ children, user }: ClientLayoutProps) {
   const showSidebar = !noSidebarRoutes.includes(pathname);
 
   if (!showSidebar) {
-    return <>{children}</>;
+    return (
+      <>
+        {children}
+        <Toaster />
+      </>
+    );
   }
 
   return (
@@ -31,6 +37,7 @@ export default function ClientLayout({ children, user }: ClientLayoutProps) {
         <SidebarTrigger className="fixed left-4 top-4 z-50 md:hidden" />
         {children}
       </main>
+      <Toaster />
     </SidebarProvider>
   );
 }

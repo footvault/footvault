@@ -46,7 +46,8 @@ import { ConfirmationModal } from "@/components/confirmation-modal"
 import { EditVariantModal } from "@/components/edit-variant-modal"
 import { VariantsStatsCard } from "@/components/variants-stats-card"
 
-
+import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency"
+import { useCurrency } from "@/context/CurrencyContext"
 
 import { Badge } from "@/components/ui/badge"
 
@@ -63,7 +64,8 @@ export function ShoesVariantsTable() {
   const [loading, setLoading] = useState(true)
   const [editModal, setEditModal] = useState<{ open: boolean, variant?: Variant }>({ open: false })
   const [deleteModal, setDeleteModal] = useState<{ open: boolean, variant?: Variant }>({ open: false })
-
+   const { currency } = useCurrency(); // Get the user's selected currency
+  const currencySymbol = getCurrencySymbol(currency);
   // Stats state
   const [statsData, setStatsData] = useState({
     totalVariants: 0,
@@ -490,7 +492,7 @@ export function ShoesVariantsTable() {
       },
       cell: (info) => {
         const value = info.getValue();
-        return <div className=" min-w-[100px]">${typeof value === 'number' ? value.toFixed(2) : '-'}</div>;
+        return <div className=" min-w-[100px]">{currencySymbol}{typeof value === 'number' ? value.toFixed(2) : '-'}</div>;
       },
       enableSorting: true,
     }),
@@ -511,7 +513,7 @@ export function ShoesVariantsTable() {
       },
       cell: (info) => {
         const variant = info.row.original as any;
-        return <div className=" min-w-[100px]">${variant.product?.sale_price?.toFixed(2) ?? '-'}</div>;
+        return <div className=" min-w-[100px]">{currencySymbol}{variant.product?.sale_price?.toFixed(2) ?? '-'}</div>;
       },
       enableSorting: true,
       sortingFn: (rowA, rowB) => {
@@ -728,19 +730,46 @@ export function ShoesVariantsTable() {
                   className="w-full mb-1"
                 />
               </div>
-              {/* Group sizes by category (Men's, Women's, etc.) */}
+              {/* Group sizes by category and size label */}
               {['Men\'s', 'Women\'s', 'Kids', 'Unisex'].map(category => {
-                const options = filteredSizeOptions.filter(option => {
-                  if (option === 'all') return false;
-                  return variants.some(v => v.size === option && ((v as any).product?.size_category === category));
-                });
-                if (options.length === 0) return null;
+                // Get unique size labels for this category
+                const sizeLabelsInCategory = [...new Set(
+                  variants
+                    .filter(v => (v as any).product?.size_category === category)
+                    .map(v => (v as any).size_label)
+                    .filter(Boolean)
+                )].sort();
+                
+                if (sizeLabelsInCategory.length === 0) return null;
+                
                 return (
                   <React.Fragment key={category}>
                     <div className="px-2 py-1 text-xs text-muted-foreground font-semibold">{category}</div>
-                    {options.map(option => (
-                      <SelectItem key={option} value={option}>{option}</SelectItem>
-                    ))}
+                    {sizeLabelsInCategory.map(sizeLabel => {
+                      const options = filteredSizeOptions.filter(option => {
+                        if (option === 'all') return false;
+                        return variants.some(v => 
+                          v.size === option && 
+                          (v as any).product?.size_category === category &&
+                          (v as any).size_label === sizeLabel
+                        );
+                      });
+                      
+                      if (options.length === 0) return null;
+                      
+                      return (
+                        <React.Fragment key={`${category}-${sizeLabel}`}>
+                          <div className="px-4 py-1 text-xs text-muted-foreground">
+                            {sizeLabel} Sizes
+                          </div>
+                          {options.map(option => (
+                            <SelectItem key={`${option}-${sizeLabel}`} value={option}>
+                              {option} ({sizeLabel})
+                            </SelectItem>
+                          ))}
+                        </React.Fragment>
+                      );
+                    })}
                   </React.Fragment>
                 );
               })}

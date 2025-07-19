@@ -8,7 +8,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
+import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency"
+import { useCurrency } from "@/context/CurrencyContext"
 interface VariantsStatsCardProps {
   totalVariants: number;
   totalCostValue: number;
@@ -21,10 +22,8 @@ export function VariantsStatsCard({ totalVariants, totalCostValue, totalSaleValu
   // Debug logging
   console.log('VariantsStatsCard props:', { totalVariants, totalCostValue, totalSaleValue, loading });
 
-  function formatCurrency(value: number | undefined | null) {
-    const safeValue = typeof value === "number" && !isNaN(value) ? value : 0;
-    return safeValue.toLocaleString("en-US", { style: "currency", currency: "USD" });
-  }
+  const { currency } = useCurrency(); // Get the user's selected currency
+  const currencySymbol = getCurrencySymbol(currency);
 
   const potentialProfit = typeof profit === 'number' ? profit : totalSaleValue - totalCostValue;
 
@@ -52,10 +51,10 @@ export function VariantsStatsCard({ totalVariants, totalCostValue, totalSaleValu
             Total Cost Value
           </CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {loading ? (
+              {loading ? (
               <div className="h-8 bg-gray-200 rounded animate-pulse w-20" />
             ) : (
-              formatCurrency(totalCostValue)
+              formatCurrency(totalCostValue, currency)
             )}
           </CardTitle>
         </CardHeader>
@@ -70,7 +69,7 @@ export function VariantsStatsCard({ totalVariants, totalCostValue, totalSaleValu
             {loading ? (
               <div className="h-8 bg-gray-200 rounded animate-pulse w-20" />
             ) : (
-              formatCurrency(totalSaleValue)
+              formatCurrency(totalSaleValue, currency)
             )}
           </CardTitle>
         </CardHeader>

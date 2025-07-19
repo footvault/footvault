@@ -55,7 +55,7 @@ export function CheckoutClientWrapper({
 }: CheckoutClientWrapperProps) {
   // Pagination for variants
   const [variantPage, setVariantPage] = useState(1);
-  const variantsPerPage = 50;
+  const variantsPerPage = 12;
   const [allVariants, setAllVariants] = useState<TransformedVariant[]>(initialVariants)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedVariants, setSelectedVariants] = useState<TransformedVariant[]>([])
@@ -99,18 +99,42 @@ export function CheckoutClientWrapper({
   }, [searchTerm, availableVariants])
 
   // Pagination logic for variants
-  const totalVariantPages = filteredVariants.length > 50 ? Math.ceil(filteredVariants.length / variantsPerPage) : 1
-  const paginatedVariants = filteredVariants.length > 50
+  const totalVariantPages = filteredVariants.length > 12 ? Math.ceil(filteredVariants.length / variantsPerPage) : 1
+  const paginatedVariants = filteredVariants.length > 12
     ? filteredVariants.slice((variantPage - 1) * variantsPerPage, variantPage * variantsPerPage)
     : filteredVariants
 
   const handleAddVariantToCart = (variant: TransformedVariant) => {
     setSelectedVariants((prev) => [...prev, variant])
     setSearchTerm("") // Clear search after adding
+    
+    console.log('🛒 Adding variant to cart:', variant.productName, variant.size);
+    
+    // Show success toast
+    toast({
+      title: "Item Added to Cart",
+      description: `${variant.productName} (Size ${variant.size}) added to cart.`,
+      duration: 3000, // 3 seconds
+    })
+    
+    console.log('📱 Toast called for add to cart');
   }
 
   const handleRemoveVariantFromCart = (variantId: string) => {
+    // Find the variant being removed for toast message
+    const removedVariant = selectedVariants.find(v => v.id === variantId)
+    
     setSelectedVariants((prev) => prev.filter((v) => v.id !== variantId))
+    
+    // Show removal toast
+    if (removedVariant) {
+      toast({
+        title: "Item Removed from Cart",
+        description: `${removedVariant.productName} (Size ${removedVariant.size}) removed from cart.`,
+        variant: "destructive",
+        duration: 3000, // 3 seconds
+      })
+    }
   }
 
 
@@ -472,7 +496,7 @@ export function CheckoutClientWrapper({
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-96 overflow-y-auto pr-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {paginatedVariants.map((variant) => (
                       <Card key={variant.id} className="flex flex-col">
                         <CardContent className="p-3 flex-grow">
@@ -506,7 +530,7 @@ export function CheckoutClientWrapper({
                     ))}
                   </div>
                   {/* Pagination controls for variants */}
-                  {filteredVariants.length > 50 && (
+                  {filteredVariants.length > 12 && (
                     <div className="flex flex-wrap justify-center items-center gap-2 mt-4">
                       <Button
                         variant="outline"
@@ -529,6 +553,12 @@ export function CheckoutClientWrapper({
                       >
                         Next
                       </Button>
+                    </div>
+                  )}
+                  {/* Show total count and see more hint */}
+                  {filteredVariants.length > 12 && (
+                    <div className="text-center text-sm text-muted-foreground mt-2">
+                      Showing {paginatedVariants.length} of {filteredVariants.length} available shoes
                     </div>
                   )}
                 </>
