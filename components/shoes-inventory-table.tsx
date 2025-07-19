@@ -32,12 +32,21 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, ShoppingCart, ReceiptText, Filter, Search } from "lucide-react"
+import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, ShoppingCart, ReceiptText, Filter, Search, Plus } from "lucide-react"
 import jsPDF from "jspdf"
 import QRCode from "qrcode"
 import { createClient } from "@/lib/supabase/client"
@@ -46,7 +55,8 @@ import Image from "next/image"
 import EditProductModal from "@/components/edit-product-modal"
 import { ConfirmationModal } from "@/components/confirmation-modal"
 import { EditVariantModal } from "@/components/edit-variant-modal"
-
+import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency"
+import { useCurrency } from "@/context/CurrencyContext"
 import { Badge } from "@/components/ui/badge"
 
 import { InventoryStatsCard } from "@/components/inventory-stats-card";
@@ -100,7 +110,11 @@ export function ShoesInventoryTable() {
   const [loading, setLoading] = useState(true)
   const [editModal, setEditModal] = useState<{ open: boolean, product?: Product }>({ open: false })
   const [deleteModal, setDeleteModal] = useState<{ open: boolean, product?: Product }>({ open: false })
+  const [addVariantsModal, setAddVariantsModal] = useState<{ open: boolean, product?: Product }>({ open: false })
   const [showFiltersModal, setShowFiltersModal] = useState(false);
+  
+  const { currency } = useCurrency(); // Get the user's selected currency
+  const currencySymbol = getCurrencySymbol(currency);
 
   // Calculate stats for InventoryStatsCard just before return
   const totalShoes = products.length;
@@ -397,7 +411,7 @@ export function ShoesInventoryTable() {
       cell: (info) => {
         const product = info.row.original as Product;
         const value = product.original_price;
-        return <div className="min-w-[100px]">${typeof value === 'number' ? value.toFixed(2) : '-'}</div>;
+        return <div className="min-w-[100px]">{currencySymbol}{typeof value === 'number' ? value.toFixed(2) : '-'}</div>;
       },
       enableSorting: true,
       sortingFn: (rowA, rowB) => {
@@ -424,7 +438,7 @@ export function ShoesInventoryTable() {
       cell: (info) => {
         const product = info.row.original as Product;
         const value = product.sale_price;
-        return <div className="min-w-[100px]">${typeof value === 'number' ? value.toFixed(2) : '-'}</div>;
+        return <div className="min-w-[100px]">{currencySymbol}{typeof value === 'number' ? value.toFixed(2) : '-'}</div>;
       },
       enableSorting: true,
       sortingFn: (rowA, rowB) => {
@@ -536,18 +550,24 @@ export function ShoesInventoryTable() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setEditModal({ open: true, product })}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setDeleteModal({ open: true, product })} className="text-red-600">
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
+                   <DropdownMenuItem onClick={() => setAddVariantsModal({ open: true, product })}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Variants
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => { if (productId) { window.open(`/products/${productId}/variants`, "_blank"); }}}>
                     <Trash2 className="mr-2 h-4 w-4" />
                   View All Variants
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setEditModal({ open: true, product })}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+             
+                <DropdownMenuItem onClick={() => setDeleteModal({ open: true, product })} className="text-red-600">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+                
                
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1058,6 +1078,456 @@ export function ShoesInventoryTable() {
         }}
       />
 
+      {/* Add Variants Modal */}
+      <AddVariantsModal
+        open={addVariantsModal.open && !!addVariantsModal.product}
+        product={addVariantsModal.product}
+        onOpenChange={(open) => setAddVariantsModal({ open, product: open ? addVariantsModal.product : undefined })}
+        onVariantsAdded={async () => {
+          await fetchProducts();
+          setSorting([]); // Reset sort
+        }}
+        sizeOptionsByCategory={sizeOptionsByCategory}
+      />
+
     </div>
   )
+}
+
+// Add Variants Modal Component
+interface AddVariantsModalProps {
+  open: boolean;
+  product?: Product;
+  onOpenChange: (open: boolean) => void;
+  onVariantsAdded: () => void;
+  sizeOptionsByCategory: Record<string, (string | number)[]>;
+}
+
+function AddVariantsModal({ 
+  open, 
+  product, 
+  onOpenChange, 
+  onVariantsAdded,
+  sizeOptionsByCategory 
+}: AddVariantsModalProps) {
+  const [selectedSizes, setSelectedSizes] = useState<(string | number)[]>([]);
+  const [quantity, setQuantity] = useState<number>(1);
+  const [status, setStatus] = useState<string>("Available");
+  const [location, setLocation] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sizeSearch, setSizeSearch] = useState("");
+  
+  // For size label (editable)
+  const [sizeLabel, setSizeLabel] = useState("US");
+  
+  // For location management
+  const [customLocations, setCustomLocations] = useState<string[]>([]);
+  const [showAddLocationInput, setShowAddLocationInput] = useState(false);
+  const [newLocation, setNewLocation] = useState("");
+  
+  const supabase = createClient();
+
+  // Fetch custom locations
+  useEffect(() => {
+    if (!open) return;
+    
+    const fetchLocations = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from("custom_locations")
+        .select("name")
+        .eq("user_id", user.id);
+        
+      let locs = (data || []).map((row: any) => row.name);
+      // Add default locations if not present
+      ["Warehouse A", "Warehouse B", "Warehouse C"].forEach(defaultLoc => {
+        if (!locs.includes(defaultLoc)) locs.push(defaultLoc);
+      });
+      setCustomLocations(locs);
+    };
+    
+    fetchLocations();
+  }, [open, supabase]);
+
+  // Reset form when modal opens/closes
+  useEffect(() => {
+    if (!open) {
+      setSelectedSizes([]);
+      setQuantity(1);
+      setStatus("Available");
+      setLocation("");
+      setSizeSearch("");
+      setSizeLabel("US");
+      setShowAddLocationInput(false);
+      setNewLocation("");
+    }
+  }, [open, product]);
+
+  // Helper function to generate dynamic size options (from ManualAddProduct.tsx)
+  const getDynamicSizes = (sizeCategory: string, sizeLabel: string): string[] => {
+    const sizes: string[] = []
+    if (!sizeCategory || !sizeLabel) return []
+
+    const generateRange = (start: number, end: number, step: number) => {
+      for (let i = start; i <= end; i += step) {
+        sizes.push(i.toString())
+        if (step === 0.5 && i + 0.5 <= end) {
+          sizes.push((i + 0.5).toString())
+        }
+      }
+    }
+
+    switch (sizeCategory) {
+      case "Men's":
+      case "Unisex":
+        if (sizeLabel === "US") generateRange(3, 15, 0.5)
+        else if (sizeLabel === "UK") generateRange(2.5, 14.5, 0.5)
+        else if (sizeLabel === "EU") generateRange(35, 49, 0.5)
+        else if (sizeLabel === "CM") generateRange(22, 33, 0.5)
+        break
+      case "Women's":
+        if (sizeLabel === "US") generateRange(4, 12, 0.5)
+        else if (sizeLabel === "UK") generateRange(2, 10, 0.5)
+        else if (sizeLabel === "EU") generateRange(34, 44, 0.5)
+        else if (sizeLabel === "CM") generateRange(21, 29, 0.5)
+        break
+      case "Youth":
+        if (sizeLabel === "US" || sizeLabel === "YC") generateRange(1, 7, 0.5)
+        else if (sizeLabel === "UK") generateRange(13.5, 6.5, 0.5)
+        else if (sizeLabel === "EU") generateRange(31, 40, 0.5)
+        else if (sizeLabel === "CM") generateRange(19, 25, 0.5)
+        break
+      case "Toddlers":
+        if (sizeLabel === "US" || sizeLabel === "TD") generateRange(1, 10, 0.5)
+        else if (sizeLabel === "UK") generateRange(0.5, 9.5, 0.5)
+        else if (sizeLabel === "EU") generateRange(16, 27, 0.5)
+        else if (sizeLabel === "CM") generateRange(8, 16, 0.5)
+        break
+    }
+    
+    return Array.from(new Set(sizes)).sort((a, b) => Number.parseFloat(a) - Number.parseFloat(b))
+  }
+
+  const handleAddLocation = async () => {
+    if (!newLocation.trim()) return;
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("custom_locations")
+        .insert({ name: newLocation.trim(), user_id: user.id });
+
+      if (!error) {
+        setCustomLocations(prev => [...prev, newLocation.trim()]);
+        setLocation(newLocation.trim());
+        setNewLocation("");
+        setShowAddLocationInput(false);
+      }
+    } catch (error) {
+      console.error('Error adding location:', error);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!product || selectedSizes.length === 0 || !location) return;
+    
+    console.log('🚀 Starting variant creation process...');
+    console.log('📝 Form data:', {
+      productId: product.id,
+      productName: product.name,
+      selectedSizes,
+      quantity,
+      status,
+      location,
+      sizeLabel
+    });
+    
+    setIsSubmitting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      
+      console.log('👤 User authenticated:', user.id);
+
+      // Get the highest serial_number for this user to continue numbering
+      console.log('🔍 Fetching highest serial number...');
+      const { data: maxSerialData, error: serialError } = await supabase
+        .from("variants")
+        .select("serial_number")
+        .eq("user_id", user.id)
+        .order("serial_number", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (serialError) {
+        console.error('❌ Error fetching serial number:', serialError);
+      } else {
+        console.log('📊 Max serial data:', maxSerialData);
+      }
+
+      let nextSerial = 1;
+      if (maxSerialData && maxSerialData.serial_number) {
+        const last = parseInt(maxSerialData.serial_number, 10);
+        nextSerial = isNaN(last) ? 1 : last + 1;
+      }
+      
+      console.log('🔢 Next serial number will start at:', nextSerial);
+
+      // Create variants for each selected size
+      const variantsToCreate = [];
+      
+      for (const size of selectedSizes) {
+        // Create multiple variants based on quantity
+        for (let i = 0; i < quantity; i++) {
+          const variant = {
+            id: crypto.randomUUID(), // Generate UUID for the id field
+            product_id: product.id,
+            size: size,
+            status: status,
+            location: location,
+            serial_number: nextSerial++,
+            user_id: user.id,
+            date_added: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
+            variant_sku: `${product.sku || 'SKU'}-${size}-${nextSerial - 1}`, // Generate variant SKU
+            cost_price: product.original_price || 0.00, // Set cost_price from product's original_price
+            size_label: sizeLabel, // Add size_label field
+          };
+          variantsToCreate.push(variant);
+        }
+      }
+      
+      console.log('📦 Variants to create:', variantsToCreate);
+      console.log('🎯 Total variants to create:', variantsToCreate.length);
+
+      const { error } = await supabase
+        .from('variants')
+        .insert(variantsToCreate);
+
+      if (error) {
+        console.error('❌ Supabase error details:', error);
+        console.error('❌ Error code:', error.code);
+        console.error('❌ Error message:', error.message);
+        console.error('❌ Error details:', error.details);
+        console.error('❌ Error hint:', error.hint);
+        alert(`Error creating variants: ${error.message}`);
+        return;
+      }
+
+      console.log('✅ Variants created successfully!');
+      
+      // Success
+      onVariantsAdded();
+      onOpenChange(false);
+      
+    } catch (error) {
+      console.error('💥 Unexpected error:', error);
+      console.error('💥 Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      alert(`Error creating variants: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSubmitting(false);
+      console.log('🏁 Variant creation process completed');
+    }
+  };
+
+  if (!product) return null;
+
+  // Get dynamic sizes based on product's category and selected size label
+  const productSizeCategory = product.size_category || "Men's";
+  const dynamicSizes = getDynamicSizes(productSizeCategory, sizeLabel);
+  const availableSizes = sizeOptionsByCategory[productSizeCategory] || [];
+  const allAvailableSizes = [...new Set([...availableSizes, ...dynamicSizes])];
+  
+  const filteredSizes = allAvailableSizes.filter(size => 
+    sizeSearch === "" || String(size).toLowerCase().includes(sizeSearch.toLowerCase())
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Add Variants</DialogTitle>
+          <DialogDescription>
+            Add new variants for {product.name}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Size Category (Non-editable) */}
+          <div className="space-y-2">
+            <Label>Size Category</Label>
+            <Input 
+              value={productSizeCategory} 
+              disabled 
+              className="bg-muted text-muted-foreground"
+            />
+          </div>
+
+          {/* Size Label (Editable) */}
+          <div className="space-y-2">
+            <Label>Size Label</Label>
+            <Select value={sizeLabel} onValueChange={setSizeLabel}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="US">US</SelectItem>
+                <SelectItem value="UK">UK</SelectItem>
+                <SelectItem value="EU">EU</SelectItem>
+                <SelectItem value="CM">CM</SelectItem>
+                <SelectItem value="YC">YC</SelectItem>
+                <SelectItem value="TD">TD</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Size Selection */}
+          <div className="space-y-2">
+            <Label>Select Sizes</Label>
+            <div className="border rounded-md p-2 max-h-40 overflow-y-auto">
+              <Input
+                placeholder="Search sizes..."
+                value={sizeSearch}
+                onChange={(e) => setSizeSearch(e.target.value)}
+                className="mb-2"
+              />
+              <div className="space-y-1">
+                {filteredSizes.map((size) => (
+                  <div key={size} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`size-${size}`}
+                      checked={selectedSizes.includes(size)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedSizes(prev => [...prev, size]);
+                        } else {
+                          setSelectedSizes(prev => prev.filter(s => s !== size));
+                        }
+                      }}
+                    />
+                    <Label htmlFor={`size-${size}`} className="text-sm cursor-pointer">
+                      {size}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {selectedSizes.length > 0 && (
+              <div className="text-sm text-muted-foreground">
+                Selected: {selectedSizes.join(", ")}
+              </div>
+            )}
+          </div>
+
+          {/* Location Selection */}
+          <div className="space-y-2">
+            <Label>Location *</Label>
+            
+            {showAddLocationInput ? (
+              <div className="flex gap-2">
+                <Input
+                  value={newLocation}
+                  onChange={(e) => setNewLocation(e.target.value)}
+                  placeholder="Enter new location"
+                  className="h-9"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleAddLocation}
+                  disabled={!newLocation.trim()}
+                >
+                  Add
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowAddLocationInput(false);
+                    setNewLocation("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Select value={location} onValueChange={setLocation}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customLocations.map((loc) => (
+                      <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddLocationInput(true)}
+                >
+                  Add New
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Quantity */}
+          <div className="space-y-2">
+            <Label>Quantity per Size</Label>
+            <Input
+              type="number"
+              min="1"
+              value={quantity}
+              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+              className="w-full"
+            />
+            <div className="text-sm text-muted-foreground">
+              Total variants: {selectedSizes.length * quantity}
+            </div>
+          </div>
+
+          {/* Status */}
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Available">Available</SelectItem>
+                <SelectItem value="PullOut">PullOut</SelectItem>
+                <SelectItem value="Reserved">Reserved</SelectItem>
+                <SelectItem value="PreOrder">PreOrder</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isSubmitting || selectedSizes.length === 0 || !location}
+          >
+            {isSubmitting ? "Creating..." : `Add ${selectedSizes.length * quantity} Variants`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }

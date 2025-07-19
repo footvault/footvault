@@ -7,12 +7,19 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Eye, Trash2, RotateCcw } from "lucide-react"
+import { MoreHorizontal, Eye, Trash2, RotateCcw, Filter, X } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { CalendarIcon } from "lucide-react"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 import type { Sale } from "@/lib/types"
 import { SaleDetailModal } from "./sale-detail-modal"
 import { ConfirmationModal } from "./confirmation-modal"
 import { formatCurrency } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
+import type { DateRange } from "react-day-picker"
 
 interface SalesListProps {
   sales: Sale[]
@@ -31,6 +38,17 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
   const [isRefunding, setIsRefunding] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  
+  // Filter states
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState<string>("all")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
+
+  // Handle date range selection
+  const handleDateRangeSelect = (range: DateRange | undefined) => {
+    setDateRange(range);
+  };
+  
   const handleRefundClick = (saleId: string) => {
     setSaleToRefund(saleId)
     setIsRefundModalOpen(true)
@@ -88,11 +106,56 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
   const [sortBy, setSortBy] = useState<'sales_no' | 'date' | 'total' | 'profit'>('sales_no');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
+  // Get unique payment types from sales
+  const uniquePaymentTypes = useMemo(() => {
+    const types = new Set<string>();
+    sales.forEach(sale => {
+      let paymentType = "";
+      if (sale.payment_type && typeof sale.payment_type === "object" && sale.payment_type.name) {
+        paymentType = sale.payment_type.name;
+      } else if (typeof sale.payment_type === "string" && sale.payment_type.toLowerCase() === "cash") {
+        paymentType = "Cash";
+      } else if (sale.payment_type_name) {
+        paymentType = sale.payment_type_name;
+      } else if (!sale.payment_type) {
+        paymentType = "Cash";
+      } else {
+        paymentType = sale.payment_type;
+      }
+      if (paymentType) types.add(paymentType);
+    });
+    return Array.from(types).sort();
+  }, [sales]);
+
+  // Get unique statuses from sales
+  const uniqueStatuses = useMemo(() => {
+    const statuses = new Set<string>();
+    sales.forEach(sale => {
+      if (sale.status) {
+        statuses.add(sale.status);
+      }
+    });
+    return Array.from(statuses).sort();
+  }, [sales]);
+
+  // Clear all filters
+  const clearFilters = () => {
+    setPaymentTypeFilter("all");
+    setStatusFilter("all");
+    setDateRange(undefined);
+    setSearchTerm("");
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = paymentTypeFilter !== "all" || statusFilter !== "all" || dateRange?.from || dateRange?.to || searchTerm;
+
   const filteredAndSortedSales = useMemo(() => {
     let filtered = sales;
+    
+    // Search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = sales.filter((sale) =>
+      filtered = filtered.filter((sale) =>
         sale.id.toLowerCase().includes(term) ||
         new Date(sale.sale_date).toLocaleDateString().toLowerCase().includes(term) ||
         sale.customer_name?.toLowerCase().includes(term) ||
@@ -103,6 +166,41 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
         )
       );
     }
+
+    // Payment type filter
+    if (paymentTypeFilter !== "all") {
+      filtered = filtered.filter((sale) => {
+        let paymentType = "";
+        if (sale.payment_type && typeof sale.payment_type === "object" && sale.payment_type.name) {
+          paymentType = sale.payment_type.name;
+        } else if (typeof sale.payment_type === "string" && sale.payment_type.toLowerCase() === "cash") {
+          paymentType = "Cash";
+        } else if (sale.payment_type_name) {
+          paymentType = sale.payment_type_name;
+        } else if (!sale.payment_type) {
+          paymentType = "Cash";
+        } else {
+          paymentType = sale.payment_type;
+        }
+        return paymentType === paymentTypeFilter;
+      });
+    }
+
+    // Status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((sale) => sale.status === statusFilter);
+    }
+
+    // Date range filter
+    if (dateRange?.from || dateRange?.to) {
+      filtered = filtered.filter((sale) => {
+        const saleDate = new Date(sale.sale_date);
+        const isAfterFrom = !dateRange.from || saleDate >= dateRange.from;
+        const isBeforeTo = !dateRange.to || saleDate <= dateRange.to;
+        return isAfterFrom && isBeforeTo;
+      });
+    }
+
     // Sort by selected column
     return [...filtered].sort((a, b) => {
       if (sortBy === 'sales_no') {
@@ -125,7 +223,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
       }
       return 0;
     });
-  }, [sales, searchTerm, sortBy, sortDir]);
+  }, [sales, searchTerm, paymentTypeFilter, statusFilter, dateRange, sortBy, sortDir]);
 
   const totalPages = Math.ceil(filteredAndSortedSales.length / pageSize);
   const paginatedSales = filteredAndSortedSales.slice((page - 1) * pageSize, page * pageSize);
@@ -181,16 +279,105 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          Showing {paginatedSales.length} of {filteredAndSortedSales.length} filtered sales
+      {/* Search and Filter Controls */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Showing {paginatedSales.length} of {filteredAndSortedSales.length} filtered sales
+          </div>
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search sales..."
+            className="input"
+          />
         </div>
-        <input
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search sales..."
-          className="input"
-        />
+
+        {/* Filter Row */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Filters:</span>
+          </div>
+
+          {/* Payment Type Filter */}
+          <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Payment Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Payment Types</SelectItem>
+              {uniquePaymentTypes.map((type) => (
+                <SelectItem key={type} value={type}>{type}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Status Filter */}
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {uniqueStatuses.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Date Range Filter */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-[240px] justify-start text-left font-normal",
+                  !dateRange?.from && !dateRange?.to && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, "LLL dd, y")} -{" "}
+                      {format(dateRange.to, "LLL dd, y")}
+                    </>
+                  ) : (
+                    format(dateRange.from, "LLL dd, y")
+                  )
+                ) : (
+                  <span>Pick a date range</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange?.from}
+                selected={dateRange}
+                onSelect={handleDateRangeSelect}
+                numberOfMonths={2}
+              />
+            </PopoverContent>
+          </Popover>
+
+          {/* Clear Filters Button */}
+          {hasActiveFilters && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={clearFilters}
+              className="h-8 px-2 lg:px-3"
+            >
+              <X className="h-4 w-4 mr-1" />
+              Clear Filters
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="rounded-md border overflow-x-auto">

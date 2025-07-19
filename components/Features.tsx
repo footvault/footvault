@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element */
+
 'use client';
 
 import { motion } from 'framer-motion';
@@ -13,27 +13,27 @@ type Feature = {
 
 const features: Feature[] = [
   {
-    title: 'UI/UX Design',
+    title: 'Smart Inventory Management',
     description:
-      'Creating intuitive user experiences with modern interface design principles and user-centered methodologies.',
+      'Comprehensive inventory tracking with size variants, serial numbers, and real-time stock updates. Never lose track of your valuable sneaker collection.',
     image: 'https://deifkwefumgah.cloudfront.net/shadcnblocks/block/placeholder-1.svg',
   },
   {
-    title: 'Responsive Development',
+    title: 'StockX Integration',
     description:
-      'Building websites that look and function perfectly across all devices and screen sizes.',
+      'Automatically fetch product information from StockX API for quick product setup. Get accurate pricing, images, and details instantly.',
     image: 'https://deifkwefumgah.cloudfront.net/shadcnblocks/block/placeholder-2.svg',
   },
   {
-    title: 'Brand Integration',
+    title: 'QR Scanner & Generation',
     description:
-      'Seamlessly incorporating your brand identity into every aspect of your website’s design.',
+      'Seamlessly incorporate QR code scanning and generation into your inventory workflow. Quickly manage physical products with QR codes for easy identification and searching.',
     image: 'https://deifkwefumgah.cloudfront.net/shadcnblocks/block/placeholder-1.svg',
   },
   {
-    title: 'Performance Optimization',
+    title: 'Sales Tracking & Profit Distribution',
     description:
-      'Ensuring fast loading times and smooth performance through optimized code and assets.',
+      'Complete sales management with payment tracking, customer information, refund handling, and comprehensive filtering options for detailed insights.',
     image: 'https://deifkwefumgah.cloudfront.net/shadcnblocks/block/placeholder-2.svg',
   },
 ];
@@ -68,11 +68,11 @@ export default function Features(): JSX.Element {
           className="mb-24 flex flex-col items-center gap-6"
         >
           <h1 className="text-center text-3xl font-semibold lg:max-w-3xl lg:text-5xl">
-            Blocks built with Shadcn & Tailwind
+            Powerful Features for Your Sneaker Business
           </h1>
           <p className="text-center text-lg font-medium text-muted-foreground md:max-w-4xl lg:text-xl">
-            Finely crafted components built with React, Tailwind and Shadcn UI.
-            Developers can copy and paste these blocks directly into their project.
+            FootVault provides everything you need to manage your sneaker inventory, track sales, and maximize profits. 
+            Built with modern technology for the modern sneaker reseller.
           </p>
         </motion.div>
 

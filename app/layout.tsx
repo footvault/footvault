@@ -8,9 +8,9 @@ import { getUserSettings } from "./settings/settingActions"
 import ClientLayout from "@/components/ClientLayout"
 
 export const metadata: Metadata = {
-  title: "v0 App",
-  description: "Created with v0",
-  generator: "v0.dev",
+  title: "FootVault",
+  description: "Created with FootVault",
+  generator: "FootVault",
 }
 
 export default async function RootLayout({

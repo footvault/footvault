@@ -111,7 +111,7 @@ export function EditVariantModal({ open, variant, onClose }: EditVariantModalPro
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Available">Available</SelectItem>
-                <SelectItem value="Sold">Sold</SelectItem>
+             
                 <SelectItem value="PullOut">PullOut</SelectItem>
                 <SelectItem value="Reserved">Reserved</SelectItem>
                 <SelectItem value="PreOrder">PreOrder</SelectItem>
@@ -119,17 +119,7 @@ export function EditVariantModal({ open, variant, onClose }: EditVariantModalPro
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Date Sold</label>
-            <Input
-              type="date"
-              value={dateSold}
-              onChange={(e) => setDateSold(e.target.value)}
-            />
-            {!dateSold && (
-              <p className="text-xs text-muted-foreground">Empty - no sale date recorded</p>
-            )}
-          </div>
+       
         </div>
         
         <DialogFooter>

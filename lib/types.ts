@@ -15,6 +15,8 @@ export type Product = {
 }
 
 export type Variant = {
+  date_added: string
+  variant_sku: string
   serial_number: string
   id: string
   product_id: number

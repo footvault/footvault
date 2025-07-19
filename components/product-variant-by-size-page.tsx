@@ -13,7 +13,8 @@ import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Edit, Trash2 } from "lucide-react";
 
-
+import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency"
+import { useCurrency } from "@/context/CurrencyContext"
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input as ShadInput } from "@/components/ui/input";
@@ -33,7 +34,8 @@ function EditVariantModal({ open, onClose, variant, product, onSave }: EditVaria
   const [cost, setCost] = useState((variant?.cost_price || product?.original_price)?.toString() ?? "");
   const [price, setPrice] = useState(product?.sale_price?.toString() ?? "");
   const [sizeCategory, setSizeCategory] = useState(product?.size_category || "");
-  
+   const { currency } = useCurrency(); // Get the user's selected currency
+  const currencySymbol = getCurrencySymbol(currency);
   // Update state when variant or product changes
   useEffect(() => {
     setStatus(variant?.status || "Available");
@@ -134,6 +136,8 @@ export default function ProductVariantsBySizePage({ params }: Props) {
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; variant: Variant | null }>({ open: false, variant: null });
   const supabase = createClient();
   const router = useRouter();
+   const { currency } = useCurrency(); // Get the user's selected currency
+  const currencySymbol = getCurrencySymbol(currency);
 
   useEffect(() => {
     async function fetchData() {
@@ -352,8 +356,8 @@ export default function ProductVariantsBySizePage({ params }: Props) {
                     })()}
                   </TableCell>
                   <TableCell>{product.size_category || "-"}</TableCell>
-                  <TableCell>${typeof variant.cost_price === 'number' ? variant.cost_price.toFixed(2) : (typeof product.original_price === 'number' ? product.original_price.toFixed(2) : '-')}</TableCell>
-                  <TableCell>${typeof product.sale_price === 'number' ? product.sale_price.toFixed(2) : '-'}</TableCell>
+                  <TableCell>{currencySymbol}{typeof variant.cost_price === 'number' ? variant.cost_price.toFixed(2) : (typeof product.original_price === 'number' ? product.original_price.toFixed(2) : '-')}</TableCell>
+                  <TableCell>{currencySymbol}{typeof product.sale_price === 'number' ? product.sale_price.toFixed(2) : '-'}</TableCell>
                   <TableCell>{variant.created_at ? new Date(variant.created_at).toISOString().slice(0, 10) : "-"}</TableCell>
                   <TableCell>
                     <DropdownMenu>

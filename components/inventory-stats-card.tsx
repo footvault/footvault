@@ -8,6 +8,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency"
+import { useCurrency } from "@/context/CurrencyContext"
 
 interface InventoryStatsCardProps {
   totalShoes: number;
@@ -17,12 +19,10 @@ interface InventoryStatsCardProps {
 }
 
 export function InventoryStatsCard({ totalShoes, totalVariants, totalValue, loading = false }: InventoryStatsCardProps) {
-  function formatCurrency(value: number | undefined | null) {
-    const safeValue = typeof value === "number" && !isNaN(value) ? value : 0;
-    return safeValue.toLocaleString("en-US", { style: "currency", currency: "USD" });
-  }
+  const { currency } = useCurrency();
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 px-4 lg:px-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 ">
       <Card className="@container/card">
         <CardHeader>
           <CardDescription className="flex items-center gap-2">
@@ -63,7 +63,7 @@ export function InventoryStatsCard({ totalShoes, totalVariants, totalValue, load
             {loading ? (
               <div className="h-8 bg-gray-200 rounded animate-pulse w-20" />
             ) : (
-              formatCurrency(totalValue)
+               formatCurrency(totalValue, currency)
             )}
           </CardTitle>
         </CardHeader>
