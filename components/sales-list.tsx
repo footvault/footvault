@@ -7,8 +7,9 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Eye, Trash2, RotateCcw, Filter, X } from "lucide-react"
+import { MoreHorizontal, Eye, Trash2, RotateCcw, Filter, X, Search } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { CalendarIcon } from "lucide-react"
@@ -140,33 +141,42 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
 
   // Clear all filters
   const clearFilters = () => {
+    setSearchTerm("");
     setPaymentTypeFilter("all");
     setStatusFilter("all");
     setDateRange(undefined);
-    setSearchTerm("");
   };
 
   // Check if any filters are active
-  const hasActiveFilters = paymentTypeFilter !== "all" || statusFilter !== "all" || dateRange?.from || dateRange?.to || searchTerm;
+  const hasActiveFilters = searchTerm || paymentTypeFilter !== "all" || statusFilter !== "all" || dateRange?.from || dateRange?.to;
 
   const filteredAndSortedSales = useMemo(() => {
     let filtered = sales;
     
     // Search filter
     if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter((sale) =>
-        sale.id.toLowerCase().includes(term) ||
-        new Date(sale.sale_date).toLocaleDateString().toLowerCase().includes(term) ||
-        sale.customer_name?.toLowerCase().includes(term) ||
-        sale.customer_phone?.toLowerCase().includes(term) ||
-        sale.items.some((item: any) =>
-          item.variant.productName.toLowerCase().includes(term) ||
-          item.variant.serialNumber.toLowerCase().includes(term)
-        )
-      );
+      filtered = filtered.filter((sale) => {
+        const searchLower = searchTerm.toLowerCase();
+        // Search in sale number
+        const saleNo = formatSalesNo(sale.sales_no).toLowerCase();
+        if (saleNo.includes(searchLower)) return true;
+        
+        // Search in customer name
+        if (sale.customer_name?.toLowerCase().includes(searchLower)) return true;
+        
+        // Search in customer phone
+        if (sale.customer_phone?.toLowerCase().includes(searchLower)) return true;
+        
+        // Search in items (product name, serial number)
+        if (sale.items?.some((item: any) => 
+          item.variant?.productName?.toLowerCase().includes(searchLower) ||
+          String(item.variant?.serialNumber || '').toLowerCase().includes(searchLower)
+        )) return true;
+        
+        return false;
+      });
     }
-
+    
     // Payment type filter
     if (paymentTypeFilter !== "all") {
       filtered = filtered.filter((sale) => {
@@ -281,107 +291,117 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
     <div className="space-y-4">
       {/* Search and Filter Controls */}
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Showing {paginatedSales.length} of {filteredAndSortedSales.length} filtered sales
-          </div>
-          <input
+        {/* Search Bar */}
+        <div className="relative mt-2 px-1">
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Search by sale ID, product, serial number, customer name, or phone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search sales..."
-            className="input"
+            className="pl-10"
           />
         </div>
 
         {/* Filter Row */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Filters:</span>
           </div>
 
-          {/* Payment Type Filter */}
-          <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Payment Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Payment Types</SelectItem>
-              {uniquePaymentTypes.map((type) => (
-                <SelectItem key={type} value={type}>{type}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
+            {/* Payment Type Filter */}
+            <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
+              <SelectTrigger className="w-full sm:w-[140px]">
+                <SelectValue placeholder="Payment Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Payment Types</SelectItem>
+                {uniquePaymentTypes.map((type) => (
+                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          {/* Status Filter */}
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              {uniqueStatuses.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            {/* Status Filter */}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[120px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                {uniqueStatuses.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          {/* Date Range Filter */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "w-[240px] justify-start text-left font-normal",
-                  !dateRange?.from && !dateRange?.to && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateRange?.from ? (
-                  dateRange.to ? (
-                    <>
-                      {format(dateRange.from, "LLL dd, y")} -{" "}
-                      {format(dateRange.to, "LLL dd, y")}
-                    </>
+            {/* Date Range Filter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-full sm:w-[240px] justify-start text-left font-normal",
+                    !dateRange?.from && !dateRange?.to && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "LLL dd, y")} -{" "}
+                        {format(dateRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(dateRange.from, "LLL dd, y")
+                    )
                   ) : (
-                    format(dateRange.from, "LLL dd, y")
-                  )
-                ) : (
-                  <span>Pick a date range</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={dateRange?.from}
-                selected={dateRange}
-                onSelect={handleDateRangeSelect}
-                numberOfMonths={2}
-              />
-            </PopoverContent>
-          </Popover>
+                    <span>Pick a date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={dateRange}
+                  onSelect={handleDateRangeSelect}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
 
-          {/* Clear Filters Button */}
-          {hasActiveFilters && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={clearFilters}
-              className="h-8 px-2 lg:px-3"
-            >
-              <X className="h-4 w-4 mr-1" />
-              Clear Filters
-            </Button>
-          )}
+            {/* Clear Filters Button */}
+            {hasActiveFilters && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearFilters}
+                className="h-10 px-3 w-full sm:w-auto"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Clear Filters
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Sales Count */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Showing {paginatedSales.length} of {filteredAndSortedSales.length} filtered sales
+          </div>
         </div>
       </div>
 
-      <div className="rounded-md border overflow-x-auto">
-        <Table>
+      {/* Responsive Table Container */}
+      <div className="rounded-md border overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
           <TableHeader>
             <TableRow>
             <TableHead className="cursor-pointer select-none" onClick={() => {
@@ -432,7 +452,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
             {paginatedSales.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-10 text-gray-500">
-                  {searchTerm ? "No results for that search." : "No sales yet."}
+                  {hasActiveFilters ? "No sales match the current search or filters." : "No sales yet."}
                 </TableCell>
               </TableRow>
             ) : (
@@ -510,13 +530,15 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                             <Eye className="h-4 w-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleRefundClick(sale.id)}
-                            className="text-yellow-600"
-                          >
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            Refund Sale
-                          </DropdownMenuItem>
+                          {sale.status !== 'refunded' && (
+                            <DropdownMenuItem
+                              onClick={() => handleRefundClick(sale.id)}
+                              className="text-yellow-600"
+                            >
+                              <RotateCcw className="h-4 w-4 mr-2" />
+                              Refund Sale
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             onClick={() => handleDeleteClick(sale.id)}
                             className="text-red-600"
@@ -533,20 +555,22 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-4">
+        <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
+            className="w-full sm:w-auto"
           >
             Previous
           </Button>
-          <span className="text-sm">
+          <span className="text-sm whitespace-nowrap">
             Page {page} of {totalPages}
           </span>
           <Button
@@ -554,6 +578,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
             size="sm"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
+            className="w-full sm:w-auto"
           >
             Next
           </Button>

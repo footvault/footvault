@@ -38,7 +38,7 @@ export default async function RootLayout({
         `${process.env.NEXT_PUBLIC_BASE_URL || ""}/api/user-inventory-stats`,
         {
           method: "GET",
-          headers: { Cookie: cookieStore.toString() },
+          headers: { Cookie: (await cookieStore).toString() },
         }
       )
       const data = await res.json()

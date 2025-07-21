@@ -50,15 +50,32 @@ export function LoginForm({
 
   const handleGoogleLogin = async () => {
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-       options: {
-    redirectTo: `${window.location.origin}/auth/callback`,
-  },
-    });
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=/inventory`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
+        },
+      });
 
-    if (error) {
-      setError("Google sign-in failed");
+      if (error) {
+        console.error('Google OAuth error:', error);
+        setError(`Google sign-in failed: ${error.message}`);
+      } else {
+        console.log('OAuth redirect initiated:', data);
+      }
+    } catch (err) {
+      console.error('Unexpected error during OAuth:', err);
+      setError('An unexpected error occurred during sign-in');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -103,19 +120,26 @@ export function LoginForm({
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div> */}
-              {/* {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Logging in..." : "Login"}
-              </Button> */}
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              )}
             
               <Button
                 type="button"
-              
                 className="w-full"
                 onClick={handleGoogleLogin}
+                disabled={isLoading}
               >
-                 <FcGoogle size={16} />
-                Continue with Google
+                {isLoading ? (
+                  <>Loading...</>
+                ) : (
+                  <>
+                    <FcGoogle size={16} />
+                    Continue with Google
+                  </>
+                )}
               </Button>
             </div>
          <Image src={"https://placehold.co/600x400"} alt="Sneakers" width={600} height={400} className="mt-4" />

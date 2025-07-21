@@ -342,32 +342,7 @@ export function SalesClientWrapper({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Input
-              placeholder="Search by sale ID, product, serial number, customer name, or phone..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1"
-            />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full sm:w-auto">
-                  <Filter className="h-4 w-4 mr-2" /> Filters
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Filter by:</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem
-                  checked={selectedFilters.includes("high_profit")}
-                  onCheckedChange={() => handleFilterChange("high_profit")}
-                >
-                  High Profit Sales
-                </DropdownMenuCheckboxItem>
-                {/* Add more filter options here */}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+        
 
           {isRefreshingData ? (
             <div className="text-center py-8">

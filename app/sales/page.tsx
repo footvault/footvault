@@ -164,8 +164,8 @@ export default async function SalesPage() {
             <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" /> {/* Add separator */}
             <h1 className="text-xl font-semibold">Sales</h1>
           </header>
-          <div className="max-w-7xl mx-auto px-4 py-8 w-full">
-            <div className="container mx-auto py-8">
+          <div className="max-w-7xl   py-8 w-full">
+            <div className="container  py-8">
               <SalesClientWrapper
       initialSales={initialSales}
       initialAvatars={initialAvatars}
