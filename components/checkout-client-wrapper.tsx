@@ -140,8 +140,8 @@ export function CheckoutClientWrapper({
 
 
   // Payment type state (API-driven)
-  const [paymentTypes, setPaymentTypes] = useState<any[]>([{ id: 'cash', name: "Cash", feeType: "none", feeValue: 0, appliesTo: "profit" }]);
-  const [selectedPaymentType, setSelectedPaymentType] = useState<string>("cash");
+  const [paymentTypes, setPaymentTypes] = useState<any[]>([]);
+  const [selectedPaymentType, setSelectedPaymentType] = useState<string>("");
   const [newPaymentName, setNewPaymentName] = useState("");
   const [newFeeType, setNewFeeType] = useState("percent");
   const [newFeeValue, setNewFeeValue] = useState(0);
@@ -156,7 +156,13 @@ export function CheckoutClientWrapper({
         const [deleteModalId, setDeleteModalId] = useState<string | null>(null);
 
   // Find selected payment type object
-  const selectedPayment = paymentTypes.find(pt => pt.id === selectedPaymentType) || paymentTypes[0];
+  const selectedPayment = paymentTypes.find(pt => pt.id === selectedPaymentType) || {
+    id: '',
+    name: 'No Payment Type',
+    feeType: 'none',
+    feeValue: 0,
+    appliesTo: 'profit'
+  };
 
   // Fetch payment types from API
   useEffect(() => {
@@ -165,21 +171,32 @@ export function CheckoutClientWrapper({
       try {
         const res = await fetch("/api/payment-types");
         const result = await res.json();
-        if (result.data) {
-          setPaymentTypes([
-            { id: 'cash', name: "Cash", feeType: "none", feeValue: 0, appliesTo: "profit" },
-            ...result.data.map((pt: any) => ({
-              id: pt.id,
-              name: pt.name,
-              feeType: pt.fee_type,
-              feeValue: pt.fee_value,
-              appliesTo: pt.applies_to || "profit"
-            }))
-          ]);
+        if (result.data && result.data.length > 0) {
+          // Only use payment types from the database
+          const dbPaymentTypes = result.data.map((pt: any) => ({
+            id: pt.id,
+            name: pt.name,
+            feeType: pt.fee_type,
+            feeValue: pt.fee_value,
+            appliesTo: pt.applies_to || "profit"
+          }));
+          
+          setPaymentTypes(dbPaymentTypes);
+          
+          // Set the first payment type as selected by default
+          if (dbPaymentTypes.length > 0) {
+            setSelectedPaymentType(dbPaymentTypes[0].id);
+          }
+        } else {
+          // If no payment types exist in database, set empty array
+          setPaymentTypes([]);
+          setSelectedPaymentType("");
         }
       } catch (e) {
-        // fallback to cash only
-        setPaymentTypes([{ id: 'cash', name: "Cash", feeType: "none", feeValue: 0, appliesTo: "profit" }]);
+        console.error("Error fetching payment types:", e);
+        // On error, set empty array instead of fallback to Cash
+        setPaymentTypes([]);
+        setSelectedPaymentType("");
       } finally {
         setLoadingPayments(false);
       }
@@ -214,6 +231,10 @@ export function CheckoutClientWrapper({
     if (result.data) {
       setPaymentTypes(prev => prev.map(pt => pt.id === id ? { id, name: result.data.name, feeType: result.data.fee_type, feeValue: result.data.fee_value, appliesTo: result.data.applies_to || "profit" } : pt));
       setEditingPaymentId(null);
+      toast({
+        title: "Success",
+        description: "Payment type updated successfully.",
+      });
     } else {
       toast({ title: "Error", description: result.error || "Failed to update payment type.", variant: "destructive" });
     }
@@ -221,15 +242,33 @@ export function CheckoutClientWrapper({
 
   // Delete payment type via API
   const handleDeletePaymentType = async (id: string) => {
-    setDeleteModalId(id);
     const res = await fetch("/api/payment-types", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     const result = await res.json();
     if (result.success) {
-      setPaymentTypes(prev => prev.filter(pt => pt.id !== id));
-      if (selectedPaymentType === id) setSelectedPaymentType("cash");
+      const remainingTypes = paymentTypes.filter(pt => pt.id !== id);
+      setPaymentTypes(remainingTypes);
+      
+      // If we deleted the selected payment type, select the first remaining one
+      if (selectedPaymentType === id) {
+        if (remainingTypes.length > 0) {
+          setSelectedPaymentType(remainingTypes[0].id);
+        } else {
+          setSelectedPaymentType("");
+        }
+      }
+      
+      toast({
+        title: "Success",
+        description: "Payment type deleted successfully.",
+      });
     } else {
-      toast({ title: "Error", description: result.error || "Failed to delete payment type.", variant: "destructive" });
+      toast({ 
+        title: "Error", 
+        description: result.error || "Failed to delete payment type.", 
+        variant: "destructive" 
+      });
     }
+    setDeleteModalId(null); // Close the modal
   };
 
   const subtotal = useMemo(() => {
@@ -451,6 +490,18 @@ export function CheckoutClientWrapper({
         redirectPath="/" // Redirect to inventory page
         redirectDelay={3000} // 3 seconds
       />
+
+      {/* Payment type delete confirmation modal */}
+      <ConfirmationModal
+        open={!!deleteModalId}
+        onOpenChange={open => {
+          if (!open) setDeleteModalId(null);
+        }}
+        title="Delete Payment Type"
+        description="Are you sure you want to delete this payment type? This action cannot be undone."
+        onConfirm={() => deleteModalId && handleDeletePaymentType(deleteModalId)}
+        isConfirming={false}
+      />
       <div className="container mx-auto py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold">New Sale Checkout</h1>
@@ -610,58 +661,55 @@ export function CheckoutClientWrapper({
                 {/* Payment Type Dropdown */}
                 <div className="mb-2">
                   <Label className="block text-sm font-medium mb-1">Payment Type</Label>
-                  <Select value={selectedPaymentType} onValueChange={value => setSelectedPaymentType(value)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select payment type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {paymentTypes.map(pt => (
-                        <div key={pt.id} className="flex items-center justify-between group">
-                          <SelectItem value={pt.id} className="flex-1">
+                  <div className="flex gap-2">
+                    <Select value={selectedPaymentType} onValueChange={value => setSelectedPaymentType(value)}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select payment type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {paymentTypes.map(pt => (
+                          <SelectItem key={pt.id} value={pt.id}>
                             <div className="flex items-center gap-2">
                               <span>{pt.name}</span>
-                              {pt.feeType !== "none" && (
-                                <span className="text-xs text-gray-500">{pt.feeType === "percent" ? `${pt.feeValue}%` : `₱${pt.feeValue}`}</span>
+                              {pt.name === 'Cash' && (
+                                <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">Default</span>
+                              )}
+                              {pt.feeType !== "none" && pt.feeValue > 0 && (
+                                <span className="text-xs text-gray-500">{pt.feeType === "percent" ? `${pt.feeValue}%` : `${currency}${pt.feeValue}`}</span>
                               )}
                             </div>
                           </SelectItem>
-                          {pt.id !== 'cash' && (
-                            <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button size="sm" variant="ghost" onClick={e => {
-                                e.stopPropagation();
-                                setEditingPaymentId(pt.id);
-                                setEditPaymentName(pt.name);
-                                setEditFeeType(pt.feeType);
-                                setEditFeeValue(pt.feeValue);
-                                setEditAppliesTo(pt.appliesTo || "profit");
-                                setSelectedPaymentType(pt.id); // close dropdown
-                              }}>
-                                Edit
-                              </Button>
-                              <Button size="sm" variant="ghost" className="text-red-500" onClick={e => {
-                                e.stopPropagation();
-                                setDeleteModalId(pt.id);
-                              }}>
-                                Delete
-                              </Button>
-      {/* Payment type delete confirmation modal */}
-      <ConfirmationModal
-        open={!!deleteModalId}
-        onOpenChange={open => {
-          if (!open) setDeleteModalId(null);
-        }}
-        title="Delete Payment Type"
-        description="Are you sure you want to delete this payment type? This action cannot be undone."
-        onConfirm={() => deleteModalId && handleDeletePaymentType(deleteModalId)}
-        isConfirming={false}
-      />
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                      <SelectItem value="__add_new__" className="text-blue-600">+ Add new...</SelectItem>
-                    </SelectContent>
-                  </Select>
+                        ))}
+                        <SelectItem value="__add_new__" className="text-blue-600">+ Add new...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {selectedPaymentType && selectedPaymentType !== "__add_new__" && paymentTypes.length > 0 && (
+                      <div className="flex gap-1">
+                        {/* Only show Edit/Delete buttons for non-Cash payment types */}
+                        {paymentTypes.find(pt => pt.id === selectedPaymentType)?.name !== 'Cash' && (
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => {
+                              const currentPayment = paymentTypes.find(pt => pt.id === selectedPaymentType);
+                              if (currentPayment) {
+                                setEditingPaymentId(currentPayment.id);
+                                setEditPaymentName(currentPayment.name);
+                                setEditFeeType(currentPayment.feeType);
+                                setEditFeeValue(currentPayment.feeValue);
+                                setEditAppliesTo(currentPayment.appliesTo || "profit");
+                              }
+                            }}>
+                              Edit
+                            </Button>
+                            <Button size="sm" variant="outline" className="text-red-500" onClick={() => {
+                              setDeleteModalId(selectedPaymentType);
+                            }}>
+                              Delete
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   {selectedPaymentType === "__add_new__" && (
                     <div className="mt-2 flex flex-col gap-2 border p-2 rounded bg-muted">
                       <Input

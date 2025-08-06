@@ -51,6 +51,19 @@ export async function PUT(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id, name, fee_type, fee_value, applies_to } = await req.json();
   if (!id || !name || !fee_type) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  
+  // Check if this is the default Cash payment type - prevent editing
+  const { data: existingPayment } = await supabase
+    .from("payment_types")
+    .select("name")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .single();
+  
+  if (existingPayment && existingPayment.name === 'Cash') {
+    return NextResponse.json({ error: "Cannot edit default Cash payment type" }, { status: 400 });
+  }
+  
   const { data, error } = await supabase
     .from("payment_types")
     .update({ name, fee_type, fee_value, applies_to })
@@ -69,6 +82,19 @@ export async function DELETE(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await req.json();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  
+  // Check if this is the default Cash payment type - prevent deletion
+  const { data: existingPayment } = await supabase
+    .from("payment_types")
+    .select("name")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .single();
+  
+  if (existingPayment && existingPayment.name === 'Cash') {
+    return NextResponse.json({ error: "Cannot delete default Cash payment type" }, { status: 400 });
+  }
+  
   const { error } = await supabase
     .from("payment_types")
     .delete()
