@@ -10,6 +10,7 @@ export const pricingTiers = [
       { label: "Track available shoes" },
       { label: "Track sold shoes" },
       { label: "Manage your inventory and sales" },
+      { label: "Up to 100 available variants" },
       {
         label: "Community support",
         tooltip: "Access community forums and resources for help."
@@ -24,7 +25,8 @@ export const pricingTiers = [
     monthlyPrice: 10,
     yearlyPrice: 90,
     features: [
-      { label: "Eveything in Free Tier" },
+      { label: "Everything in Free Tier" },
+      { label: "Up to 500 available variants" },
       {
         label: "export via CSV",
         tooltip: "Easily download your inventory using CSV files."
@@ -43,8 +45,8 @@ export const pricingTiers = [
     monthlyPrice: 14,
     yearlyPrice: 150,
     features: [
-     
       { label: "All Individual features" },
+      { label: "Up to 1,500 available variants" },
       {
         label: "5 Team member avatars",
         tooltip: "Able to split profits with team members using avatars."
@@ -63,8 +65,8 @@ export const pricingTiers = [
     monthlyPrice: 20,
     yearlyPrice: 190,
     features: [
-    
       { label: "All Team features" },
+      { label: "Up to 5,000 available variants" },
       {
         label: "Unlimited team avatars",
         tooltip: "Add as many team members as needed."

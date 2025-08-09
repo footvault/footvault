@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { v4 as uuidv4 } from "uuid";
+import { getVariantLimit } from "@/lib/utils/variant-limits";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -53,6 +54,61 @@ export async function POST(request: Request) {
         }
       }
     );
+
+    // Get user's current plan and existing variant count
+    const { data: userData, error: userDataError } = await authenticatedSupabase
+      .from("users")
+      .select("plan")
+      .eq("id", user.id)
+      .single();
+
+    if (userDataError) {
+      console.error("Error fetching user data:", userDataError);
+      return NextResponse.json(
+        { success: false, error: "Failed to fetch user subscription plan" },
+        { status: 500 }
+      );
+    }
+
+    const userPlan = userData?.plan || 'Free';
+    const variantLimit = getVariantLimit(userPlan);
+
+    // Count existing variants with "Available" status for this user
+    const { data: existingVariantsCount, error: countError } = await authenticatedSupabase
+      .from("variants")
+      .select("id", { count: 'exact' })
+      .eq("user_id", user.id)
+      .eq("status", "Available");
+
+    if (countError) {
+      console.error("Error counting existing available variants:", countError);
+      return NextResponse.json(
+        { success: false, error: "Failed to check existing available variants" },
+        { status: 500 }
+      );
+    }
+
+    const currentAvailableVariantCount = existingVariantsCount?.length || 0;
+    const variantsToAddCount = variantsToAdd?.length || 0;
+
+    // Check if adding new variants would exceed the limit
+    if (currentAvailableVariantCount + variantsToAddCount > variantLimit) {
+      const remainingSlots = Math.max(0, variantLimit - currentAvailableVariantCount);
+      return NextResponse.json(
+        {
+          success: false,
+          error: remainingSlots === 0 
+            ? `Variant limit reached. Your ${userPlan} plan allows up to ${variantLimit} available variants. You currently have ${currentAvailableVariantCount} available variants. Please upgrade your plan to add more variants.`
+            : `Variant limit exceeded. Your ${userPlan} plan allows up to ${variantLimit} available variants. You currently have ${currentAvailableVariantCount} available variants and are trying to add ${variantsToAddCount} more. Only ${remainingSlots} slots remaining. Please adjust your quantity to ${remainingSlots} or upgrade your plan.`,
+          currentCount: currentAvailableVariantCount,
+          limit: variantLimit,
+          attemptedToAdd: variantsToAddCount,
+          remaining: remainingSlots,
+          plan: userPlan
+        },
+        { status: 403 }
+      );
+    }
 
     // Check if product with SKU already exists
     const { data: existingProduct, error: checkError } = await authenticatedSupabase

@@ -159,6 +159,13 @@ export function AddProductForm({
   const [customLocations, setCustomLocations] = useState<string[]>([])
   const [showCustomLocationInput, setShowCustomLocationInput] = useState(false)
   const [newCustomLocationName, setNewCustomLocationName] = useState("")
+  const [variantLimits, setVariantLimits] = useState<{
+    plan: string;
+    limit: number;
+    current: number;
+    remaining: number;
+    isAtLimit: boolean;
+  } | null>(null)
   // Removed editingVariantId and editingVariantValues; only single variant input is used
   // Serial number state removed (auto-assigned)
 
@@ -177,6 +184,35 @@ export function AddProductForm({
 
   fetchLocations()
 }, [])
+
+  // Fetch variant limits when dialog opens
+  useEffect(() => {
+    const fetchVariantLimits = async () => {
+      if (!open) return;
+      
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          const response = await fetch("/api/variant-limits", {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+          const data = await response.json();
+          
+          if (data.success) {
+            setVariantLimits(data.data);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch variant limits:", error);
+      }
+    };
+
+    fetchVariantLimits();
+  }, [open])
 
   useEffect(() => {
     if (isAddingToExistingProduct) {
@@ -351,6 +387,35 @@ export function AddProductForm({
         throw new Error("Authentication required");
       }
 
+      // Check variant limits before proceeding
+      try {
+        const variantLimitResponse = await fetch("/api/variant-limits", {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+        const variantLimitData = await variantLimitResponse.json();
+        
+        if (variantLimitData.success) {
+          const variantsToAdd = newVariant.quantity || 1;
+          if (variantLimitData.data.current + variantsToAdd > variantLimitData.data.limit) {
+            const remaining = variantLimitData.data.remaining;
+            toast({
+              title: "Variant Limit Exceeded",
+              description: remaining === 0 
+                ? `Variant limit reached. Your ${variantLimitData.data.plan} plan allows up to ${variantLimitData.data.limit.toLocaleString()} available variants. You currently have ${variantLimitData.data.current.toLocaleString()} available variants. Please upgrade your plan to add more variants.`
+                : `Variant limit exceeded. Your ${variantLimitData.data.plan} plan allows up to ${variantLimitData.data.limit.toLocaleString()} available variants. You currently have ${variantLimitData.data.current.toLocaleString()} available variants and are trying to add ${variantsToAdd} more. Only ${remaining} slots remaining. Please adjust your quantity to ${remaining} or upgrade your plan.`,
+              variant: "destructive",
+            });
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      } catch (limitError) {
+        console.warn("Could not check variant limits:", limitError);
+        // Continue with submission if limit check fails
+      }
+
       // Validate productForm and newVariant
       if (!productDataFromApi) {
         if (!productForm.name || !productForm.brand || !productForm.sku || !productForm.category) {
@@ -482,6 +547,43 @@ export function AddProductForm({
             {isAddingToExistingProduct ? `Add Individual Shoes to ${existingProductDetails.name}` : "Add New Product"}
           </DialogTitle>
         </DialogHeader>
+
+        {/* Variant Limits Display */}
+        {variantLimits && (
+          <div className="space-y-2">
+            <div className={cn(
+              "flex items-center justify-between p-3 rounded-lg border",
+              variantLimits.remaining <= 10 ? "bg-red-50 border-red-200" :
+              variantLimits.remaining <= 50 ? "bg-yellow-50 border-yellow-200" :
+              "bg-blue-50 border-blue-200"
+            )}>
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "w-2 h-2 rounded-full",
+                  variantLimits.remaining <= 10 ? "bg-red-500" :
+                  variantLimits.remaining <= 50 ? "bg-yellow-500" :
+                  "bg-blue-500"
+                )} />
+                <span className="text-sm font-medium">
+                  Available Variants: {variantLimits.current.toLocaleString()} / {variantLimits.limit.toLocaleString()}
+                </span>
+                <span className="text-xs text-gray-600">
+                  ({variantLimits.plan} Plan)
+                </span>
+              </div>
+              <div className="text-xs text-gray-600">
+                {variantLimits.remaining > 0 ? (
+                  <span>{variantLimits.remaining.toLocaleString()} slots remaining</span>
+                ) : (
+                  <span className="text-red-600 font-medium">Limit reached</span>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 px-1">
+              <strong>Note:</strong> Only "Available" status variants count towards your limit. Sold shoes don't affect your quota.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-4">
           {/* Product Info Column */}
@@ -750,10 +852,26 @@ export function AddProductForm({
                   id="quantity"
                   type="number"
                   min={1}
+                  max={variantLimits ? variantLimits.remaining : undefined}
                   value={newVariant.quantity}
                   onChange={handleNewVariantChange}
-                  className="text-xs"
+                  className={cn(
+                    "text-xs",
+                    variantLimits && newVariant.quantity > variantLimits.remaining
+                      ? "border-red-300 focus:border-red-500"
+                      : ""
+                  )}
                 />
+                {variantLimits && newVariant.quantity > variantLimits.remaining && (
+                  <p className="text-xs text-red-600 mt-1">
+                    Cannot add {newVariant.quantity} variants. Only {variantLimits.remaining} available variant slots remaining on your {variantLimits.plan} plan. 
+                    {variantLimits.remaining > 0 && (
+                      <span className="block font-medium">
+                        Please adjust your quantity to {variantLimits.remaining} or upgrade your plan.
+                      </span>
+                    )}
+                  </p>
+                )}
               </div>
             </div>
           </div>

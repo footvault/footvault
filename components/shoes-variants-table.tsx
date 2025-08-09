@@ -35,7 +35,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown } from "lucide-react"
+import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, Lock } from "lucide-react"
 import jsPDF from "jspdf"
 import QRCode from "qrcode"
 import { createClient } from "@/lib/supabase/client"
@@ -45,6 +45,7 @@ import EditProductModal from "@/components/edit-product-modal"
 import { ConfirmationModal } from "@/components/confirmation-modal"
 import { EditVariantModal } from "@/components/edit-variant-modal"
 import { VariantsStatsCard } from "@/components/variants-stats-card"
+import PremiumFeatureModal from "@/components/PremiumFeatureModal"
 
 import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
@@ -64,6 +65,8 @@ export function ShoesVariantsTable() {
   const [loading, setLoading] = useState(true)
   const [editModal, setEditModal] = useState<{ open: boolean, variant?: Variant }>({ open: false })
   const [deleteModal, setDeleteModal] = useState<{ open: boolean, variant?: Variant }>({ open: false })
+  const [userPlan, setUserPlan] = useState<string>('free')
+  const [showPremiumModal, setShowPremiumModal] = useState(false)
    const { currency } = useCurrency(); // Get the user's selected currency
   const currencySymbol = getCurrencySymbol(currency);
   // Stats state
@@ -120,10 +123,35 @@ export function ShoesVariantsTable() {
     if (!id) return;
     window.open(`/api/variant-label?id=${encodeURIComponent(id)}`, "_blank");
   }
+
+  // Handle bulk PDF generation with plan checking
+  const handleBulkPdfGeneration = () => {
+    if (userPlan === 'free') {
+      setShowPremiumModal(true);
+      return;
+    }
+    // Bulk PDF: open new tab with ids as query param
+    window.open(`/api/variant-label-bulk?ids=${selectedIds.join(',')}`, "_blank");
+  }
+
   // For searchable size dropdown
   const [sizeSearch, setSizeSearch] = useState("")
 
   const supabase = createClient()
+
+  // Fetch user plan
+  const fetchUserPlan = async () => {
+    try {
+      const res = await fetch('/api/user-plan')
+      const data = await res.json()
+      if (data.success) {
+        setUserPlan(data.plan.toLowerCase())
+      }
+    } catch (error) {
+      console.error('Failed to fetch user plan:', error)
+      setUserPlan('free')
+    }
+  }
 
   const fetchVariants = async () => {
     try {
@@ -173,7 +201,8 @@ export function ShoesVariantsTable() {
   useEffect(() => {
     console.log('Component mounted, calling fetchVariants and fetchStats');
     fetchVariants()
-   fetchVariantStats();
+    fetchVariantStats();
+    fetchUserPlan();
   }, [])
 
   // Debug: Log sorting state
@@ -677,10 +706,16 @@ export function ShoesVariantsTable() {
             fetchVariants();
             fetchVariantStats();
           }}>Bulk Archive</Button>
-          <Button size="sm" variant="default" onClick={() => {
-            // Bulk PDF: open new tab with ids as query param
-            window.open(`/api/variant-label-bulk?ids=${selectedIds.join(',')}`, "_blank");
-          }}>Bulk Generate PDF</Button>
+          <Button 
+            size="sm" 
+            variant={userPlan === 'free' ? "outline" : "default"} 
+            onClick={handleBulkPdfGeneration}
+            className={userPlan === 'free' ? "opacity-75" : ""}
+          >
+            {userPlan === 'free' && <Lock className="w-4 h-4 mr-2" />}
+            Bulk Generate PDF
+            {userPlan === 'free' && <span className="ml-1 text-xs">(Premium)</span>}
+          </Button>
         </div>
       )}
 
@@ -989,6 +1024,13 @@ export function ShoesVariantsTable() {
           fetchVariantStats(); // Refresh stats data
           setSorting([{ id: "serial_number", desc: true }]); // Reset sort to Stock descending
         }}
+      />
+
+      {/* Premium Feature Modal */}
+      <PremiumFeatureModal
+        open={showPremiumModal}
+        onOpenChange={setShowPremiumModal}
+        featureName="Bulk PDF Generation"
       />
 
     </div>
