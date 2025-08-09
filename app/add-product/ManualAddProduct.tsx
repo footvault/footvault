@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import Image from "next/image"
 import { toast } from "@/hooks/use-toast"
 
@@ -40,6 +41,15 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
   const [addingLocationIdx, setAddingLocationIdx] = useState<number|null>(null);
   const [newLocation, setNewLocation] = useState("");
   const [customLocations, setCustomLocations] = useState<string[]>([]);
+  
+  // Variant limits state
+  const [variantLimits, setVariantLimits] = useState<{
+    current: number
+    limit: number
+    remaining: number
+    plan: string
+  } | null>(null);
+  const [loadingLimits, setLoadingLimits] = useState(false);
 
   // Fetch user custom locations from Supabase on mount
   useEffect(() => {
@@ -58,6 +68,39 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
       setCustomLocations(locs);
     };
     fetchLocations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch variant limits on mount
+  useEffect(() => {
+    const fetchVariantLimits = async () => {
+      setLoadingLimits(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const response = await fetch("/api/variant-limits", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            setVariantLimits(result.data);
+          }
+        }
+      } catch (error) {
+        console.warn("Could not fetch variant limits:", error);
+      } finally {
+        setLoadingLimits(false);
+      }
+    };
+
+    fetchVariantLimits();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Helper function to generate dynamic size options
@@ -174,6 +217,43 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
         // Get user session
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError || !user) throw new Error("Not authenticated");
+
+        // Get session for API authentication
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session) throw new Error("Authentication required");
+
+        // Calculate total variants to be added
+        const totalVariantsToAdd = variants.reduce((sum, v) => {
+          return sum + (parseInt(v.quantity as any, 10) || 1);
+        }, 0);
+
+        // Check variant limits before proceeding
+        try {
+          const variantLimitResponse = await fetch("/api/variant-limits", {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+          const variantLimitData = await variantLimitResponse.json();
+          
+          if (variantLimitData.success) {
+            if (variantLimitData.data.current + totalVariantsToAdd > variantLimitData.data.limit) {
+              const remaining = variantLimitData.data.remaining;
+              toast({
+                title: "Variant Limit Exceeded",
+                description: remaining === 0 
+                  ? `Variant limit reached. Your ${variantLimitData.data.plan} plan allows up to ${variantLimitData.data.limit.toLocaleString()} available variants. You currently have ${variantLimitData.data.current.toLocaleString()} available variants. Please upgrade your plan to add more variants.`
+                  : `Variant limit exceeded. Your ${variantLimitData.data.plan} plan allows up to ${variantLimitData.data.limit.toLocaleString()} available variants. You currently have ${variantLimitData.data.current.toLocaleString()} available variants and are trying to add ${totalVariantsToAdd} more. Only ${remaining} slots remaining. Please adjust your quantities to ${remaining} total or upgrade your plan.`,
+                variant: "destructive",
+              });
+              setIsSaving(false);
+              return;
+            }
+          }
+        } catch (limitError) {
+          console.warn("Could not check variant limits:", limitError);
+          // Continue with submission if limit check fails
+        }
 
         // Get the highest serial_number for this user
         const { data: maxSerialData } = await supabase
@@ -487,6 +567,75 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
               />
             </div>
           </div>
+          
+          {/* Variant Limits Visual Indicator */}
+          {loadingLimits ? (
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+              <Skeleton className="w-full h-2 rounded-full" />
+              <div className="p-3 rounded-lg border bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <Skeleton className="h-3 w-full mt-2" />
+              </div>
+            </div>
+          ) : variantLimits ? (
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">Variant Usage:</span>
+                <span className="text-muted-foreground">
+                  {variantLimits.current.toLocaleString()} / {variantLimits.limit.toLocaleString()} used
+                </span>
+              </div>
+              
+              {/* Progress Bar */}
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    variantLimits.current / variantLimits.limit >= 0.9 
+                      ? 'bg-red-500' 
+                      : variantLimits.current / variantLimits.limit >= 0.7 
+                      ? 'bg-yellow-500' 
+                      : 'bg-green-500'
+                  }`}
+                  style={{
+                    width: `${Math.min((variantLimits.current / variantLimits.limit) * 100, 100)}%`
+                  }}
+                />
+              </div>
+              
+              {/* Impact Indicator */}
+              {variants.length > 0 && variants[0].quantity > 0 && (
+                <div className={`p-3 rounded-lg border ${
+                  variants[0].quantity > variantLimits.remaining
+                    ? 'bg-red-50 border-red-200 text-red-800'
+                    : variantLimits.remaining <= 10
+                    ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                    : 'bg-green-50 border-green-200 text-green-800'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">
+                      Adding {variants[0].quantity} variant{variants[0].quantity !== 1 ? 's' : ''}
+                    </span>
+                    <span className="text-xs">
+                      {Math.max(0, variantLimits.remaining - variants[0].quantity)} slot{Math.max(0, variantLimits.remaining - variants[0].quantity) !== 1 ? 's' : ''} remaining
+                    </span>
+                  </div>
+                  {variants[0].quantity > variantLimits.remaining && (
+                    <p className="text-xs mt-1">
+                      Exceeds limit by {variants[0].quantity - variantLimits.remaining}. 
+                      Please reduce quantity or upgrade your {variantLimits.plan} plan.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
 
         {/* Action Buttons */}

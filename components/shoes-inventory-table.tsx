@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select,
   SelectContent,
@@ -108,6 +109,7 @@ export function ShoesInventoryTable() {
   const [globalFilter, setGlobalFilter] = useState("")
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingVariants, setLoadingVariants] = useState(false)
   const [editModal, setEditModal] = useState<{ open: boolean, product?: Product }>({ open: false })
   const [deleteModal, setDeleteModal] = useState<{ open: boolean, product?: Product }>({ open: false })
   const [addVariantsModal, setAddVariantsModal] = useState<{ open: boolean, product?: Product }>({ open: false })
@@ -208,12 +210,14 @@ export function ShoesInventoryTable() {
   useEffect(() => {
     async function prefetchAllVariants() {
       if (products.length === 0) return;
+      setLoadingVariants(true);
       const all: Record<number, Variant[]> = {};
       for (const p of products) {
         const variants = await fetchVariantsForProduct(p.id, supabase);
         all[p.id] = variants;
       }
       setRowVariants(all);
+      setLoadingVariants(false);
     }
     prefetchAllVariants();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -387,6 +391,9 @@ export function ShoesInventoryTable() {
       header: () => <span>Quantity</span>,
       cell: (info) => {
         const product = info.row.original as Product;
+        if (loadingVariants) {
+          return <Skeleton className="h-4 w-8" />;
+        }
         const variants = rowVariants[product.id] || [];
         return <span>{variants.length}</span>;
       },
@@ -464,6 +471,13 @@ export function ShoesInventoryTable() {
       },
       cell: (info) => {
         const product = info.row.original as Product;
+        if (loadingVariants) {
+          return (
+            <div className="min-w-[100px]">
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+          );
+        }
         const variants = rowVariants[product.id] || [];
         const quantity = variants.length;
         let status = product.status;

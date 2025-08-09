@@ -14,6 +14,7 @@ import Image from "next/image"
 
 import { toast } from "@/hooks/use-toast" // Assuming this toast hook exists
 import { Card } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
 import { fetchCustomLocations } from "@/lib/fetchCustomLocations"
@@ -166,6 +167,7 @@ export function AddProductForm({
     remaining: number;
     isAtLimit: boolean;
   } | null>(null)
+  const [imageLoading, setImageLoading] = useState(false)
   // Removed editingVariantId and editingVariantValues; only single variant input is used
   // Serial number state removed (auto-assigned)
 
@@ -253,6 +255,10 @@ export function AddProductForm({
         image: productDataFromApi.image || "/placeholder.svg?height=100&width=100",
         sizeCategory: inferredSizeCategory || "Men's",
       });
+      // Set image loading when new API data comes in
+      if (productDataFromApi.image) {
+        setImageLoading(true);
+      }
       console.log("[AddProductForm] Set productForm.sizeCategory:", inferredSizeCategory || "Men's");
       setNewVariant({
         size: undefined,
@@ -519,8 +525,8 @@ export function AddProductForm({
       }
 
       toast({
-        title: "Product & Variants Added",
-        description: `Added ${newVariant.quantity} variants with auto-incremented serials.`,
+        title: "Product Added Successfully! 🎉",
+        description: `Added ${newVariant.quantity} ${newVariant.quantity === 1 ? 'variant' : 'variants'} of "${productForm.name || productDataFromApi?.title || existingProductDetails?.name}" to your inventory.`,
       });
       onOpenChange(false);
       onProductAdded();
@@ -590,13 +596,23 @@ export function AddProductForm({
           <div className="md:col-span-2 space-y-4">
             <h3 className="text-lg font-semibold">Product Details</h3>
             <div className="flex items-center gap-4">
-              <Image
-                src={productForm.image || "/placeholder.svg"}
-                alt="Product Image"
-                width={100}
-                height={100}
-                className="rounded-md object-cover border"
-              />
+              <div className="relative">
+                {imageLoading && (
+                  <Skeleton className="w-[100px] h-[100px] rounded-md" />
+                )}
+                <Image
+                  src={productForm.image || "/placeholder.svg"}
+                  alt="Product Image"
+                  width={100}
+                  height={100}
+                  className={cn(
+                    "rounded-md object-cover border transition-opacity duration-200",
+                    imageLoading ? "opacity-0 absolute inset-0" : "opacity-100"
+                  )}
+                  onLoad={() => setImageLoading(false)}
+                  onError={() => setImageLoading(false)}
+                />
+              </div>
               <div className="flex-1 space-y-2">
                 <div>
                   <Label htmlFor="name">Product Name</Label>

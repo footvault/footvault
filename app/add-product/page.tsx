@@ -99,7 +99,9 @@ export default function AddProductPage() {
         console.error("Search error:", result.error) // Debug log
         toast({
           title: "Search Failed",
-          description: result.error || "An error occurred during search.",
+          description: result.error?.includes('fetch') || result.error?.includes('network') || result.error?.includes('connection')
+            ? "No internet connection or API is temporarily unavailable. You can still add products manually below!"
+            : result.error || "API service is temporarily unavailable. You can still add products manually below!",
           variant: "destructive",
         })
         setSearchResults([])
@@ -115,7 +117,9 @@ export default function AddProductPage() {
         if (!kicksDevResult?.success || !kicksDevResult?.data) {
           toast({
             title: "Failed to Load Product Details",
-            description: kicksDevResult?.error || "An error occurred while fetching product details.",
+            description: (kicksDevResult?.error?.includes('fetch') || kicksDevResult?.error?.includes('network') || kicksDevResult?.error?.includes('connection'))
+              ? "No internet connection or API is temporarily unavailable. You can still add this product manually below!"
+              : kicksDevResult?.error || "API service is temporarily unavailable. You can still add this product manually below!",
             variant: "destructive",
           });
           return;
@@ -269,6 +273,32 @@ export default function AddProductPage() {
               </Button>
             </CardContent>
           </Card>
+
+          {/* No internet/API failure helpful message */}
+          {searchTerm && searchResults.length === 0 && !isSearching && (
+            <Card className="bg-blue-50 border-blue-200">
+              <CardContent className="p-6 text-center">
+                <div className="mb-4">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Plus className="h-8 w-8 text-blue-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-blue-900 mb-2">
+                    Can't find what you're looking for?
+                  </h3>
+                  <p className="text-blue-700 mb-4">
+                    No worries! You can still add any product manually with all the same features.
+                  </p>
+                  <Button 
+                    onClick={() => setShowManualAdd(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Product Manually
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {searchResults.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
