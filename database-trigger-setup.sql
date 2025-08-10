@@ -22,7 +22,7 @@ BEGIN
   VALUES (
     'Main',
     new.id,
-    0.00,
+    100.00,
     COALESCE(
       new.raw_user_meta_data->>'avatar_url',
       'https://api.dicebear.com/7.x/initials/svg?seed=' || COALESCE(new.raw_user_meta_data->>'full_name', new.email, 'Main')

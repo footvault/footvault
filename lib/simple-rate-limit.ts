@@ -85,33 +85,33 @@ function getClientIP(req: NextRequest): string {
   return realIP || 'unknown'
 }
 
-// Rate limit configurations
+// Rate limit configurations - Very lenient for development/testing
 export const rateLimits = {
-  // Product search - relaxed for better UX
+  // Product search - very permissive
   productSearch: {
     windowMs: 1000, // 1 second
-    maxRequests: 2, // 2 requests per second
+    maxRequests: 10, // 10 requests per second
     message: 'Product search rate limited. Please wait 1 second between searches.'
   },
   
-  // General API endpoints - increased for dashboard calls
+  // General API endpoints - very high limit
   api: {
     windowMs: 60 * 1000, // 1 minute
-    maxRequests: 120, // 120 requests per minute (2 per second)
+    maxRequests: 500, // 500 requests per minute
     message: 'Too many API requests. Please wait a moment.'
   },
   
-  // Dashboard/Stats endpoints - more permissive for frequent updates
+  // Dashboard/Stats endpoints - extremely permissive for frequent updates
   dashboard: {
-    windowMs: 30 * 1000, // 30 seconds
-    maxRequests: 30, // 30 requests per 30 seconds
+    windowMs: 10 * 1000, // 10 seconds
+    maxRequests: 100, // 100 requests per 10 seconds
     message: 'Dashboard update rate limited. Please wait a moment.'
   },
   
-  // Authentication endpoints
+  // Authentication endpoints - more lenient
   auth: {
     windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: 5, // 5 attempts per 15 minutes
+    maxRequests: 50, // 20 attempts per 15 minutes
     message: 'Too many authentication attempts. Please wait 15 minutes.'
   }
 }

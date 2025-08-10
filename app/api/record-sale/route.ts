@@ -29,7 +29,37 @@ export async function POST(request: Request) {
     }
     console.log('User:', user.id);
 
-    // Insert sale with user_id and correct fields, including payment_type JSONB
+    // Get the next sales number for this user using the database function
+    // This handles concurrency and ensures unique sequential numbering per user
+    let nextSalesNo = 1; // Default fallback
+    
+    const { data: nextSalesNoData, error: nextSalesNoError } = await supabase
+      .rpc('get_next_sales_no', { user_uuid: user.id });
+
+    if (nextSalesNoError) {
+      console.error('Error getting next sales_no:', nextSalesNoError);
+      // Fallback to manual calculation if function doesn't exist yet
+      const { data: maxSalesNoData, error: maxSalesNoError } = await supabase
+        .from('sales')
+        .select('sales_no')
+        .eq('user_id', user.id)
+        .order('sales_no', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!maxSalesNoError && maxSalesNoData && maxSalesNoData.sales_no) {
+        nextSalesNo = maxSalesNoData.sales_no + 1;
+      } else {
+        nextSalesNo = 1; // First sale for this user
+      }
+      
+      console.log('Using fallback sales_no:', nextSalesNo);
+    } else {
+      nextSalesNo = nextSalesNoData;
+      console.log('Next sales_no for user:', nextSalesNo);
+    }
+
+    // Insert sale with user_id and correct fields, including payment_type JSONB and sales_no
     const saleInsert = {
       sale_date: saleDate,
       total_amount: totalAmount,
@@ -38,7 +68,8 @@ export async function POST(request: Request) {
       customer_name: customerName,
       customer_phone: customerPhone,
       user_id: user.id,
-      payment_type: paymentType || null
+      payment_type: paymentType || null,
+      sales_no: nextSalesNo
     };
     console.log('Inserting sale:', saleInsert);
     const { data: saleData, error: saleError } = await supabase

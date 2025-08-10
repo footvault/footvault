@@ -314,11 +314,13 @@ export function CheckoutClientWrapper({
 
   const netProfit = useMemo(() => {
     let baseProfit = selectedVariants.reduce((sum, variant) => sum + (variant.productSalePrice - variant.productOriginalPrice), 0);
+    // Subtract discount from profit (discount reduces both revenue and profit)
+    baseProfit -= calculatedDiscount;
     if (paymentFeeAppliesTo === "profit") {
       baseProfit -= paymentFee;
     }
     return baseProfit;
-  }, [selectedVariants, paymentFee, paymentFeeAppliesTo]);
+  }, [selectedVariants, paymentFee, paymentFeeAppliesTo, calculatedDiscount]);
 
   const handleConfirmSale = async (profitDistribution: { avatarId: string; percentage: number; amount: number }[]) => {
     startConfirmSaleTransition(async () => {
@@ -831,12 +833,20 @@ export function CheckoutClientWrapper({
                     />
                   </div>
                   {calculatedDiscount > 0 && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Applied: -${safeToFixed(calculatedDiscount)} (
-                      {discountType === "percentage" ? `${discountValue}%` : `$${safeToFixed(discountValue)}`})
-                    </p>
+                    <div className="text-xs text-gray-600 mt-1 space-y-1">
+                      <p>Applied: -{formatCurrency(calculatedDiscount, currency)} (
+                      {discountType === "percentage" ? `${discountValue}%` : formatCurrency(discountValue, currency)})</p>
+                      <p className="italic">Reduces both sales revenue and profit</p>
+                    </div>
                   )}
                 </div>
+
+                {calculatedDiscount > 0 && (
+                  <div className="flex justify-between text-sm text-red-600 font-medium">
+                    <span>Discount Applied</span>
+                    <span>-{formatCurrency(calculatedDiscount, currency)}</span>
+                  </div>
+                )}
 
                 {selectedPayment.feeType !== "none" && selectedPayment.feeValue > 0 && (
                   <div className="flex justify-between text-sm font-medium">

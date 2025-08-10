@@ -211,7 +211,15 @@ export default function UserDashboard() {
               <Button 
                 variant="outline" 
                 className="w-full"
-                onClick={() => window.location.href = '/subscription'}
+                onClick={() => {
+                  const pricingSection = document.getElementById('pricing');
+                  if (pricingSection) {
+                    pricingSection.scrollIntoView({ 
+                      behavior: 'smooth',
+                      block: 'start'
+                    });
+                  }
+                }}
               >
                 Manage Subscription
                 <ArrowRight className="h-4 w-4 ml-2" />

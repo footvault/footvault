@@ -479,7 +479,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                     <TableCell>{sale.customer_name || <span className="text-gray-400 italic">No name</span>}</TableCell>
                     <TableCell>{sale.customer_phone || <span className="text-gray-400 italic">No phone</span>}</TableCell>
                     <TableCell>
-                      {sale.items?.length > 0 ? (
+                      {sale.items && sale.items.length > 0 ? (
                         <ul className="text-sm">
                           {sale.items.slice(0, 2).map((item: any) => (
                             <li key={item.id}>
@@ -590,7 +590,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
         <SaleDetailModal
           open={isDetailModalOpen}
           onOpenChange={setIsDetailModalOpen}
-          sale={{ ...selectedSale, items: selectedSale.items || [] }}
+          sale={selectedSale as any} // Cast to any since the API returns transformed data structure
         />
       )}
 

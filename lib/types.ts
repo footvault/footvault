@@ -59,12 +59,16 @@ export type Sale = {
   [x: string]: any
   profitDistribution: any
   id: string
+  sales_no?: number | null // Added sales_no field
   sale_date: string
   total_amount: number
   total_discount: number
   net_profit: number
   customer_name?: string | null // Added customer name
   customer_phone?: string | null // Added customer phone
+  status?: string // Added status field
+  payment_type?: any // Added payment type
+  items?: SaleItem[] // Added items for compatibility
   created_at: string
   updated_at: string
   sale_items?: SaleItem[]

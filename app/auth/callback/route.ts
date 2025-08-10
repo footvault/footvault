@@ -74,29 +74,44 @@ export async function GET(request: Request) {
             return NextResponse.redirect(`${origin}/auth/auth-code-error?error=server_error&error_code=user_creation_failed&error_description=Database+error+saving+new+user:+${encodeURIComponent(insertUserError.message)}`)
           }
 
-          // Create Main avatar
-          const avatarName = 'Main'
-          const googleImage = user.user_metadata.avatar_url || null
-          const fallbackInitials = email
-            .split('@')[0]
-            .split(/[._-]/)
-            .map(part => part[0]?.toUpperCase())
-            .join('')
-            .slice(0, 2) || 'NN'
-          const fallbackAvatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${fallbackInitials}`
-          const avatarImage = googleImage ?? fallbackAvatarUrl
+          // Create Main avatar (only if it doesn't exist)
+          const { data: existingAvatar, error: avatarCheckError } = await supabase
+            .from('avatars')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('type', 'Main')
+            .single()
 
-          const { error: insertAvatarError } = await supabase.from('avatars').insert({
-            name: avatarName,
-            user_id: user.id,
-            default_percentage: 0.00,
-            image: avatarImage,
-            type: 'Main',
-          })
+          if (avatarCheckError && avatarCheckError.code !== 'PGRST116') {
+            console.error('Avatar check error:', avatarCheckError)
+          }
 
-          if (insertAvatarError) {
-            console.error('Insert avatar error:', insertAvatarError)
-            // Continue even if avatar creation fails
+          if (!existingAvatar) {
+            const avatarName = 'Main'
+            const googleImage = user.user_metadata.avatar_url || null
+            const fallbackInitials = email
+              .split('@')[0]
+              .split(/[._-]/)
+              .map(part => part[0]?.toUpperCase())
+              .join('')
+              .slice(0, 2) || 'NN'
+            const fallbackAvatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${fallbackInitials}`
+            const avatarImage = googleImage ?? fallbackAvatarUrl
+
+            const { error: insertAvatarError } = await supabase.from('avatars').insert({
+              name: avatarName,
+              user_id: user.id,
+              default_percentage: 100.00, // Changed from 0.00 to 100.00 for main avatar
+              image: avatarImage,
+              type: 'Main',
+            })
+
+            if (insertAvatarError) {
+              console.error('Insert avatar error:', insertAvatarError)
+              // Continue even if avatar creation fails
+            }
+          } else {
+            console.log('Main avatar already exists for user, skipping creation')
           }
 
           // Create default payment type

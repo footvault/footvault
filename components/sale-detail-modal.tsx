@@ -7,62 +7,58 @@ import { DollarSign, Package, Users, Calendar } from "lucide-react" // Added Use
 import Image from "next/image"
 import { useCurrency } from "@/context/CurrencyContext"
 import { formatCurrency } from "@/lib/utils/currency"
+
 // IMPORTANT: If sale.items is empty in the modal, the issue is likely in the data fetching function
 // that populates the 'sale' prop for this modal. Ensure that function uses
 // a 'select' query with nested relationships (e.g., `*, sale_items(*, variants(*, products(*)))`).
-interface Sale {
+
+// API-transformed sale structure (what we actually receive from get-sales API)
+interface ApiSale {
   id: string
+  sales_no?: number | null
   sale_date: string
   total_amount: number
   total_discount: number
   net_profit: number
-  customer_name?: string | null // Added customer name
-  customer_phone?: string | null // Added customer phone
+  customer_name?: string | null
+  customer_phone?: string | null
   created_at: string
   updated_at: string
-  payment_type?: 
-    | string 
-    | {
-        name?: string
-        feeType?: string
-        feeValue?: number
-      }
-    | null
-  items: Array<{
+  status?: string
+  payment_type?: any
+  items?: Array<{
     id: string
-    variant_id: string
     sold_price: number
     cost_price: number
     quantity: number
-    variant: {
+    variant?: {
       id: string
       serialNumber: string
       size: string
       sizeLabel: string
       variantSku: string
-      costPrice: number
+      costPrice?: number
       productName: string
       productBrand: string
       productSku: string
       productImage: string
-    }
+    } | null
   }>
-  profitDistribution: Array<{
+  profitDistribution?: Array<{
     id: string
-    avatar_id: string
-    amount: number
     percentage: number
-    avatar: {
+    amount: number
+    avatar?: {
       id: string
       name: string
-    }
+    } | null
   }>
 }
 
 interface SaleDetailModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  sale: Sale
+  sale: ApiSale
 }
 
 export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalProps) {
@@ -75,12 +71,16 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
   const items = Array.isArray(sale.items) ? sale.items : [];
   const profitDistribution = Array.isArray(sale.profitDistribution) ? sale.profitDistribution : [];
 
+  // Format sales number similar to sales list
+  const formatSalesNo = (n: number | null | undefined) => n != null ? `#${n.toString().padStart(3, "0")}` : "#---";
+  const saleNumber = formatSalesNo(sale.sales_no);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-8">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5" /> Sale Details - {sale.id.slice(0, 8)}...
+            <DollarSign className="h-5 w-5" /> Sale Details - {saleNumber}
           </DialogTitle>
         </DialogHeader>
 
@@ -186,21 +186,21 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                           <TableCell className="py-2">
                             <div className="flex items-center gap-3">
                               <Image
-                                src={item.variant.productImage || "/placeholder.svg?height=40&width=40"}
-                                alt={item.variant.productName}
+                                src={item.variant?.productImage || "/placeholder.svg?height=40&width=40"}
+                                alt={item.variant?.productName || "Product"}
                                 width={40}
                                 height={40}
                                 className="rounded-md object-cover"
                               />
                               <div>
-                                <p className="font-medium text-sm">{item.variant.productName}</p>
-                                <p className="text-xs text-gray-500">{item.variant.productBrand}</p>
+                                <p className="font-medium text-sm">{item.variant?.productName || 'Unknown Product'}</p>
+                                <p className="text-xs text-gray-500">{item.variant?.productBrand || 'Unknown Brand'}</p>
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="font-mono text-xs py-2">{item.variant.serialNumber}</TableCell>
+                          <TableCell className="font-mono text-xs py-2">{item.variant?.serialNumber || 'N/A'}</TableCell>
                           <TableCell className="text-xs py-2">
-                            {item.variant.size} ({item.variant.sizeLabel})
+                            {item.variant?.size || 'N/A'} ({item.variant?.sizeLabel || 'N/A'})
                           </TableCell>
                           <TableCell className="text-right font-medium py-2">{formatCurrency(item.sold_price, currency)}</TableCell>
                           <TableCell className="text-right text-gray-600 py-2">{formatCurrency(item.cost_price, currency)}</TableCell>
@@ -235,7 +235,7 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                   <TableBody>
                     {profitDistribution.map((dist) => (
                       <TableRow key={dist.id}>
-                        <TableCell className="font-medium py-2">{dist.avatar.name}</TableCell>
+                        <TableCell className="font-medium py-2">{dist.avatar?.name || 'Unknown Avatar'}</TableCell>
                         <TableCell className="text-right py-2">{dist.percentage.toFixed(2)}%</TableCell>
                         <TableCell className="text-right font-medium py-2">{formatCurrency(dist.amount, currency)}</TableCell>
                       </TableRow>
