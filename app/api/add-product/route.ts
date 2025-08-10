@@ -1,46 +1,57 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { v4 as uuidv4 } from "uuid";
 import { getVariantLimit } from "@/lib/utils/variant-limits";
+import { validateAuth, validateInput, getSecurityHeaders } from '@/lib/simple-security';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const securityHeaders = getSecurityHeaders();
+  
   try {
+    // Validate authentication
+    const authResult = await validateAuth(request);
+    if (!authResult.valid) {
+      return NextResponse.json({
+        success: false,
+        error: "Authentication required"
+      }, { 
+        status: 401,
+        headers: securityHeaders
+      });
+    }
+
     const { productForm, variantsToAdd } = await request.json();
+
+    // Basic validation
+    if (!productForm || !variantsToAdd || !Array.isArray(variantsToAdd)) {
+      return NextResponse.json({
+        success: false,
+        error: "Invalid request data"
+      }, { 
+        status: 400,
+        headers: securityHeaders
+      });
+    }
+
+    // Validate input lengths and sanitize
+    if (productForm.name) productForm.name = validateInput(productForm.name, 255);
+    if (productForm.brand) productForm.brand = validateInput(productForm.brand, 100);
+    if (productForm.sku) productForm.sku = validateInput(productForm.sku, 100);
+
     console.log("Adding product:", { productForm, variantsToAdd });
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Use the validated user from auth
+    const user = authResult.user;
+
     // Get the current user's ID from the authorization header
     const authHeader = request.headers.get("authorization");
-    if (!authHeader) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "No authorization header",
-        },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Authentication required",
-        },
-        { status: 401 }
-      );
-    }
+    const token = authHeader?.replace("Bearer ", "") || "";
 
     // Create authenticated Supabase client with user's token
     const authenticatedSupabase = createClient(
@@ -49,11 +60,13 @@ export async function POST(request: Request) {
       {
         global: {
           headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
+            Authorization: `Bearer ${token}`,
+          },
+        },
       }
     );
+
+    console.log("User ID from auth:", user.id);
 
     // Get user's current plan and existing variant count
     const { data: userData, error: userDataError } = await authenticatedSupabase
@@ -226,7 +239,10 @@ export async function POST(request: Request) {
         success: false,
         error: error.message || "An error occurred while adding the product",
       },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: securityHeaders
+      }
     );
   }
 }
