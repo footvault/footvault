@@ -1,129 +1,244 @@
-
 'use client';
 
+import Link from 'next/link';
+import { Card, CardContent } from '@/components/ui/card';
 import { motion } from 'framer-motion';
-import React, { JSX } from 'react';
-import { easeOut } from 'framer-motion';
+import { ArrowRight } from 'lucide-react';
 
-type Feature = {
+interface Feature {
   title: string;
   description: string;
   image: string;
-};
+  href: string;
+}
 
-const features: Feature[] = [
-  {
-    title: 'Smart Inventory Management',
-    description:
-      'Comprehensive inventory tracking with size variants, serial numbers, and real-time stock updates. Never lose track of your valuable sneaker collection.',
-    image: 'https://deifkwefumgah.cloudfront.net/shadcnblocks/block/placeholder-1.svg',
-  },
-  {
-    title: 'StockX Integration',
-    description:
-      'Automatically fetch product information from StockX API for quick product setup. Get accurate pricing, images, and details instantly.',
-    image: 'https://deifkwefumgah.cloudfront.net/shadcnblocks/block/placeholder-2.svg',
-  },
-  {
-    title: 'QR Scanner & Generation',
-    description:
-      'Seamlessly incorporate QR code scanning and generation into your inventory workflow. Quickly manage physical products with QR codes for easy identification and searching.',
-    image: 'https://deifkwefumgah.cloudfront.net/shadcnblocks/block/placeholder-1.svg',
-  },
-  {
-    title: 'Sales Tracking & Profit Distribution',
-    description:
-      'Complete sales management with payment tracking, customer information, refund handling, and comprehensive filtering options for detailed insights.',
-    image: 'https://deifkwefumgah.cloudfront.net/shadcnblocks/block/placeholder-2.svg',
-  },
-];
-
-// Animation variants
 const containerVariants = {
-  hidden: {},
-  show: {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
     transition: {
-      staggerChildren: 0.15,
+      staggerChildren: 0.1,
+      duration: 0.5,
     },
   },
 };
 
-const cardVariants = {
-  hidden: { opacity: 0, y: 40 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: easeOut } },
+const itemVariants = {
+  hidden: { 
+    opacity: 0, 
+    y: 30,
+    scale: 0.95,
+  },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring" as const,
+      stiffness: 100,
+      damping: 15,
+      duration: 0.6,
+    },
+  },
 };
 
-export default function Features(): JSX.Element {
+const hoverVariants = {
+  rest: {
+    scale: 1,
+    y: 0,
+    boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+  },
+  hover: {
+    scale: 1.02,
+    y: -4,
+    boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+    transition: {
+      type: "spring" as const,
+      stiffness: 400,
+      damping: 30,
+    },
+  },
+};
+
+const arrowVariants = {
+  rest: {
+    x: 0,
+    opacity: 0.6,
+  },
+  hover: {
+    x: 4,
+    opacity: 1,
+    transition: {
+      type: "spring" as const,
+      stiffness: 400,
+      damping: 25,
+    },
+  },
+};
+
+const imageVariants = {
+  rest: {
+    scale: 1,
+  },
+  hover: {
+    scale: 1.05,
+    transition: {
+      type: "spring" as const,
+      stiffness: 300,
+      damping: 30,
+    },
+  },
+};
+
+const features: Feature[] = [
+  {
+    title: 'Inventory Management',
+    description:
+      'Track your sneakers with size variants, serial numbers, and real-time stock updates. Never lose track of your collection.',
+    image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&h=400&fit=crop',
+    href: '/features/inventory',
+  },
+  {
+    title: 'StockX Integration',
+    description:
+      'Automatically fetch product data, pricing, and images from StockX for quick setup.',
+    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&h=400&fit=crop',
+    href: '/features/stockx',
+  },
+  {
+    title: 'QR Scanner & Sticker Generation',
+    description:
+      'Generate QR stickers for inventory and scan products with your phone camera.',
+    image: 'https://images.unsplash.com/photo-1606868306217-dbf5046868d2?w=600&h=400&fit=crop',
+    href: '/features/qr-scanner',
+  },
+  {
+    title: 'Sales Tracking',
+    description:
+      'Monitor all sales with customer info, payment tracking, and detailed analytics.',
+    image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&h=400&fit=crop',
+    href: '/features/sales',
+  },
+  {
+    title: 'Checkout System',
+    description:
+      'Streamlined checkout process with payment integration and order management.',
+    image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&h=400&fit=crop',
+    href: '/features/checkout',
+  },
+  {
+    title: 'Profit Distribution',
+    description:
+      'Calculate and distribute profits with detailed cost analysis and fee tracking.',
+    image: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=600&h=400&fit=crop',
+    href: '/features/profit',
+  },
+];
+
+export default function Features() {
   return (
-    <motion.section
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true }}
-      variants={containerVariants}
-      className="py-12"
-    >
-      <div className="container">
-        <motion.div
-          variants={cardVariants}
-          className="mb-24 flex flex-col items-center gap-6"
+    <section className="py-24 bg-background">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div 
+          className="text-center mb-16"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
         >
-          <h1 className="text-center text-3xl font-semibold lg:max-w-3xl lg:text-5xl">
-            Powerful Features for Your Sneaker Business
-          </h1>
-          <p className="text-center text-lg font-medium text-muted-foreground md:max-w-4xl lg:text-xl">
-            FootVault provides everything you need to manage your sneaker inventory, track sales, and maximize profits. 
-            Built with modern technology for the modern sneaker reseller.
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
+            Everything you need to manage your sneaker business
+          </h2>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Powerful features designed specifically for sneaker retailers and collectors
           </p>
         </motion.div>
 
-        <div className="relative flex justify-center">
-          <motion.div
-            variants={containerVariants}
-            className="border-muted2 relative flex w-full flex-col border md:w-1/2 lg:w-full"
-          >
-            <div className="relative flex flex-col lg:flex-row">
-              <FeatureCard feature={features[0]} large />
-              <FeatureCard feature={features[1]} />
-            </div>
-            <div className="border-muted2 relative flex flex-col border-t border-solid lg:flex-row">
-              <FeatureCard feature={features[2]} />
-              <FeatureCard feature={features[3]} large />
-            </div>
-          </motion.div>
-        </div>
+        <motion.div 
+          className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 max-w-7xl mx-auto"
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+        >
+          {features.map((feature, index) => {
+            // Define width classes for alternating layout
+            let colSpan = "";
+            let aspectRatio = "aspect-video"; // default
+            if (feature.title === 'Inventory Management') {
+              colSpan = "lg:col-span-2";
+              aspectRatio = "aspect-[16/9]";
+            }
+            else if (feature.title === 'StockX Integration') {
+              colSpan = "lg:col-span-1";
+              aspectRatio = "aspect-square";
+            }
+            else if (feature.title === 'QR Scanner & Sticker Generation') {
+              colSpan = "lg:col-span-1";
+              aspectRatio = "aspect-square";
+            }
+            else if (feature.title === 'Sales Tracking') {
+              colSpan = "lg:col-span-2";
+              aspectRatio = "aspect-[16/9]";
+            }
+            else if (feature.title === 'Checkout System') {
+              colSpan = "lg:col-span-2";
+              aspectRatio = "aspect-[16/9]";
+            }
+            else if (feature.title === 'Profit Distribution') {
+              colSpan = "lg:col-span-1";
+              aspectRatio = "aspect-square";
+            }
+            
+            return (
+              <motion.div
+                key={feature.title}
+                variants={itemVariants}
+                whileHover="hover"
+                initial="rest"
+                animate="rest"
+                className={`${colSpan}`}
+              >
+              <Link href={feature.href} className="block h-full">
+                <motion.div
+                  variants={hoverVariants}
+                  className="h-full"
+                >
+                  <Card className="overflow-hidden h-full group cursor-pointer border border-border bg-card hover:shadow-lg transition-shadow duration-200">
+                    <div className={`${aspectRatio} overflow-hidden relative`}>
+                      <motion.img
+                        src={feature.image}
+                        alt={feature.title}
+                        className="w-full h-full object-cover"
+                        variants={imageVariants}
+                      />
+                    </div>
+                    
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between mb-3">
+                        <h3 className="text-xl font-semibold text-foreground group-hover:text-primary transition-colors duration-200">
+                          {feature.title}
+                        </h3>
+                        <motion.div
+                          variants={arrowVariants}
+                          className="text-muted-foreground group-hover:text-primary transition-colors duration-200"
+                        >
+                          <ArrowRight className="h-5 w-5" />
+                        </motion.div>
+                      </div>
+                      
+                      <p className="text-muted-foreground text-sm leading-relaxed">
+                        {feature.description}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </Link>
+            </motion.div>
+            );
+          })}
+        </motion.div>
       </div>
-    </motion.section>
-  );
-}
-
-function FeatureCard({
-  feature,
-  large = false,
-}: {
-  feature: Feature;
-  large?: boolean;
-}) {
-  return (
-    <motion.div
-      variants={cardVariants}
-      whileHover={{ scale: 1.02 }}
-      className={`group border-muted2 flex flex-col justify-between p-10 transition-transform duration-300 hover:shadow-xl ${
-        large ? 'lg:w-3/5' : 'lg:w-2/5'
-      } ${large ? '' : 'border-b border-solid'} ${
-        !large ? 'lg:border-r lg:border-b-0' : ''
-      }`}
-    >
-      <h2 className="text-xl font-semibold">{feature.title}</h2>
-      <p className="text-muted-foreground">{feature.description}</p>
-      <div className="overflow-hidden mt-8 rounded-xl">
-        <motion.img
-          src={feature.image}
-          alt={feature.title}
-          className={`h-full w-full object-cover transition-transform duration-500 ${
-            large ? 'aspect-[1.5] lg:aspect-[2.4]' : 'aspect-[1.45]'
-          } group-hover:scale-105`}
-        />
-      </div>
-    </motion.div>
+    </section>
   );
 }

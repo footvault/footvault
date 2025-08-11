@@ -55,7 +55,7 @@ export default async function Home() {
         </nav>
 
         {/* ✅ Page Content */}
-        <div className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col gap-20">
+        <div className="flex-1 w-full mx-auto  flex flex-col ">
           <Hero />
           <Marquee />
           <Features />
