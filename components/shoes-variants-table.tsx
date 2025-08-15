@@ -51,6 +51,7 @@ import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
 
 import { Badge } from "@/components/ui/badge"
+import InventorySearchWithQR from "@/components/inventory-search-with-qr";
 
 const columnHelper = createColumnHelper<Variant>()
 
@@ -723,31 +724,12 @@ export function ShoesVariantsTable() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full mb-2">
         {/* Search bar left */}
         <div className="flex-1 flex items-center min-w-0">
-          <div className="relative w-full">
-            {/* Search icon */}
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-              <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-3.5-3.5"/></svg>
-            </span>
-            <Input
-              type="text"
-              placeholder="Search..."
-              value={globalFilter}
-              onChange={e => setGlobalFilter(e.target.value)}
-              className="w-full pl-8 pr-8 min-w-0"
-              style={{ width: '100%' }}
-            />
-            {/* X icon to clear */}
-            {globalFilter && (
-              <button
-                type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                onClick={() => setGlobalFilter("")}
-                aria-label="Clear search"
-              >
-                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
-              </button>
-            )}
-          </div>
+          <InventorySearchWithQR
+            searchTerm={globalFilter}
+            onSearchChange={setGlobalFilter}
+            placeholder="Search by serial number, name, or SKU..."
+            className="w-full"
+          />
         </div>
         {/* Filters right, responsive */}
         <div className="flex flex-row gap-2 items-center mt-2 sm:mt-0">
