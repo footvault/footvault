@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS public.avatars (
   image text null,
   type text null,
   constraint avatars_pkey primary key (id),
-  constraint avatars_name_key unique (name),
+  constraint avatars_name_user_id_key unique (name, user_id),
   constraint avatars_user_id_fkey foreign KEY (user_id) references auth.users (id) on delete CASCADE
 );
 

@@ -36,6 +36,7 @@ export function AvatarManagementModal({
    const [userPlan, setUserPlan] = useState<string | null>(null);
    const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [deletingAvatarId, setDeletingAvatarId] = useState<string | null>(null)
 
   useEffect(() => {
     setAvatars(initialAvatars)
@@ -152,6 +153,30 @@ export function AvatarManagementModal({
 
   const defaultAvatarId = avatars.length > 0 ? avatars[0].id : null // Assuming the first avatar is the default
 
+  // Avatar limit functions
+  const getAvatarLimit = (plan: string | null): number => {
+    switch (plan?.toLowerCase()) {
+      case 'team':
+        return 5
+      case 'store':
+        return 100
+      default:
+        return 0 // free and individual cannot add avatars
+    }
+  }
+
+  const canAddAvatar = (plan: string | null, currentCount: number): boolean => {
+    if (!plan || ['free', 'individual'].includes(plan.toLowerCase())) {
+      return false
+    }
+    const limit = getAvatarLimit(plan)
+    return currentCount < limit
+  }
+
+  const shouldShowCounter = (plan: string | null): boolean => {
+    return typeof plan === "string" && ['team', 'store'].includes(plan.toLowerCase())
+  }
+
   const handleNewAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target
     setNewAvatar((prev) => ({
@@ -161,6 +186,27 @@ export function AvatarManagementModal({
   }
 
   const handleCreateAvatar = async () => {
+    // Check avatar limits
+    if (!canAddAvatar(userPlan, avatars.length)) {
+      const limit = getAvatarLimit(userPlan)
+      const planName = userPlan?.toLowerCase()
+      
+      if (planName === 'free' || planName === 'individual') {
+        toast({
+          title: "Premium Feature",
+          description: "Avatar creation is available for Team and Store plans only.",
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Avatar Limit Reached",
+          description: `You've reached the maximum of ${limit} avatars for your ${userPlan} plan.`,
+          variant: "destructive",
+        })
+      }
+      return
+    }
+
     if (!newAvatar.name.trim()) {
       toast({ title: "Name Required", description: "Please enter a name for the avatar.", variant: "destructive" })
       return
@@ -259,24 +305,25 @@ export function AvatarManagementModal({
   }
 
   const handleDeleteAvatar = async (avatarId: string) => {
-    startTransition(async () => {
-      try {
-        const response = await fetch("/api/delete-avatar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: avatarId }),
-        });
-        const result = await response.json();
-        if (result.success) {
-          toast({ title: "Avatar Deleted", description: result.message })
-          await refreshAvatars()
-        } else {
-          toast({ title: "Failed to Delete Avatar", description: result.message, variant: "destructive" })
-        }
-      } catch (err) {
-        toast({ title: "Failed to Delete Avatar", description: "Unexpected error.", variant: "destructive" })
+    setDeletingAvatarId(avatarId)
+    try {
+      const response = await fetch("/api/delete-avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: avatarId }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        toast({ title: "Avatar Deleted", description: result.message })
+        await refreshAvatars()
+      } else {
+        toast({ title: "Failed to Delete Avatar", description: result.message, variant: "destructive" })
       }
-    })
+    } catch (err) {
+      toast({ title: "Failed to Delete Avatar", description: "Unexpected error.", variant: "destructive" })
+    } finally {
+      setDeletingAvatarId(null)
+    }
   }
 
   return (
@@ -327,24 +374,54 @@ export function AvatarManagementModal({
                   <Percent className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 </div>
               </div>
-              {userPlan?.toLowerCase() != "free" ? (
-  <Button type="button" onClick={handleCreateAvatar} className="w-full" disabled={isPending}>
-    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-    Add Avatar
-  </Button>
-) : (
-  <>
-    <Button type="button" onClick={() => setShowPremiumModal(true)} className="w-full">
-      <Star className="h-4 w-4 mr-2 text-yellow-500" />
-      Add Avatar
-    </Button>
-    <PremiumFeatureModal
-      open={showPremiumModal}
-      onOpenChange={setShowPremiumModal}
-      featureName="Add Avatar"
-    />
-  </>
-)}
+              
+              {/* Avatar counter for Team and Store plans */}
+              {shouldShowCounter(userPlan) && (
+                <div className="flex items-center justify-between text-sm text-gray-600">
+                  <span>Avatars</span>
+                  <span>
+                    {avatars.length} / {getAvatarLimit(userPlan)} used
+                  </span>
+                </div>
+              )}
+
+              {canAddAvatar(userPlan, avatars.length) ? (
+                <Button type="button" onClick={handleCreateAvatar} className="w-full" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Add Avatar
+                </Button>
+              ) : (
+                <>
+                  <Button 
+                    type="button" 
+                    onClick={userPlan && ['free', 'individual'].includes(userPlan.toLowerCase()) 
+                      ? () => setShowPremiumModal(true) 
+                      : undefined
+                    } 
+                    className="w-full" 
+                    disabled={!!userPlan && ['team', 'store'].includes(userPlan.toLowerCase())}
+                  >
+                    {userPlan && ['free', 'individual'].includes(userPlan.toLowerCase()) ? (
+                      <>
+                        <Star className="h-4 w-4 mr-2 text-yellow-500" />
+                        Add Avatar
+                      </>
+                    ) : (
+                      <>
+                        <Users className="h-4 w-4 mr-2" />
+                        Avatar Limit Reached
+                      </>
+                    )}
+                  </Button>
+                  {userPlan && ['free', 'individual'].includes(userPlan.toLowerCase()) && (
+                    <PremiumFeatureModal
+                      open={showPremiumModal}
+                      onOpenChange={setShowPremiumModal}
+                      featureName="Add Avatar"
+                    />
+                  )}
+                </>
+              )}
             </form>
           </div>
 
@@ -434,9 +511,13 @@ export function AvatarManagementModal({
                               size="sm"
                               variant="destructive"
                               onClick={() => handleDeleteAvatar(avatar.id)}
-                              disabled={isPending || avatar.id === defaultAvatarId} // Disable delete for default avatar
+                              disabled={deletingAvatarId === avatar.id || isPending || avatar.id === defaultAvatarId} // Disable delete for default avatar
                             >
-                              <Trash2 className="h-4 w-4" />
+                              {deletingAvatarId === avatar.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
                             </Button>
                           </div>
                         )}

@@ -31,7 +31,18 @@ export async function POST(request: Request) {
         user_id: user.id,
       },
     ]);
+    
     if (insertError) {
+      // Handle duplicate avatar name constraint with user-friendly message
+      if (insertError.message.includes('avatars_name_user_id_key') || 
+          insertError.message.includes('duplicate key value violates unique constraint')) {
+        return NextResponse.json({ 
+          success: false, 
+          error: `You cannot create an avatar with the name "${name}" because you already have an avatar with this name. Please choose a different name.` 
+        }, { status: 400 });
+      }
+      
+      // Handle other database errors
       return NextResponse.json({ success: false, error: insertError.message }, { status: 500 });
     }
     return NextResponse.json({ success: true, message: 'Avatar created successfully' });
