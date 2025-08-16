@@ -12,25 +12,17 @@ interface CallToActionProps {
       text: string;
       url: string;
     };
-    secondary?: {
-      text: string;
-      url: string;
-    };
   };
 }
 
 const CallToAction = ({
-  heading = 'Call to Action',
-  description = 'Lorem ipsum dolor sit amet consectetur adipisicing elit. Eligendi doloremque mollitia fugiat omnis!',
-  image = 'https://source.unsplash.com/featured/?sneakers',
+  heading = 'Ready to Transform Your Sneaker Business?',
+  description = 'Join thousands of sneaker enthusiasts and resellers who trust FootVault to manage their inventory, track profits, and scale their business. Start your journey today!',
+  image = '/images/dashboard.png',
   buttons = {
     primary: {
       text: 'Get Started',
       url: '/login',
-    },
-    secondary: {
-      text: 'Learn More',
-      url: '/tiktok',
     },
   },
 }: CallToActionProps) => {
@@ -47,13 +39,8 @@ const CallToAction = ({
               {description}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 mt-4 w-full sm:w-auto">
-              {buttons.secondary && (
-                <Button variant="outline" className="w-full sm:w-auto" asChild>
-                  <a href={buttons.secondary.url}>{buttons.secondary.text}</a>
-                </Button>
-              )}
               {buttons.primary && (
-                <Button className="w-full sm:w-auto" asChild>
+                <Button className="w-full sm:w-auto px-8 py-3 text-lg" asChild>
                   <a href={buttons.primary.url}>{buttons.primary.text}</a>
                 </Button>
               )}

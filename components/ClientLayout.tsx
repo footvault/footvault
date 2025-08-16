@@ -16,7 +16,7 @@ export default function ClientLayout({ children, user }: ClientLayoutProps) {
   const pathname = usePathname();
 
   // Define routes where the sidebar should not appear
-  const noSidebarRoutes = ["/", "/login"];
+  const noSidebarRoutes = ["/", "/login", "/features/inventory", "/features/profit", "/features/qr-scanner", "/features/sales", "/features/stockx", "/features/checkout"];
   const showSidebar = !noSidebarRoutes.includes(pathname);
 
   if (!showSidebar) {
