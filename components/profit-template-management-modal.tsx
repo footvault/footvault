@@ -199,109 +199,212 @@ export function ProfitTemplateManagementModal({
   }
 
   return (
-    <div>
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{selectedTemplate ? "Edit Profit Template" : "Create New Profit Template"}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogHeader className="pb-6">
+          <DialogTitle className="text-2xl font-bold">
+            {selectedTemplate ? "Edit Profit Template" : "Create New Profit Template"}
+          </DialogTitle>
+          <DialogDescription className="text-base">
             {selectedTemplate
               ? "Modify the details of this profit distribution template."
               : "Create a new template for recurring profit distributions."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="templateName" className="text-right">Name</Label>
-            <Input id="templateName" value={templateName} onChange={(e) => setTemplateName(e.target.value)} className="col-span-3" disabled={isPending} />
+        <div className="flex-1 overflow-y-auto space-y-6">
+          {/* Template Name Section */}
+          <div className="space-y-2">
+            <Label htmlFor="templateName" className="text-sm font-medium">
+              Template Name
+            </Label>
+            <Input 
+              id="templateName" 
+              value={templateName} 
+              onChange={(e) => setTemplateName(e.target.value)} 
+              placeholder="e.g., Store Split, Team Distribution"
+              className="h-11"
+              disabled={isPending} 
+            />
           </div>
-         
-          <h3 className="text-lg font-semibold mt-4 col-span-4">Participants</h3>
-          <div className="space-y-3">
-            {templateItems.map((item, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <Select value={item.avatar_id} onValueChange={(value) => handleItemAvatarChange(index, value)} disabled={isPending}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select Avatar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {avatars.map((avatar) => (
-                      <SelectItem key={avatar.id} value={avatar.id}>
-                        <div className="flex items-center gap-2">
-                          <UIAvatar className="h-6 w-6">
-                            <AvatarImage src={`/api/avatar?name=${avatar.name}`} />
-                            <AvatarFallback>{avatar.name.charAt(0)}</AvatarFallback>
-                          </UIAvatar>
-                          {avatar.name}
+
+          {/* Participants Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Participants</h3>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleAddTemplateItem} 
+                disabled={isPending}
+                className="h-9"
+              >
+                <Plus className="h-4 w-4 mr-2" /> 
+                Add Participant
+              </Button>
+            </div>
+
+            <div className="space-y-3 max-h-60 overflow-y-auto">
+              {templateItems.map((item, index) => (
+                <div key={index} className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center gap-3">
+                    {/* Avatar Letter Badge */}
+                    <div className="flex-shrink-0">
+                      {item.avatar_id ? (
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                          <span className="text-blue-600 font-semibold">
+                            {avatars.find(a => a.id === item.avatar_id)?.name.charAt(0).toUpperCase() || 'A'}
+                          </span>
                         </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="relative w-24">
-                  <Input type="number" value={item.percentage} onChange={(e) => handleItemPercentageChange(index, Number(e.target.value))} placeholder="0" min="0" max="100" step="0.01" className="pr-6" disabled={isPending} />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-gray-400 font-semibold">?</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Avatar Selection */}
+                    <div className="flex-1">
+                      <Select 
+                        value={item.avatar_id} 
+                        onValueChange={(value) => handleItemAvatarChange(index, value)} 
+                        disabled={isPending}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Select participant" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {avatars.map((avatar) => (
+                            <SelectItem key={avatar.id} value={avatar.id}>
+                              <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                                  <span className="text-blue-600 text-xs font-semibold">
+                                    {avatar.name.charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                                <span>{avatar.name}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Percentage Input */}
+                    <div className="flex-shrink-0 relative">
+                      <Input 
+                        type="number" 
+                        value={item.percentage || ''} 
+                        onChange={(e) => handleItemPercentageChange(index, Number(e.target.value))} 
+                        placeholder="0" 
+                        min="0" 
+                        max="100" 
+                        step="0.01" 
+                        className="w-20 h-11 pr-8 text-center" 
+                        disabled={isPending} 
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">%</span>
+                    </div>
+
+                    {/* Remove Button */}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => handleRemoveTemplateItem(index)} 
+                      disabled={isPending}
+                      className="flex-shrink-0 h-9 w-9 text-gray-400 hover:text-red-500"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => handleRemoveTemplateItem(index)} disabled={isPending}>
-                  <Trash2 className="h-4 w-4 text-red-500" />
-                </Button>
+              ))}
+
+              {templateItems.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No participants added yet.</p>
+                  <p className="text-sm">Click "Add Participant" to get started.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Total Percentage Display */}
+            <div className="bg-white border-2 rounded-lg p-4">
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Total Percentage:</span>
+                <span className={`text-lg font-bold ${
+                  Math.abs(templateItems.reduce((sum, item) => sum + item.percentage, 0) - 100) > 0.01
+                    ? "text-red-500"
+                    : "text-green-600"
+                }`}>
+                  {templateItems.reduce((sum, item) => sum + item.percentage, 0).toFixed(2)}%
+                </span>
               </div>
-            ))}
-            <Button variant="outline" className="w-full" onClick={handleAddTemplateItem} disabled={isPending}>
-              <Plus className="h-4 w-4 mr-2" /> Add Participant
-            </Button>
+              {Math.abs(templateItems.reduce((sum, item) => sum + item.percentage, 0) - 100) > 0.01 && (
+                <p className="text-sm text-red-500 mt-1">
+                  Total must equal 100%
+                </p>
+              )}
+            </div>
           </div>
 
-          <div className="flex justify-between font-semibold text-sm mt-4">
-            <span>Total Percentage:</span>
-            <span
-              className={
-                Math.abs(templateItems.reduce((sum, item) => sum + item.percentage, 0) - 100) > 0.01
-                  ? "text-red-500"
-                  : "text-green-600"
-              }
-            >
-              {templateItems.reduce((sum, item) => sum + item.percentage, 0).toFixed(2)}%
-            </span>
-          </div>
-
-          <h3 className="text-lg font-semibold mt-4 col-span-4">Existing Templates</h3>
-          <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-            {profitTemplates.length === 0 ? (
-              <p className="text-gray-500 text-center">No templates created yet.</p>
-            ) : (
-              profitTemplates.map((template) => (
-                <div
-                  key={template.id}
-                  className="flex items-center justify-between p-2 border rounded-md hover:bg-gray-50 cursor-pointer"
-                  onClick={() => fetchTemplateWithDistributions(template.id)}
-                >
-                  <span>{template.name}</span>
-                  <Edit className="h-4 w-4 text-gray-500" />
-                </div>
-              ))
-            )}
-          </div>
+          {/* Existing Templates Section */}
+          {profitTemplates.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Existing Templates</h3>
+              <div className="grid gap-2 max-h-48 overflow-y-auto">
+                {profitTemplates.map((template) => (
+                  <div
+                    key={template.id}
+                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => fetchTemplateWithDistributions(template.id)}
+                  >
+                    <div>
+                      <span className="font-medium">{template.name}</span>
+                      {template.description && (
+                        <p className="text-sm text-gray-500 mt-1">{template.description}</p>
+                      )}
+                    </div>
+                    <Edit className="h-4 w-4 text-gray-400" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        <DialogFooter>
-          {selectedTemplate && (
-            <Button variant="destructive" onClick={handleDelete} disabled={isPending}>
-              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Delete
+        <DialogFooter className="pt-6 border-t">
+          <div className="flex gap-2 w-full">
+            {selectedTemplate && (
+              <Button variant="destructive" onClick={handleDelete} disabled={isPending}>
+                {isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-4 w-4" />
+                )}
+                Delete
+              </Button>
+            )}
+            
+            <div className="flex-1" />
+            
+            {isEditing && (
+              <Button variant="outline" onClick={resetForm} disabled={isPending}>
+                Cancel
+              </Button>
+            )}
+            <Button onClick={handleSubmit} disabled={isPending}>
+              {isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              {isEditing ? "Save Changes" : "Create Template"}
             </Button>
-          )}
-          {isEditing && (
-            <Button variant="outline" onClick={resetForm} disabled={isPending}>Cancel</Button>
-          )}
-          <Button onClick={handleSubmit} disabled={isPending}>
-            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            {isEditing ? "Save Changes" : "Create Template"}
-          </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    </div>
   )
 }
 

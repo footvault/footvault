@@ -95,42 +95,42 @@ const features: Feature[] = [
     title: 'Inventory Management',
     description:
       'Track your sneakers with size variants, serial numbers, and real-time stock updates. Never lose track of your collection.',
-    image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&h=400&fit=crop',
+    image: '/feature/inventory management.png',
     href: '/features/inventory',
   },
   {
     title: 'StockX Integration',
     description:
       'Automatically fetch product data, pricing, and images from StockX for quick setup.',
-    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&h=400&fit=crop',
+    image: '/feature/Stockx integration.png',
     href: '/features/stockx',
   },
   {
     title: 'QR Scanner & Sticker Generation',
     description:
       'Generate QR stickers for inventory and scan products with your phone camera.',
-    image: 'https://images.unsplash.com/photo-1606868306217-dbf5046868d2?w=600&h=400&fit=crop',
+    image: '/feature/qrscan feature.png',
     href: '/features/qr-scanner',
   },
   {
     title: 'Sales Tracking',
     description:
       'Monitor all sales with customer info, payment tracking, and detailed analytics.',
-    image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&h=400&fit=crop',
+    image: '/feature/sales system.png',
     href: '/features/sales',
   },
   {
     title: 'Checkout System',
     description:
       'Streamlined checkout process with payment integration and order management.',
-    image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&h=400&fit=crop',
+    image: '/feature/checkout system.png',
     href: '/features/checkout',
   },
   {
     title: 'Profit Distribution',
     description:
       'Calculate and distribute profits with detailed cost analysis and fee tracking.',
-    image: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=600&h=400&fit=crop',
+    image: '/feature/profit distribution.png',
     href: '/features/profit',
   },
 ];

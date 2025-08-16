@@ -2,33 +2,89 @@
 
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check, HelpCircle } from 'lucide-react';
 import { easeOut } from 'framer-motion';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 
 const plans = [
   {
     title: 'Free',
     priceMonthly: 0,
     priceYearly: 0,
-    description: 'Basic tools to explore and get started.',
-    features: ['100 shoes limit', 'Basic analytics', 'Limited support'],
+    subtitle: 'Perfect for casual resellers',
+    features: [
+      { label: 'Track available shoes' },
+      { label: 'Track sold shoes' },
+      { label: 'Manage your inventory and sales' },
+      { label: 'Up to 100 available variants' },
+      {
+        label: 'Community support',
+        tooltip: 'Access community forums and resources for help.'
+      }
+    ],
     recommended: false,
   },
   {
     title: 'Individual',
-    priceMonthly: 5,
-    priceYearly: 50,
-    description: 'Great for solo resellers and hobbyists.',
-    features: ['100 shoes limit', 'Advanced filtering', 'Email support'],
+    priceMonthly: 10,
+    priceYearly: 90,
+    subtitle: 'For serious solo resellers',
+    features: [
+      { label: 'Everything in Free Tier' },
+      { label: 'Up to 500 available variants' },
+      {
+        label: 'Export via CSV',
+        tooltip: 'Easily download your inventory using CSV files.'
+      },
+      {
+        label: 'QR code printing for each pair',
+        tooltip: 'Generate QR codes for shoes to simplify physical inventory management.'
+      }
+    ],
     recommended: false,
   },
   {
-    title: 'Store',
-    priceMonthly: 10,
-    priceYearly: 100,
-    description: 'Everything you need to manage your shop.',
-    features: ['500 shoes limit', 'All features unlocked', 'Priority support'],
+    title: 'Team',
+    priceMonthly: 14,
+    priceYearly: 150,
+    subtitle: 'For small reseller teams',
+    features: [
+      { label: 'All Individual features' },
+      { label: 'Up to 1,500 available variants' },
+      {
+        label: '5 Team member avatars',
+        tooltip: 'Able to split profits with team members using avatars.'
+      },
+      {
+        label: 'Priority email support',
+        tooltip: 'Faster email support response time.'
+      }
+    ],
     recommended: true,
+  },
+  {
+    title: 'Store',
+    priceMonthly: 20,
+    priceYearly: 190,
+    subtitle: 'For full-scale sneaker stores',
+    features: [
+      { label: 'All Team features' },
+      { label: 'Up to 5,000 available variants' },
+      {
+        label: 'Unlimited team avatars',
+        tooltip: 'Add as many team members as needed.'
+      },
+      {
+        label: 'Dedicated customer support',
+        tooltip: 'Get 1-on-1 help from a support manager.'
+      }
+    ],
+    recommended: false,
   },
 ];
 
@@ -91,56 +147,77 @@ export default function Pricing() {
 
         <motion.div
           variants={containerVariants}
-          className="grid grid-cols-1 md:grid-cols-3 border rounded-md overflow-hidden"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
         >
           {plans.map((plan, index) => (
             <motion.div
               key={index}
               variants={cardVariants}
-              whileHover={{ scale: 1.01 }}
-              className={`relative flex flex-col justify-between p-8 border-b md:border-b-0 md:border-r last:border-r-0 transition ${
+              whileHover={{ scale: 1.02 }}
+              className={`relative flex flex-col justify-between p-6 rounded-lg border transition-all duration-200 ${
                 plan.recommended
-                  ? 'bg-muted/20 border-primary'
-                  : 'border-border'
+                  ? 'bg-primary/5 border-primary ring-1 ring-primary'
+                  : 'bg-card border-border hover:border-primary/50'
               }`}
             >
               {plan.recommended && (
-                <div className="absolute top-4 right-4 bg-primary text-white dark:text-black text-xs font-medium px-2 py-0.5 rounded">
-                  Recommended
+                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                  <div className="bg-primary text-primary-foreground text-xs font-medium px-3 py-1 rounded-full">
+                    Recommended
+                  </div>
                 </div>
               )}
 
               <div className="mb-6">
-                <h3 className="text-xl font-semibold">{plan.title}</h3>
-                <p className="text-muted-foreground mt-1">{plan.description}</p>
+                <h3 className="text-xl font-bold">{plan.title}</h3>
+                <p className="text-muted-foreground mt-1 text-sm">{plan.subtitle}</p>
               </div>
 
-              <div>
-                <div className="text-4xl font-bold">
+              <div className="mb-6">
+                <div className="text-3xl font-bold">
                   ${isYearly ? plan.priceYearly : plan.priceMonthly}
                 </div>
                 <div className="text-sm text-muted-foreground">
                   / {isYearly ? 'year' : 'month'}
                 </div>
+                {isYearly && plan.priceMonthly > 0 && (
+                  <div className="text-xs text-green-600 mt-1">
+                    Save ${(plan.priceMonthly * 12) - plan.priceYearly} per year
+                  </div>
+                )}
               </div>
 
-              <ul className="mt-6 space-y-2 text-sm">
-                {plan.features.map((feature, i) => (
-                  <li key={i} className="flex items-center gap-2 text-muted-foreground">
-                    <Check className="w-4 h-4 text-primary" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
+              <TooltipProvider>
+                <ul className="mb-8 space-y-3 text-sm flex-grow">
+                  {plan.features.map((feature, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        {typeof feature === 'string' ? feature : feature.label}
+                        {typeof feature === 'object' && feature.tooltip && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="w-3 h-3 text-muted-foreground hover:text-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="max-w-xs">{feature.tooltip}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </TooltipProvider>
 
               <button
-                className={`mt-8 w-full py-2 border text-sm rounded-md font-medium transition-colors ${
+                className={`w-full py-3 text-sm rounded-md font-medium transition-all duration-200 ${
                   plan.recommended
-                    ? 'bg-primary text-white :text-black hover:bg-primary/90'
-                    : 'border-border hover:bg-muted'
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-md'
+                    : 'border border-border hover:bg-muted hover:border-primary/50'
                 }`}
               >
-                {plan.priceMonthly === 0 ? 'Start Free' : 'Subscribe'}
+                Get Started
               </button>
             </motion.div>
           ))}
