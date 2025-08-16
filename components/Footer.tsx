@@ -27,29 +27,30 @@ const Footer = () => {
         <div>
           <h4 className="font-semibold mb-3">Platform</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li><a href="/inventory" className="hover:text-primary">Inventory</a></li>
-            <li><a href="/sales" className="hover:text-primary">Sales</a></li>
-            <li><a href="/products" className="hover:text-primary">Products</a></li>
-            <li><a href="/variants" className="hover:text-primary">Variants</a></li>
+            <li><a href="/features/inventory" className="hover:text-primary">Inventory</a></li>
+            <li><a href="/features/sales" className="hover:text-primary">Sales</a></li>
+            <li><a href="/features/profit" className="hover:text-primary">Profit Distribution</a></li>
+            <li><a href="/features/qr-codes" className="hover:text-primary">QR Codes</a></li>
+            <li><a href="/features/stockx" className="hover:text-primary">StockX Integration</a></li>
+            <li><a href="/features/checkout" className="hover:text-primary">Checkout</a></li>
           </ul>
         </div>
 
         <div>
           <h4 className="font-semibold mb-3">Company</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li><a href="/about" className="hover:text-primary">About</a></li>
-            <li><a href="/contact-enterprise" className="hover:text-primary">Enterprise</a></li>
-            <li><a href="/subscription" className="hover:text-primary">Pricing</a></li>
-            <li><a href="/contact-enterprise" className="hover:text-primary">Contact</a></li>
+            <li><a href="/" className="hover:text-primary">Home</a></li>
+            <li><a href="/#pricing" className="hover:text-primary">Pricing</a></li>
+            <li><a href="/#testimonials" className="hover:text-primary">Testimonials</a></li>
+            <li><a href="/contact" className="hover:text-primary">Contact</a></li>
           </ul>
         </div>
 
         <div>
           <h4 className="font-semibold mb-3">Support</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li><a href="/settings" className="hover:text-primary">Settings</a></li>
-            <li><a href="/contact-enterprise" className="hover:text-primary">Help Center</a></li>
-            <li><a href="/privacy" className="hover:text-primary">Privacy Policy</a></li>
+            <li><a href="/terms" className="hover:text-primary">Terms</a></li>
+            <li><a href="/privacy" className="hover:text-primary">Privacy</a></li>
           </ul>
         </div>
       </div>
