@@ -18,8 +18,8 @@ export default function ContactPage() {
 
           <div className="hidden md:flex gap-8 text-sm font-medium text-gray-600">
             <Link href="/" className="hover:text-gray-900 transition-colors">Home</Link>
-            <Link href="/#features" className="hover:text-gray-900 transition-colors">Features</Link>
-            <Link href="/#pricing" className="hover:text-gray-900 transition-colors">Pricing</Link>
+            <a href="/#features" className="hover:text-gray-900 transition-colors">Features</a>
+            <a href="/#pricing" className="hover:text-gray-900 transition-colors">Pricing</a>
             <Link href="/contact" className="text-gray-900">Contact</Link>
           </div>
 

@@ -108,12 +108,12 @@ export default async function Home() {
             </div>
 
             {/* Centered links for medium+ screens */}
-            <div className="hidden md:flex gap-6 font-medium">
-              <Link href="/">Home</Link>
-              <Link href="/features">Features</Link>
-              <Link href="/pricing">Pricing</Link>
-              <Link href="/contact">Contact</Link>
-            </div>
+              <div className="hidden md:flex gap-6 font-medium">
+                <Link href="/">Home</Link>
+                <a href="#features">Features</a>
+                <a href="#pricing">Pricing</a>
+                <Link href="/contact">Contact</Link>
+              </div>
 
             {/* Right-side buttons */}
             <div>
@@ -123,14 +123,18 @@ export default async function Home() {
         </nav>
 
         {/* ✅ Page Content */}
-        <div className="flex-1 w-full mx-auto  flex flex-col ">
-          <Hero />
-          <Marquee />
-          <Features />
-          <Pricing />
-          <InfiniteCarousel />
-          <CallToAction/>
-        </div>
+          <div className="flex-1 w-full mx-auto  flex flex-col ">
+            <Hero />
+            <Marquee />
+            <section id="features">
+              <Features />
+            </section>
+            <section id="pricing">
+              <Pricing />
+            </section>
+            <InfiniteCarousel />
+            <CallToAction/>
+          </div>
 
         {/* ✅ Footer */}
         <div>

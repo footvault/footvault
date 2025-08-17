@@ -36,8 +36,8 @@ export default function QRCodesPage() {
           {/* Centered links for medium+ screens */}
           <div className="hidden md:flex gap-6 font-medium">
             <Link href="/">Home</Link>
-            <Link href="/#features">Features</Link>
-            <Link href="/#pricing">Pricing</Link>
+            <a href="/#features" className="hover:text-gray-900 transition-colors">Features</a>
+            <a href="/#pricing" className="hover:text-gray-900 transition-colors">Pricing</a>
             <Link href="/contact">Contact</Link>
           </div>
 
