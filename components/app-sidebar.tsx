@@ -172,7 +172,7 @@ export function AppSidebar({ children, ...props }: React.ComponentProps<typeof S
       </SidebarContent>
       <SidebarFooter>
         {children} {/* Render children passed from layout.tsx */}
-        <div className="p-2 text-sm text-gray-500">v0.1.0</div>
+        
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useMemo, useState, useEffect } from "react"
+import Link from "next/link"
 import {
   useReactTable,
   getCoreRowModel,
@@ -35,7 +36,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, Lock } from "lucide-react"
+import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, Lock, Plus } from "lucide-react"
 import jsPDF from "jspdf"
 import QRCode from "qrcode"
 import { createClient } from "@/lib/supabase/client"
@@ -104,10 +105,30 @@ export function ShoesVariantsTable() {
      setStatsLoading(false);
    }
  };
+  // Calculate stats locally from available variants only
+  const calculateLocalStats = useMemo(() => {
+    const availableVariants = variants.filter(v => v.status === 'Available');
+    
+    const totalVariants = availableVariants.length;
+    const totalCostValue = availableVariants.reduce((sum, v) => sum + (v.cost_price || 0), 0);
+    const totalSaleValue = availableVariants.reduce((sum, v) => {
+      const salePrice = (v as any).product?.sale_price || 0;
+      return sum + salePrice;
+    }, 0);
+    const profit = totalSaleValue - totalCostValue;
+
+    return {
+      totalVariants,
+      totalCostValue,
+      totalSaleValue,
+      profit
+    };
+  }, [variants]);
+
   // Debug logging for stats data changes
   useEffect(() => {
-    console.log('Stats data changed:', statsData);
-  }, [statsData]);
+    console.log('Local stats calculated:', calculateLocalStats);
+  }, [calculateLocalStats]);
 
 
   // New filter state
@@ -568,13 +589,36 @@ export function ShoesVariantsTable() {
       },
       cell: (info) => {
         const status = info.getValue() as string;
-        let badgeVariant: any = "default";
-        if (status === "Sold") badgeVariant = "secondary";
-        else if (["PullOut", "Reserved", "PreOrder"].includes(status)) badgeVariant = "outline";
-        else if (status !== "Available") badgeVariant = "destructive";
+        let badgeClass = "";
+        
+        switch (status) {
+          case "Available":
+            badgeClass = "bg-green-100 text-green-800 border-green-200 hover:bg-green-200";
+            break;
+          case "Sold":
+            badgeClass = "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200";
+            break;
+          case "PullOut":
+            badgeClass = "bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200";
+            break;
+          case "Reserved":
+            badgeClass = "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200";
+            break;
+          case "PreOrder":
+            badgeClass = "bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200";
+            break;
+          default:
+            badgeClass = "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200";
+        }
+        
         return (
           <div className="min-w-[100px]">
-            <Badge variant={badgeVariant}>{status}</Badge>
+            <Badge 
+              variant="outline" 
+              className={`${badgeClass} font-medium transition-colors`}
+            >
+              {status}
+            </Badge>
           </div>
         );
       },
@@ -688,10 +732,10 @@ export function ShoesVariantsTable() {
     <div className="space-y-4">
       {/* Stats Cards */}
       <VariantsStatsCard 
-        totalVariants={statsData.totalVariants}
-        totalCostValue={statsData.totalCostValue}
-        totalSaleValue={statsData.totalSaleValue}
-        loading={statsLoading}
+        totalVariants={calculateLocalStats.totalVariants}
+        totalCostValue={calculateLocalStats.totalCostValue}
+        totalSaleValue={calculateLocalStats.totalSaleValue}
+        loading={false}
       />
       
 
@@ -933,8 +977,24 @@ export function ShoesVariantsTable() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="text-center h-24">
-                  No data found.
+                <TableCell colSpan={columns.length} className="text-center h-32">
+                  <div className="flex flex-col items-center justify-center space-y-4 py-8">
+                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
+                      <Plus className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-gray-900">No variant sizes added yet</h3>
+                      <p className="text-sm text-gray-500 max-w-sm">
+                        Start tracking individual shoes by adding variants with specific sizes, costs, and locations to your products.
+                      </p>
+                    </div>
+                    <Link href="/add-product">
+                      <Button className="mt-2">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Product with Variants
+                      </Button>
+                    </Link>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

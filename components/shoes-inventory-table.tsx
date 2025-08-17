@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useMemo, useState, useEffect } from "react"
+import Link from "next/link"
 import {
   useReactTable,
   getCoreRowModel,
@@ -120,7 +121,9 @@ export function ShoesInventoryTable() {
 
   // Calculate stats for InventoryStatsCard just before return
   const totalShoes = products.length;
-  const totalVariants = Object.values(rowVariants).reduce((sum, variants) => sum + variants.length, 0);
+  const totalVariants = Object.values(rowVariants).reduce((sum, variants) => 
+    sum + variants.filter(v => v.status === 'Available').length, 0
+  );
    const [totalValue, setTotalValue] = useState<number>(0)
 
   useEffect(() => {
@@ -189,6 +192,7 @@ export function ShoesInventoryTable() {
         .select('*')
         .eq('user_id', user.id)
         .eq('isArchived', false)
+       
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -437,7 +441,8 @@ export function ShoesInventoryTable() {
       const stockMatch = (() => {
         if (stockFilter === "all") return true;
         const variants = rowVariants[p.id] || [];
-        const quantity = variants.length;
+        const availableVariants = variants.filter(v => v.status === 'Available');
+        const quantity = availableVariants.length;
         switch (stockFilter) {
           case "in-stock": return quantity > 0;
           case "out-of-stock": return quantity === 0;
@@ -560,7 +565,8 @@ export function ShoesInventoryTable() {
           return <Skeleton className="h-4 w-8" />;
         }
         const variants = rowVariants[product.id] || [];
-        return <span>{variants.length}</span>;
+        const availableVariants = variants.filter(v => v.status === 'Available');
+        return <span>{availableVariants.length}</span>;
       },
       enableSorting: false,
       enableColumnFilter: false,
@@ -634,7 +640,8 @@ export function ShoesInventoryTable() {
           );
         }
         const variants = rowVariants[product.id] || [];
-        const quantity = variants.length;
+        const availableVariants = variants.filter(v => v.status === 'Available');
+        const quantity = availableVariants.length;
         let status = product.status;
         let badgeVariant: any = "default";
         if (quantity > 0) {
@@ -940,26 +947,6 @@ export function ShoesInventoryTable() {
                         </SelectContent>
                       </Select>
                     </div>
-                    {/* Status Filter */}
-                    <div className="flex flex-col space-y-1">
-                      <label className="text-xs">Status</label>
-                      <Select
-                        value={(table.getColumn("status")?.getFilterValue() as string) ?? "all"}
-                        onValueChange={(value) => table.getColumn("status")?.setFilterValue(value === "all" ? undefined : value)}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="All Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All</SelectItem>
-                          <SelectItem value="Available">Available</SelectItem>
-                          <SelectItem value="Sold">Sold</SelectItem>
-                          <SelectItem value="PullOut">PullOut</SelectItem>
-                          <SelectItem value="Reserved">Reserved</SelectItem>
-                          <SelectItem value="PreOrder">PreOrder</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                     {/* Price Range Filter */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -1108,23 +1095,6 @@ export function ShoesInventoryTable() {
                 ))}
               </SelectContent>
             </Select>
-            {/* Status Filter (existing) */}
-            <Select
-              value={(table.getColumn("status")?.getFilterValue() as string) ?? "all"}
-              onValueChange={(value) => table.getColumn("status")?.setFilterValue(value === "all" ? undefined : value)}
-            >
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="Available">Available</SelectItem>
-                <SelectItem value="Sold">Sold</SelectItem>
-                <SelectItem value="PullOut">PullOut</SelectItem>
-                <SelectItem value="Reserved">Reserved</SelectItem>
-                <SelectItem value="PreOrder">PreOrder</SelectItem>
-              </SelectContent>
-            </Select>
             {/* Price Range Filter */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1253,11 +1223,11 @@ export function ShoesInventoryTable() {
                         <TableCell colSpan={columns.length} className="bg-muted/20 px-8 py-4">
                           <div className="flex flex-wrap gap-2 items-center">
                             <span className="font-semibold text-sm">Available Sizes:</span>
-                            {(rowVariants[product.id] || []).length === 0 ? (
-                              <span className="text-muted-foreground text-xs">No variants</span>
+                            {(rowVariants[product.id] || []).filter(v => v.status === 'Available').length === 0 ? (
+                              <span className="text-muted-foreground text-xs">No available variants</span>
                             ) : (
-                              // Show unique sizes only
-                              Array.from(new Set(rowVariants[product.id].map(v => v.size)))
+                              // Show unique sizes only for available variants
+                              Array.from(new Set(rowVariants[product.id].filter(v => v.status === 'Available').map(v => v.size)))
                                 .sort((a, b) => {
                                   // Try to sort numerically if possible
                                   const na = Number(a), nb = Number(b);
@@ -1288,8 +1258,24 @@ export function ShoesInventoryTable() {
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="text-center h-24">
-                  No data found.
+                <TableCell colSpan={columns.length} className="text-center h-32">
+                  <div className="flex flex-col items-center justify-center space-y-4 py-8">
+                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
+                      <Plus className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-gray-900">No shoes in your inventory yet</h3>
+                      <p className="text-sm text-gray-500 max-w-sm">
+                        Start building your sneaker collection by adding your first pair of shoes to track inventory, sales, and profits.
+                      </p>
+                    </div>
+                    <Link href="/add-product">
+                      <Button className="mt-2">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Your First Shoes
+                      </Button>
+                    </Link>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

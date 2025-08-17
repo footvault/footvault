@@ -10,13 +10,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
-import Image from "next/image";
 
 export function LoginForm({
   className,
@@ -80,73 +76,65 @@ export function LoginForm({
   };
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>
-            Continue with Google to login to your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleGoogleLogin}>
-            <div className="flex flex-col gap-6 ">
-              {/* <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div> */}
-              {/* <div className="grid gap-2">
-                <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
-                  <Link
-                    href="/auth/forgot-password"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                  >
-                    Forgot your password?
-                  </Link>
-                </div>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div> */}
+    <div className={cn("flex min-h-screen items-center justify-center p-6", className)} {...props}>
+      <div className="w-full max-w-md">
+        {/* Brand Section */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
+            FootVault
+          </h1>
+          <p className="text-lg text-white/80">
+            Your Premium Sneaker Inventory
+          </p>
+        </div>
+
+        {/* Login Card with Glassmorphism */}
+        <Card className="backdrop-blur-xl bg-white/10 border-white/20 shadow-2xl">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold text-white">
+              Welcome Back
+            </CardTitle>
+            <CardDescription className="text-white/70">
+              Continue with Google to access your sneaker vault
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
               {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-sm text-red-600">{error}</p>
+                <div className="p-3 bg-red-500/20 border border-red-400/50 rounded-md backdrop-blur-sm">
+                  <p className="text-sm text-red-100">{error}</p>
                 </div>
               )}
-            
+              
               <Button
                 type="button"
-                className="w-full"
+                className="w-full h-12 bg-white hover:bg-gray-100 text-gray-900 font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
                 onClick={handleGoogleLogin}
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <>Loading...</>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                    Signing in...
+                  </div>
                 ) : (
-                  <>
-                    <FcGoogle size={16} />
+                  <div className="flex items-center gap-3">
+                    <FcGoogle size={20} />
                     Continue with Google
-                  </>
+                  </div>
                 )}
               </Button>
             </div>
-         <Image src={"https://placehold.co/600x400"} alt="Sneakers" width={600} height={400} className="mt-4" />
-           
-          </form>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        {/* Footer */}
+        <div className="text-center mt-8">
+          <p className="text-sm text-white/60">
+            Powered by FootVault • Secure Authentication
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
