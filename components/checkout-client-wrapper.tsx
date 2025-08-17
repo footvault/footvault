@@ -2,6 +2,9 @@
 
 import { useState } from "react"
 import { Select, SelectItem, SelectContent, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Checkbox } from "@/components/ui/checkbox"
+import React from "react"
 import { useMemo, useTransition } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -58,6 +61,10 @@ export function CheckoutClientWrapper({
   const variantsPerPage = 12;
   const [allVariants, setAllVariants] = useState<TransformedVariant[]>(initialVariants)
   const [searchTerm, setSearchTerm] = useState("")
+  const [brandFilter, setBrandFilter] = useState<string>("all")
+  const [sizeCategoryFilter, setSizeCategoryFilter] = useState<string>("all")
+  const [sizeFilter, setSizeFilter] = useState<string[]>([]) // array of selected sizes
+  const [sizeSearch, setSizeSearch] = useState("")
   const [selectedVariants, setSelectedVariants] = useState<TransformedVariant[]>([])
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("fixed")
   const [discountValue, setDiscountValue] = useState<number>(0)
@@ -82,21 +89,72 @@ export function CheckoutClientWrapper({
     return allVariants.filter((variant) => !selectedIds.has(variant.id))
   }, [allVariants, selectedVariants])
 
-  const filteredVariants = useMemo(() => {
-    if (!searchTerm) return availableVariants
-    const lowerCaseSearchTerm = searchTerm.toLowerCase()
-    return availableVariants.filter((variant) => {
-      const searchableFields = [
-        variant.productName,
-        variant.productBrand,
-        variant.productSku,
-        variant.serialNumber,
-        variant.variantSku,
-        variant.size,
-      ].map((field) => (field || "").toLowerCase())
-      return searchableFields.some((field) => field.includes(lowerCaseSearchTerm))
+  // Get unique filter options
+  const brandOptions = useMemo(() => {
+    const brands = new Set(availableVariants.map(v => v.productBrand).filter(Boolean))
+    return ["all", ...Array.from(brands)]
+  }, [availableVariants])
+
+  const sizeCategoryOptions = useMemo(() => {
+    const categories = new Set(availableVariants.map(v => v.productSizeCategory).filter(Boolean))
+    return ["all", ...Array.from(categories)]
+  }, [availableVariants])
+
+  const sizeOptionsByCategory = useMemo(() => {
+    const map: Record<string, Set<string>> = {}
+    availableVariants.forEach(variant => {
+      if (!variant.productSizeCategory || !variant.size) return
+      if (!map[variant.productSizeCategory]) map[variant.productSizeCategory] = new Set()
+      map[variant.productSizeCategory].add(String(variant.size))
     })
-  }, [searchTerm, availableVariants])
+    // Convert sets to sorted arrays
+    const result: Record<string, string[]> = {}
+    Object.entries(map).forEach(([cat, sizes]) => {
+      result[cat] = Array.from(sizes).sort((a, b) => {
+        const na = Number(a), nb = Number(b)
+        if (!isNaN(na) && !isNaN(nb)) return na - nb
+        return String(a).localeCompare(String(b))
+      })
+    })
+    return result
+  }, [availableVariants])
+
+  const filteredVariants = useMemo(() => {
+    let filtered = availableVariants
+
+    // Apply search filter
+    if (searchTerm) {
+      const lowerCaseSearchTerm = searchTerm.toLowerCase()
+      filtered = filtered.filter((variant) => {
+        const searchableFields = [
+          variant.productName,
+          variant.productBrand,
+          variant.productSku,
+          variant.serialNumber?.toString(),
+          variant.variantSku,
+          variant.size?.toString(),
+        ].map((field) => (field || "").toLowerCase())
+        return searchableFields.some((field) => field.includes(lowerCaseSearchTerm))
+      })
+    }
+
+    // Apply brand filter
+    if (brandFilter !== "all") {
+      filtered = filtered.filter(variant => variant.productBrand === brandFilter)
+    }
+
+    // Apply size category filter
+    if (sizeCategoryFilter !== "all") {
+      filtered = filtered.filter(variant => variant.productSizeCategory === sizeCategoryFilter)
+    }
+
+    // Apply size filter
+    if (sizeFilter.length > 0) {
+      filtered = filtered.filter(variant => sizeFilter.includes(String(variant.size)))
+    }
+
+    return filtered
+  }, [searchTerm, availableVariants, brandFilter, sizeCategoryFilter, sizeFilter])
 
   // Pagination logic for variants
   const totalVariantPages = filteredVariants.length > 12 ? Math.ceil(filteredVariants.length / variantsPerPage) : 1
@@ -530,6 +588,113 @@ export function CheckoutClientWrapper({
                   disabled={isLoadingVariants}
                 />
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              </div>
+
+              {/* Filter Controls */}
+              <div className="flex flex-wrap gap-2">
+                <Select value={brandFilter} onValueChange={setBrandFilter}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="All Brands" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {brandOptions.map(brand => (
+                      <SelectItem key={brand} value={brand}>
+                        {brand === "all" ? "All Brands" : brand}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={sizeCategoryFilter} onValueChange={setSizeCategoryFilter}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sizeCategoryOptions.map(category => (
+                      <SelectItem key={category} value={category}>
+                        {category === "all" ? "All Categories" : category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-[150px] justify-between">
+                      <span className="truncate">
+                        {sizeFilter.length === 0 ? "All Sizes" : sizeFilter.join(", ")}
+                      </span>
+                      <svg className="ml-2 h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none">
+                        <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[220px] max-h-72 overflow-y-auto p-0">
+                    <div className="px-2 py-1">
+                      <Input
+                        placeholder="Search size..."
+                        value={sizeSearch}
+                        onChange={e => setSizeSearch(e.target.value)}
+                        className="mb-2 text-xs"
+                        autoFocus
+                      />
+                      <div className="mb-2">
+                        <Checkbox
+                          id="all-sizes-checkout"
+                          checked={sizeFilter.length === 0}
+                          onCheckedChange={checked => {
+                            if (checked) setSizeFilter([])
+                          }}
+                        />
+                        <label htmlFor="all-sizes-checkout" className="ml-2 text-xs cursor-pointer select-none">All Sizes</label>
+                      </div>
+                    </div>
+                    {Object.entries(sizeOptionsByCategory).map(([cat, sizes]) => (
+                      <React.Fragment key={cat}>
+                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/50 sticky top-0 z-10">{cat}</div>
+                        {sizes.filter(size => sizeSearch === "" || String(size).toLowerCase().includes(sizeSearch.toLowerCase())).map(size => {
+                          const checked = sizeFilter.includes(size)
+                          return (
+                            <div key={cat + "-" + size} className="flex items-center px-2 py-1 cursor-pointer hover:bg-muted/30 rounded">
+                              <Checkbox
+                                id={`size-checkout-${cat}-${size}`}
+                                checked={checked}
+                                onCheckedChange={checked => {
+                                  if (checked) setSizeFilter(prev => [...prev, size])
+                                  else setSizeFilter(prev => prev.filter(s => s !== size))
+                                }}
+                              />
+                              <label htmlFor={`size-checkout-${cat}-${size}`} className="ml-2 text-xs cursor-pointer select-none">{size}</label>
+                            </div>
+                          )
+                        })}
+                      </React.Fragment>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+
+                {/* Clear Filters Button */}
+                {(brandFilter !== "all" || sizeCategoryFilter !== "all" || sizeFilter.length > 0 || searchTerm) && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      setBrandFilter("all")
+                      setSizeCategoryFilter("all") 
+                      setSizeFilter([])
+                      setSearchTerm("")
+                    }}
+                    className="text-xs"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Clear All
+                  </Button>
+                )}
+              </div>
+
+              {/* Results count */}
+              <div className="text-sm text-gray-600">
+                Showing {filteredVariants.length} of {availableVariants.length} available shoes
               </div>
 
               {isLoadingVariants ? (

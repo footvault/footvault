@@ -47,7 +47,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, ShoppingCart, ReceiptText, Filter, Search, Plus } from "lucide-react"
+import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, ShoppingCart, ReceiptText, Filter, Search, Plus, Sliders } from "lucide-react"
 import jsPDF from "jspdf"
 import QRCode from "qrcode"
 import { createClient } from "@/lib/supabase/client"
@@ -168,7 +168,9 @@ export function ShoesInventoryTable() {
   // New filter state
   const [brandFilter, setBrandFilter] = useState<string>("all")
   const [sizeCategoryFilter, setSizeCategoryFilter] = useState<string>("all")
-
+  const [priceMin, setPriceMin] = useState<number>(0)
+  const [priceMax, setPriceMax] = useState<number>(0)
+  const [stockFilter, setStockFilter] = useState<string>("all")
 
   // For size filter (multi-select)
   const [sizeFilter, setSizeFilter] = useState<string[]>([]); // array of selected sizes
@@ -192,6 +194,7 @@ export function ShoesInventoryTable() {
       if (error) {
         console.error('Error fetching products:', error)
       } else {
+        console.log('Debug - Fetched products:', data?.slice(0, 3)) // Log first 3 products
         setProducts(data || [])
       }
     } catch (error) {
@@ -242,6 +245,154 @@ export function ShoesInventoryTable() {
     return ["all", ...Array.from(set)]
   }, [products])
 
+  // Calculate max price from products for price filter
+  const maxPrice = useMemo(() => {
+    const prices = products.map(p => p.sale_price || 0).filter(price => price > 0)
+    console.log('Debug - All prices:', prices)
+    if (prices.length === 0) return 1000
+    const calculatedMax = Math.ceil(Math.max(...prices) / 10) * 10
+    console.log('Debug - Calculated max price:', calculatedMax)
+    return calculatedMax // Round up to nearest 10
+  }, [products])
+
+  // Set initial max price when products change
+  useEffect(() => {
+    if (maxPrice > 0 && (priceMax === 0 || priceMax < maxPrice)) {
+      console.log('Debug - Setting priceMax to:', maxPrice)
+      setPriceMax(maxPrice)
+    }
+  }, [maxPrice, priceMax])
+
+  // Dynamic price range options based on actual shoe prices
+  const priceRangeOptions = useMemo(() => {
+    const prices = products.map(p => p.sale_price || 0).filter(price => price > 0)
+    if (prices.length === 0) return [{ value: "all", label: "All Prices" }]
+    
+    const minPrice = Math.min(...prices)
+    const maxPrice = Math.max(...prices)
+    
+    // Create smart, rounded ranges based on actual price distribution
+    const ranges = [{ value: "all", label: "All Prices" }]
+    
+    // Helper function to round to nice numbers
+    const roundToNice = (num: number): number => {
+      if (num < 25) return Math.ceil(num / 5) * 5        // Round to nearest 5
+      if (num < 100) return Math.ceil(num / 10) * 10     // Round to nearest 10
+      if (num < 500) return Math.ceil(num / 25) * 25     // Round to nearest 25
+      if (num < 1000) return Math.ceil(num / 50) * 50    // Round to nearest 50
+      return Math.ceil(num / 100) * 100                  // Round to nearest 100
+    }
+    
+    // Create meaningful price brackets
+    if (maxPrice > minPrice + 20) {
+      const range = maxPrice - minPrice
+      
+      if (range <= 100) {
+        // Small range: create 3-4 buckets with $10-25 increments
+        const step = range <= 50 ? 15 : 25
+        const start = roundToNice(minPrice)
+        
+        for (let i = 0; i < 3; i++) {
+          const rangeStart = start + (step * i)
+          const rangeEnd = start + (step * (i + 1))
+          
+          if (rangeStart < maxPrice) {
+            ranges.push({
+              value: `${rangeStart}-${rangeEnd}`,
+              label: `${currencySymbol}${rangeStart} - ${currencySymbol}${rangeEnd}`
+            })
+          }
+        }
+        
+        if (start + (step * 3) < maxPrice + 10) {
+          ranges.push({
+            value: `over-${start + (step * 3)}`,
+            label: `Over ${currencySymbol}${start + (step * 3)}`
+          })
+        }
+        
+      } else if (range <= 300) {
+        // Medium range: create ranges with $50-75 increments
+        const commonRanges = [
+          { start: 0, end: 50, label: "Under $50" },
+          { start: 50, end: 100, label: "$50 - $100" },
+          { start: 100, end: 150, label: "$100 - $150" },
+          { start: 150, end: 200, label: "$150 - $200" },
+          { start: 200, end: 300, label: "$200 - $300" },
+          { start: 300, end: 500, label: "$300 - $500" }
+        ]
+        
+        for (const range of commonRanges) {
+          // Only include ranges that have products
+          if (range.end >= minPrice && range.start <= maxPrice) {
+            if (range.start === 0) {
+              ranges.push({
+                value: `under-${range.end}`,
+                label: range.label.replace("$", currencySymbol)
+              })
+            } else {
+              ranges.push({
+                value: `${range.start}-${range.end}`,
+                label: range.label.replace(/\$/g, currencySymbol)
+              })
+            }
+          }
+        }
+        
+        if (maxPrice > 500) {
+          ranges.push({
+            value: "over-500",
+            label: `Over ${currencySymbol}500`
+          })
+        }
+        
+      } else {
+        // Large range: create ranges with $100-200 increments
+        const commonRanges = [
+          { start: 0, end: 100, label: "Under $100" },
+          { start: 100, end: 250, label: "$100 - $250" },
+          { start: 250, end: 500, label: "$250 - $500" },
+          { start: 500, end: 750, label: "$500 - $750" },
+          { start: 750, end: 1000, label: "$750 - $1000" }
+        ]
+        
+        for (const range of commonRanges) {
+          if (range.end >= minPrice && range.start <= maxPrice) {
+            if (range.start === 0) {
+              ranges.push({
+                value: `under-${range.end}`,
+                label: range.label.replace("$", currencySymbol)
+              })
+            } else {
+              ranges.push({
+                value: `${range.start}-${range.end}`,
+                label: range.label.replace(/\$/g, currencySymbol)
+              })
+            }
+          }
+        }
+        
+        if (maxPrice > 1000) {
+          ranges.push({
+            value: "over-1000",
+            label: `Over ${currencySymbol}1000`
+          })
+        }
+      }
+    } else {
+      // Very small range or few products: simple above/below median
+      const median = Math.floor((minPrice + maxPrice) / 2)
+      const roundedMedian = roundToNice(median)
+      
+      ranges.push(
+        { value: `under-${roundedMedian}`, label: `Under ${currencySymbol}${roundedMedian}` },
+        { value: `over-${roundedMedian}`, label: `${currencySymbol}${roundedMedian} and above` }
+      )
+    }
+    
+    return ranges
+  }, [products, currencySymbol])
+
   // Compute size options grouped by size category
   const sizeOptionsByCategory = useMemo(() => {
     const map: Record<string, Set<string>> = {};
@@ -274,8 +425,32 @@ export function ShoesInventoryTable() {
         p.brand?.toLowerCase().includes(globalFilter.toLowerCase()) ||
         p.sku?.toLowerCase().includes(globalFilter.toLowerCase());
       
+      // Price range filter
+      const priceMatch = (() => {
+        const price = p.sale_price || 0;
+        const min = priceMin || 0;
+        const max = priceMax || maxPrice;
+        return price >= min && price <= max;
+      })();
+
+      // Stock filter
+      const stockMatch = (() => {
+        if (stockFilter === "all") return true;
+        const variants = rowVariants[p.id] || [];
+        const quantity = variants.length;
+        switch (stockFilter) {
+          case "in-stock": return quantity > 0;
+          case "out-of-stock": return quantity === 0;
+          case "low-stock": return quantity > 0 && quantity <= 5;
+          case "high-stock": return quantity > 10;
+          default: return true;
+        }
+      })();
+      
       return (
         searchMatch &&
+        priceMatch &&
+        stockMatch &&
         (brandFilter === "all" || p.brand === brandFilter) &&
         (sizeCategoryFilter === "all" || p.size_category === sizeCategoryFilter)
       );
@@ -288,7 +463,7 @@ export function ShoesInventoryTable() {
       });
     }
     return result;
-  }, [products, brandFilter, sizeCategoryFilter, sizeFilter, rowVariants, globalFilter]);
+  }, [products, brandFilter, sizeCategoryFilter, priceMin, priceMax, maxPrice, stockFilter, sizeFilter, rowVariants, globalFilter]);
 
   // Bulk selection state (must be after filteredVariants)
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -328,7 +503,7 @@ export function ShoesInventoryTable() {
       enableColumnFilter: false,
     }),
     // Name (brand below)
-    columnHelper.display({
+    columnHelper.accessor('name', {
       id: "name",
       header: ({ column }) => {
         return (
@@ -353,14 +528,9 @@ export function ShoesInventoryTable() {
       },
       enableSorting: true,
       enableColumnFilter: true,
-      sortingFn: (rowA, rowB) => {
-        const a = (rowA.original as Product).name || '';
-        const b = (rowB.original as Product).name || '';
-        return a.localeCompare(b);
-      },
     }),
     // SKU
-    columnHelper.display({
+    columnHelper.accessor('sku', {
       id: "sku",
       header: ({ column }) => {
         return (
@@ -379,11 +549,6 @@ export function ShoesInventoryTable() {
         return <div className="whitespace-nowrap min-w-[100px]">{product.sku || '-'}</div>;
       },
       enableSorting: true,
-      sortingFn: (rowA, rowB) => {
-        const a = (rowA.original as Product).sku || '';
-        const b = (rowB.original as Product).sku || '';
-        return a.localeCompare(b);
-      },
     }),
     // Quantity (number of variants) - after SKU
     columnHelper.display({
@@ -401,7 +566,7 @@ export function ShoesInventoryTable() {
       enableColumnFilter: false,
     }),
     // Cost (original_price)
-    columnHelper.display({
+    columnHelper.accessor('original_price', {
       id: "cost",
       header: ({ column }) => {
         return (
@@ -421,14 +586,9 @@ export function ShoesInventoryTable() {
         return <div className="min-w-[100px]">{currencySymbol}{typeof value === 'number' ? value.toFixed(2) : '-'}</div>;
       },
       enableSorting: true,
-      sortingFn: (rowA, rowB) => {
-        const a = (rowA.original as Product).original_price || 0;
-        const b = (rowB.original as Product).original_price || 0;
-        return a - b;
-      },
     }),
     // Price (sale_price)
-    columnHelper.display({
+    columnHelper.accessor('sale_price', {
       id: "price",
       header: ({ column }) => {
         return (
@@ -448,14 +608,9 @@ export function ShoesInventoryTable() {
         return <div className="min-w-[100px]">{currencySymbol}{typeof value === 'number' ? value.toFixed(2) : '-'}</div>;
       },
       enableSorting: true,
-      sortingFn: (rowA, rowB) => {
-        const a = (rowA.original as Product).sale_price || 0;
-        const b = (rowB.original as Product).sale_price || 0;
-        return a - b;
-      },
     }),
     // Status
-    columnHelper.display({
+    columnHelper.accessor('status', {
       id: "status",
       header: ({ column }) => {
         return (
@@ -511,14 +666,9 @@ export function ShoesInventoryTable() {
       },
       enableSorting: true,
       enableColumnFilter: true,
-      sortingFn: (rowA, rowB) => {
-        const a = (rowA.original as Product).status || '';
-        const b = (rowB.original as Product).status || '';
-        return a.localeCompare(b);
-      },
     }),
     // Size Category
-    columnHelper.display({
+    columnHelper.accessor('size_category', {
       id: "size_category",
       header: ({ column }) => {
         return (
@@ -542,11 +692,6 @@ export function ShoesInventoryTable() {
         );
       },
       enableSorting: true,
-      sortingFn: (rowA, rowB) => {
-        const a = (rowA.original as Product).size_category || '';
-        const b = (rowB.original as Product).size_category || '';
-        return a.localeCompare(b);
-      },
     }),
     // Actions
     columnHelper.display({
@@ -815,6 +960,68 @@ export function ShoesInventoryTable() {
                         </SelectContent>
                       </Select>
                     </div>
+                    {/* Price Range Filter */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between text-xs h-8">
+                          <span className="flex items-center gap-2">
+                            <Sliders className="h-3 w-3" />
+                            Price Range
+                          </span>
+                          <ChevronDown className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-56 p-3">
+                        <div className="space-y-3">
+                          <label className="text-xs font-medium">Set Price Range</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label htmlFor="price-min-1" className="text-xs">Min</label>
+                              <Input
+                                id="price-min-1"
+                                type="number"
+                                placeholder="0"
+                                value={priceMin || ''}
+                                onChange={(e) => setPriceMin(e.target.value ? Number(e.target.value) : 0)}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                            <div>
+                              <label htmlFor="price-max-1" className="text-xs">Max</label>
+                              <Input
+                                id="price-max-1"
+                                type="number"
+                                placeholder={maxPrice.toString()}
+                                value={priceMax || ''}
+                                onChange={(e) => setPriceMax(e.target.value ? Number(e.target.value) : maxPrice)}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          </div>
+                          {(priceMin > 0 || (priceMax > 0 && priceMax < maxPrice)) && (
+                            <div className="text-xs text-gray-500">
+                              Range: {currencySymbol}{priceMin || 0} - {currencySymbol}{priceMax || maxPrice}
+                            </div>
+                          )}
+                        </div>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    {/* Stock Filter */}
+                    <div className="flex flex-col space-y-1">
+                      <label className="text-xs">Stock</label>
+                      <Select value={stockFilter} onValueChange={setStockFilter}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="All Stock" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Stock</SelectItem>
+                          <SelectItem value="in-stock">In Stock</SelectItem>
+                          <SelectItem value="out-of-stock">Out of Stock</SelectItem>
+                          <SelectItem value="low-stock">Low Stock (≤5)</SelectItem>
+                          <SelectItem value="high-stock">High Stock (&gt;10)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
               </PopoverContent>
@@ -916,6 +1123,68 @@ export function ShoesInventoryTable() {
                 <SelectItem value="PullOut">PullOut</SelectItem>
                 <SelectItem value="Reserved">Reserved</SelectItem>
                 <SelectItem value="PreOrder">PreOrder</SelectItem>
+              </SelectContent>
+            </Select>
+            {/* Price Range Filter */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-[200px] justify-between">
+                  <span className="flex items-center gap-2">
+                    <Sliders className="h-4 w-4" />
+                    Price Range
+                  </span>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-64 p-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Sliders className="h-4 w-4" />
+                    <span className="text-sm font-medium">Set Price Range</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="price-min-2" className="text-xs">Min</label>
+                      <Input
+                        id="price-min-2"
+                        type="number"
+                        placeholder="0"
+                        value={priceMin || ''}
+                        onChange={(e) => setPriceMin(e.target.value ? Number(e.target.value) : 0)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="price-max-2" className="text-xs">Max</label>
+                      <Input
+                        id="price-max-2"
+                        type="number"
+                        placeholder={maxPrice.toString()}
+                        value={priceMax || ''}
+                        onChange={(e) => setPriceMax(e.target.value ? Number(e.target.value) : maxPrice)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                  {(priceMin > 0 || (priceMax > 0 && priceMax < maxPrice)) && (
+                    <div className="text-xs text-gray-500 border-t pt-2">
+                      Active Range: {currencySymbol}{priceMin || 0} - {currencySymbol}{priceMax || maxPrice}
+                    </div>
+                  )}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {/* Stock Filter */}
+            <Select value={stockFilter} onValueChange={setStockFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="All Stock" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Stock</SelectItem>
+                <SelectItem value="in-stock">In Stock</SelectItem>
+                <SelectItem value="out-of-stock">Out of Stock</SelectItem>
+                <SelectItem value="low-stock">Low Stock (≤5)</SelectItem>
+                <SelectItem value="high-stock">High Stock (&gt;10)</SelectItem>
               </SelectContent>
             </Select>
           </div>

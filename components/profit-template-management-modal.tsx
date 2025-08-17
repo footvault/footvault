@@ -108,7 +108,16 @@ export function ProfitTemplateManagementModal({
 
   const handleItemAvatarChange = (index: number, avatarId: string) => {
     const avatar = avatars.find((a) => a.id === avatarId)
-    setTemplateItems((prev) => prev.map((item, i) => i === index ? { ...item, avatar_id: avatarId, avatar_name: avatar?.name || "" } : item))
+    setTemplateItems((prev) => prev.map((item, i) => 
+      i === index 
+        ? { 
+            ...item, 
+            avatar_id: avatarId, 
+            avatar_name: avatar?.name || "",
+            percentage: avatar?.default_percentage || 0
+          } 
+        : item
+    ))
   }
 
   const validateForm = () => {
@@ -212,7 +221,7 @@ export function ProfitTemplateManagementModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-6">
+        <div className="flex-1 overflow-y-auto space-y-6 px-1">
           {/* Template Name Section */}
           <div className="space-y-2">
             <Label htmlFor="templateName" className="text-sm font-medium">
