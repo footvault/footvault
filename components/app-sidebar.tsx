@@ -3,7 +3,7 @@
 import type * as React from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Home, Plus, ShoppingCart, BarChart, CreditCard, Settings, Archive, Boxes } from "lucide-react"
+import { Home, Plus, ShoppingCart, BarChart, CreditCard, Settings, Archive, Boxes, MessageSquare } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import {
@@ -70,6 +70,13 @@ const secondaryNavigation = [
     url: "/settings",
     icon: Settings,
     protected: true,
+  },
+  {
+    title: "Feedback",
+    url: "https://tally.so/r/mZ7NBo",
+    icon: MessageSquare,
+    protected: true,
+    external: true,
   },
 ]
 
@@ -145,10 +152,17 @@ export function AppSidebar({ children, ...props }: React.ComponentProps<typeof S
               {secondaryNavigation.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={pathname === item.url}>
-                    <Link href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
+                    {item.external ? (
+                      <a href={item.url} target="_blank" rel="noopener noreferrer">
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </a>
+                    ) : (
+                      <Link href={item.url}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
