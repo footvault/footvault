@@ -6,6 +6,18 @@ import { Badge } from '@/components/ui/badge';
 import CallToAction from '@/components/CallToAction';
 import Footer from '@/components/Footer';
 import { AuthButton } from "@/components/auth-button";
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Sneaker QR Stickers & Scanning - FootVault Reseller Tools',
+  description: 'Generate printable QR stickers for each sneaker variant and scan them for instant stock lookups. Perfect for sneaker resellers, physical inventory management and warehouse organization.',
+  keywords: 'sneaker QR codes, sneaker QR stickers, footwear inventory scanning, sneaker stock lookup, reseller warehouse management, sneaker variant tracking, footwear QR scanner',
+  openGraph: {
+    title: 'Sneaker QR Stickers & Scanning - FootVault Reseller Tools',
+    description: 'Generate printable QR stickers for each sneaker variant and scan them for instant stock lookups. Perfect for sneaker resellers, physical inventory management and warehouse organization.',
+    type: 'website',
+  },
+};
 
 export default function QRCodesPage() {
   return (

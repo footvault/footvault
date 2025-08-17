@@ -6,6 +6,18 @@ import { Badge } from '@/components/ui/badge';
 import CallToAction from '@/components/CallToAction';
 import Footer from '@/components/Footer';
 import { AuthButton } from "@/components/auth-button";
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Sneaker Profit Distribution - FootVault Reseller Tools',
+  description: 'Create avatar-based profit distribution templates for sneaker reselling team payouts and organized profit tracking. Automatically split sneaker profits in checkout and monitor individual performance.',
+  keywords: 'sneaker profit distribution, sneaker reselling profits, footwear team payouts, sneaker business profit tracking, reseller profit splitting, sneaker team performance',
+  openGraph: {
+    title: 'Sneaker Profit Distribution - FootVault Reseller Tools',
+    description: 'Create avatar-based profit distribution templates for sneaker reselling team payouts and organized profit tracking. Automatically split sneaker profits in checkout and monitor individual performance.',
+    type: 'website',
+  },
+};
 
 export default function ProfitPage() {
   return (

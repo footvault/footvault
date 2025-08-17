@@ -6,6 +6,18 @@ import { Badge } from '@/components/ui/badge';
 import CallToAction from '@/components/CallToAction';
 import Footer from '@/components/Footer';
 import { AuthButton } from "@/components/auth-button";
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Sneaker Sales Tracking - FootVault Reseller Tools',
+  description: 'Track sneaker sales revenue, profits, and team distributions with detailed customer information, payment methods, and comprehensive sneaker reselling analytics including refund management.',
+  keywords: 'sneaker sales analytics, sneaker reselling, sneaker revenue tracking, sneaker profit tracking, reseller tools, sneaker business analytics, footwear sales reports',
+  openGraph: {
+    title: 'Sneaker Sales Tracking - FootVault Reseller Tools',
+    description: 'Track sneaker sales revenue, profits, and team distributions with detailed customer information, payment methods, and comprehensive sneaker reselling analytics including refund management.',
+    type: 'website',
+  },
+};
 
 export default function SalesPage() {
   return (

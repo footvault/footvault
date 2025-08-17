@@ -6,6 +6,18 @@ import { Badge } from '@/components/ui/badge';
 import CallToAction from '@/components/CallToAction';
 import Footer from '@/components/Footer';
 import { AuthButton } from "@/components/auth-button";
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Sneaker Checkout System - FootVault Reseller Tools',
+  description: 'Complete sneaker checkout solution with variant selection, sales summaries, customizable payment fees, flexible discounts, and real-time profit distribution for sneaker resellers.',
+  keywords: 'sneaker checkout system, sneaker reselling checkout, footwear sales, sneaker variant selection, reseller tools, sneaker business checkout, footwear commerce',
+  openGraph: {
+    title: 'Sneaker Checkout System - FootVault Reseller Tools',
+    description: 'Complete sneaker checkout solution with variant selection, sales summaries, customizable payment fees, flexible discounts, and real-time profit distribution for sneaker resellers.',
+    type: 'website',
+  },
+};
 
 export default function CheckoutPage() {
   return (

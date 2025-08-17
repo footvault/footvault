@@ -6,6 +6,18 @@ import { Badge } from '@/components/ui/badge';
 import CallToAction from '@/components/CallToAction';
 import Footer from '@/components/Footer';
 import { AuthButton } from "@/components/auth-button";
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Sneaker Product Management - FootVault Reseller Tools',
+  description: 'Add sneakers instantly using StockX information or create custom sneaker listings with manual entry. Streamline your sneaker inventory setup with intelligent data population for resellers.',
+  keywords: 'sneaker product management, StockX sneaker integration, sneaker product addition, footwear listings, sneaker inventory setup, reseller tools, sneaker database management',
+  openGraph: {
+    title: 'Sneaker Product Management - FootVault Reseller Tools',
+    description: 'Add sneakers instantly using StockX information or create custom sneaker listings with manual entry. Streamline your sneaker inventory setup with intelligent data population for resellers.',
+    type: 'website',
+  },
+};
 
 export default function StockXPage() {
   return (

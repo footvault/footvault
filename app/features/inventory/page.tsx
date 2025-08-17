@@ -6,6 +6,18 @@ import { Badge } from '@/components/ui/badge';
 import CallToAction from '@/components/CallToAction';
 import Footer from '@/components/Footer';
 import { AuthButton } from "@/components/auth-button";
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Sneaker Inventory Management - FootVault Reseller Tools',
+  description: 'Track every sneaker, variant, and size with precision. Monitor costs, locations, and get real-time insights into your sneaker inventory performance for reselling success.',
+  keywords: 'sneaker inventory management, sneaker tracking, footwear inventory, sneaker variant tracking, reseller inventory tools, sneaker warehouse management, footwear stock management',
+  openGraph: {
+    title: 'Sneaker Inventory Management - FootVault Reseller Tools',
+    description: 'Track every sneaker, variant, and size with precision. Monitor costs, locations, and get real-time insights into your sneaker inventory performance for reselling success.',
+    type: 'website',
+  },
+};
 
 export default function InventoryPage() {
   return (

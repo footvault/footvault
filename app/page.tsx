@@ -1,6 +1,6 @@
 import { AuthButton } from "@/components/auth-button";
 import { Hero } from "@/components/hero";
-
+import { Metadata } from "next";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -14,6 +14,37 @@ import Footer from "@/components/Footer";
 import InfiniteCarousel from "@/components/Testimonials";
 import CallToAction from "@/components/CallToAction";
 
+export const metadata: Metadata = {
+  title: "FootVault - Ultimate Sneaker Reseller Inventory Management Tool",
+  description: "The most powerful sneaker reseller inventory management platform. Track sneaker stock, manage resale profits, automate pricing, and scale your sneaker business with advanced tools for Jordan, Nike, Yeezy, and designer footwear.",
+  keywords: "sneaker reseller tools, sneaker inventory management, resale inventory tracker, sneaker stock management, sneaker business software, Jordan reseller tools, Nike inventory tracker, Yeezy resale management",
+  openGraph: {
+    title: "FootVault - Ultimate Sneaker Reseller Inventory Management Tool",
+    description: "The most powerful sneaker reseller inventory management platform. Track sneaker stock, manage resale profits, automate pricing, and scale your sneaker business.",
+    url: "https://https://footvault.dev",
+    siteName: "FootVault",
+    images: [
+      {
+        url: "/images/footvault-og-home.jpg",
+        width: 1200,
+        height: 630,
+        alt: "FootVault Homepage - Sneaker Reseller Tools",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "FootVault - Ultimate Sneaker Reseller Inventory Management Tool",
+    description: "The most powerful sneaker reseller inventory management platform for sneaker resellers and businesses.",
+    images: ["/images/footvault-twitter-home.jpg"],
+  },
+  alternates: {
+    canonical: "https://https://footvault.dev",
+  },
+}
+
 
 export default async function Home() {
   const cookieStore = await import("next/headers").then((mod) => mod.cookies());
@@ -26,6 +57,43 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen flex flex-col items-center">
+      {/* SEO Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            "name": "FootVault - Ultimate Sneaker Reseller Inventory Management Tool",
+            "description": "The most powerful sneaker reseller inventory management platform. Track sneaker stock, manage resale profits, automate pricing, and scale your sneaker business.",
+            "url": "https://https://footvault.dev",
+            "mainEntity": {
+              "@type": "SoftwareApplication",
+              "name": "FootVault",
+              "applicationCategory": "BusinessApplication",
+              "description": "Advanced sneaker reseller inventory management platform with tools for tracking stock, managing profits, and scaling sneaker businesses.",
+              "operatingSystem": "Web Browser",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              }
+            },
+            "breadcrumb": {
+              "@type": "BreadcrumbList",
+              "itemListElement": [
+                {
+                  "@type": "ListItem",
+                  "position": 1,
+                  "name": "Home",
+                  "item": "https://https://footvault.dev"
+                }
+              ]
+            }
+          })
+        }}
+      />
+      
       <div className="flex-1 w-full flex flex-col">
         {/* ✅ Responsive Navbar */}
         <nav className="w-full border-b border-b-foreground/10 h-16">
