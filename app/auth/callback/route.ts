@@ -30,11 +30,11 @@ export async function GET(request: Request) {
   if (code) {
     try {
       // 1. use cookie-aware client for exchanging code
-      const cookieStore = cookies();
-      const supabase = createClient(cookieStore);
+      const cookieStore = await cookies();
+      const supabase = await createClient(cookieStore);
 
       const { data, error: exchangeError } =
-        await (await supabase).auth.exchangeCodeForSession(code);
+        await supabase.auth.exchangeCodeForSession(code);
 
       if (exchangeError) {
         console.error("Auth exchange error:", exchangeError);
