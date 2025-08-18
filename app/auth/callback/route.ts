@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     const supabase = await createAdminClient()
     
     try {
-      const { data, error } = await supabase.auth.exchangeCodeForSession(request.url)
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
       if (error) {
         console.error('Auth exchange error:', error)
