@@ -50,7 +50,7 @@ const Footer = () => {
           <h4 className="font-semibold mb-3">Support</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li><a href="/terms" className="hover:text-primary">Terms</a></li>
-            <li><a href="/privacy" className="hover:text-primary">Privacy</a></li>
+            <li><a href="/privacy" className="hover:text-primary">Privacy Policy</a></li>
           </ul>
         </div>
       </div>
@@ -60,7 +60,7 @@ const Footer = () => {
         <p>© 2025 footvault.com. All rights reserved.</p>
         <div className="flex gap-4">
           <a href="/terms" className="hover:text-primary underline">Terms</a>
-          <a href="/privacy" className="hover:text-primary underline">Privacy</a>
+          <a href="/privacy" className="hover:text-primary underline">Privacy Policy</a>
 
         </div>
       </div>
