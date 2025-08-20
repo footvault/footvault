@@ -13,6 +13,8 @@ import Pricing from "@/components/Pricing";
 import Footer from "@/components/Footer";
 import InfiniteCarousel from "@/components/Testimonials";
 import CallToAction from "@/components/CallToAction";
+import { AuthCodeHandler } from "@/components/auth-code-handler";
+
 
 export const metadata: Metadata = {
   title: "FootVault - Ultimate Sneaker Reseller Inventory Management Tool",
@@ -57,6 +59,9 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen flex flex-col items-center">
+      {/* Handle OAuth codes that end up on root page */}
+      <AuthCodeHandler />
+      
       {/* SEO Structured Data */}
       <script
         type="application/ld+json"

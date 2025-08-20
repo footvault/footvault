@@ -11,13 +11,24 @@ export async function GET(request: Request) {
   let next = searchParams.get('next') ?? '/inventory'
   if (!next.startsWith('/')) next = '/inventory'
 
+  // Add debugging logs
+  console.log('=== AUTH CALLBACK DEBUG ===')
+  console.log('Request URL:', request.url)
+  console.log('Origin:', origin)
+  console.log('Code:', code?.substring(0, 8) + '...')
+  console.log('Next:', next)
+  console.log('Headers:', Object.fromEntries(request.headers.entries()))
+  console.log('========================')
+
   if (error) {
+    console.error('OAuth error received:', error, errorDescription)
     return NextResponse.redirect(
       `${origin}/auth/auth-code-error?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || 'OAuth provider error')}`
     )
   }
 
   if (!code) {
+    console.error('No authorization code received')
     return NextResponse.redirect(
       `${origin}/auth/auth-code-error?error=invalid_request&error_description=Missing+authorization+code`
     )
@@ -45,11 +56,14 @@ export async function GET(request: Request) {
     )
 
     // 2. Exchange code → sets session cookie
+    console.log('Attempting to exchange code for session...')
     const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
     if (exchangeError) {
       console.error('Auth exchange error:', exchangeError)
-      return NextResponse.redirect(`${origin}/auth/auth-code-error?error=exchange_failed`)
+      return NextResponse.redirect(`${origin}/auth/auth-code-error?error=exchange_failed&details=${encodeURIComponent(exchangeError.message)}`)
     }
+
+    console.log('Code exchange successful, user:', data.user?.email)
 
     const { user } = data
     if (user) {
@@ -64,6 +78,7 @@ export async function GET(request: Request) {
         .single()
 
       if (!existingUser) {
+        console.log('Creating new user in database...')
         const plan = 'Free'
         const email = user.email || 'NoEmail'
         const username = user.user_metadata.full_name ?? email ?? 'NoName'
@@ -98,22 +113,33 @@ export async function GET(request: Request) {
           fee_type: 'fixed',
           fee_value: 0.0,
         })
+        
+        console.log('New user created successfully')
+      } else {
+        console.log('Existing user found')
       }
     }
 
-    // 4. Redirect after successful login - simplified and consistent
+    // 4. Enhanced redirect logic with debugging
     const forwardedHost = request.headers.get('x-forwarded-host')
     const forwardedProto = request.headers.get('x-forwarded-proto')
     
+    let redirectUrl: string
+    
     if (forwardedHost && process.env.NODE_ENV === 'production') {
       const protocol = forwardedProto || 'https'
-      return NextResponse.redirect(`${protocol}://${forwardedHost}${next}`)
+      redirectUrl = `${protocol}://${forwardedHost}${next}`
+      console.log('Using forwarded host redirect:', redirectUrl)
+    } else {
+      redirectUrl = `${origin}${next}`
+      console.log('Using origin redirect:', redirectUrl)
     }
     
-    return NextResponse.redirect(`${origin}${next}`)
+    console.log('Final redirect URL:', redirectUrl)
+    return NextResponse.redirect(redirectUrl)
     
   } catch (e) {
     console.error('Unexpected error in auth callback:', e)
-    return NextResponse.redirect(`${origin}/auth/auth-code-error?error=unexpected_error`)
+    return NextResponse.redirect(`${origin}/auth/auth-code-error?error=unexpected_error&details=${encodeURIComponent(String(e))}`)
   }
 }
