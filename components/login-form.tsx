@@ -50,10 +50,15 @@ export function LoginForm({
     setError(null);
     
     try {
+      // Get the correct base URL for redirects
+     const getBaseUrl = () => {
+  return process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+      };
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${getBaseUrl()}/auth/callback?next=/inventory`
         },
       });
 

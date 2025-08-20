@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
   if (error) {
     return NextResponse.redirect(
-      `${origin}/auth/auth-code-error?error=${error}&error_description=${encodeURIComponent(errorDescription || 'OAuth provider error')}`
+      `${origin}/auth/auth-code-error?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || 'OAuth provider error')}`
     )
   }
 
@@ -101,15 +101,17 @@ export async function GET(request: Request) {
       }
     }
 
-    // 4. Redirect after successful login
+    // 4. Redirect after successful login - simplified and consistent
     const forwardedHost = request.headers.get('x-forwarded-host')
-    if (process.env.NODE_ENV === 'development') {
-      return NextResponse.redirect(`${origin}${next}`)
-    } else if (forwardedHost) {
-      return NextResponse.redirect(`https://${forwardedHost}${next}`)
-    } else {
-      return NextResponse.redirect(`${origin}${next}`)
+    const forwardedProto = request.headers.get('x-forwarded-proto')
+    
+    if (forwardedHost && process.env.NODE_ENV === 'production') {
+      const protocol = forwardedProto || 'https'
+      return NextResponse.redirect(`${protocol}://${forwardedHost}${next}`)
     }
+    
+    return NextResponse.redirect(`${origin}${next}`)
+    
   } catch (e) {
     console.error('Unexpected error in auth callback:', e)
     return NextResponse.redirect(`${origin}/auth/auth-code-error?error=unexpected_error`)
