@@ -26,7 +26,7 @@ export function LoginForm({
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const supabase = createClient({});
+    const supabase = createClient(undefined);
     setIsLoading(true);
     setError(null);
 
@@ -45,7 +45,7 @@ export function LoginForm({
   };
 
   const handleGoogleLogin = async () => {
-    const supabase = createClient({});
+    const supabase = createClient(undefined);
     setIsLoading(true);
     setError(null);
     
