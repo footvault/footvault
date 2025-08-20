@@ -49,12 +49,19 @@ export const metadata: Metadata = {
 
 
 export default async function Home() {
+  // Re-enable server-side auth check now that OAuth is working
   const cookieStore = await import("next/headers").then((mod) => mod.cookies());
   const supabase = await createClient(cookieStore);
-  const { data } = await supabase.auth.getUser();
-
-  if (data?.user) {
-    redirect("/inventory");
+  
+  try {
+    const { data } = await supabase.auth.getUser();
+    
+    if (data?.user) {
+      redirect("/inventory");
+    }
+  } catch (error) {
+    console.error('Auth check error on homepage:', error);
+    // Don't redirect on auth errors, just show the homepage
   }
 
   return (

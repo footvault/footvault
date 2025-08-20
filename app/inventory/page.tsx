@@ -10,14 +10,7 @@ import { redirect } from "next/navigation";
 
 export default async function HomePage() {
 
-    // Protect route: check for authenticated user
-  const cookieStore = await import("next/headers").then((mod) => mod.cookies());
-  const supabase = createClient(cookieStore);
-  const { data } = await supabase.auth.getUser();
-
-  if (!data?.user) {
-    redirect("/"); // Redirect to homepage or login
-  }
+ 
 
 
   const shoesData = await getProducts()

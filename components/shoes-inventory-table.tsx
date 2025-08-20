@@ -179,7 +179,7 @@ export function ShoesInventoryTable() {
   const [sizeFilter, setSizeFilter] = useState<string[]>([]); // array of selected sizes
   const [sizeSearch, setSizeSearch] = useState("");
 
-  const supabase = createClient()
+  const supabase = createClient(undefined)
 
   const fetchProducts = async () => {
     try {
@@ -1394,7 +1394,7 @@ function AddVariantsModal({
   const [showAddLocationInput, setShowAddLocationInput] = useState(false);
   const [newLocation, setNewLocation] = useState("");
   
-  const supabase = createClient();
+  const supabase = createClient(undefined);
 
   // Fetch custom locations
   useEffect(() => {
