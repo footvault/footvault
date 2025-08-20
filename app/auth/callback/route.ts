@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
 
 export async function GET(request: Request) {
@@ -26,9 +26,11 @@ export async function GET(request: Request) {
   }
 
   if (code) {
-    const supabase = await createAdminClient()
-    
     try {
+      // 1. Use cookie-aware client for code exchange (THIS IS CRITICAL)
+      const cookieStore = await cookies()
+      const supabase = await createClient(cookieStore)
+      
       const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
       if (error) {
@@ -40,8 +42,11 @@ export async function GET(request: Request) {
       console.log('User object:', user) // Debug logging
 
       if (user) {
+        // 2. Use admin client for database operations
+        const adminClient = await createAdminClient()
+        
         // Check if user already exists in users table
-        const { data: existingUser, error: userCheckError } = await supabase
+        const { data: existingUser, error: userCheckError } = await adminClient
           .from('users')
           .select('id')
           .eq('id', user.id)
@@ -60,7 +65,7 @@ export async function GET(request: Request) {
           const username = user.user_metadata.full_name ?? email ?? 'NoName'
 
           // Create user profile
-          const { error: insertUserError } = await supabase.from('users').insert({
+          const { error: insertUserError } = await adminClient.from('users').insert({
             id: user.id,
             username: username,
             plan: plan,
@@ -75,7 +80,7 @@ export async function GET(request: Request) {
           }
 
           // Create Main avatar (only if it doesn't exist)
-          const { data: existingAvatar, error: avatarCheckError } = await supabase
+          const { data: existingAvatar, error: avatarCheckError } = await adminClient
             .from('avatars')
             .select('id')
             .eq('user_id', user.id)
@@ -98,7 +103,7 @@ export async function GET(request: Request) {
             const fallbackAvatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${fallbackInitials}`
             const avatarImage = googleImage ?? fallbackAvatarUrl
 
-            const { error: insertAvatarError } = await supabase.from('avatars').insert({
+            const { error: insertAvatarError } = await adminClient.from('avatars').insert({
               name: avatarName,
               user_id: user.id,
               default_percentage: 100.00, // Changed from 0.00 to 100.00 for main avatar
@@ -115,7 +120,7 @@ export async function GET(request: Request) {
           }
 
           // Create default payment type
-          const { error: insertPaymentError } = await supabase.from('payment_types').insert({
+          const { error: insertPaymentError } = await adminClient.from('payment_types').insert({
             user_id: user.id,
             name: 'Cash',
             fee_type: 'fixed',
@@ -133,17 +138,9 @@ export async function GET(request: Request) {
         }
       }
 
-      // Redirect logic
-      const forwardedHost = request.headers.get('x-forwarded-host')
-      const isLocalEnv = process.env.NODE_ENV === 'development'
-
-      if (isLocalEnv) {
-        return NextResponse.redirect(`${origin}${next}`)
-      } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`)
-      } else {
-        return NextResponse.redirect(`${origin}${next}`)
-      }
+      // 3. Simplified redirect logic for production
+      return NextResponse.redirect(`${origin}${next}`)
+      
     } catch (unexpectedError) {
       console.error('Unexpected error in auth callback:', unexpectedError)
       return NextResponse.redirect(`${origin}/auth/auth-code-error?error=server_error&error_code=unexpected_error&error_description=An+unexpected+error+occurred+during+authentication`)
