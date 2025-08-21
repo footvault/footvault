@@ -119,13 +119,13 @@ export default function Pricing() {
           className="mb-16 text-center flex flex-col items-center gap-4"
         >
           <h2 className="text-4xl lg:text-5xl font-bold tracking-tight">
-            Choose Your Plan
+            Match Your Hustle
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl">
             Simple pricing plans for all kinds of sneaker sellers.
           </p>
 
-          <div className="mt-6 flex items-center gap-2 bg-muted rounded-md p-1">
+          {/* <div className="mt-6 flex items-center gap-2 bg-muted rounded-md p-1">
             <button
               onClick={() => setIsYearly(false)}
               className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${
@@ -142,7 +142,7 @@ export default function Pricing() {
             >
               Yearly
             </button>
-          </div>
+          </div> */}
         </motion.div>
 
         <motion.div

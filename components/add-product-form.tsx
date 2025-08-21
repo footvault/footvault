@@ -57,8 +57,8 @@ interface ProductFormState {
   brand: string
   sku: string
   category: string
-  originalPrice: number
-  salePrice: number
+  originalPrice: number | string
+  salePrice: number | string
   image: string
   sizeCategory: string // Added
 }
@@ -71,7 +71,7 @@ interface VariantFormState {
   dateAdded: string
   condition: string
   sizeLabel: string // Added
-  quantity: number
+  quantity: number | string
 }
 
 // Helper function to generate dynamic size options
@@ -193,7 +193,7 @@ export function AddProductForm({
       if (!open) return;
       
       try {
-        const supabase = createClient();
+        const supabase = createClient(undefined);
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
@@ -302,13 +302,20 @@ export function AddProductForm({
     setProductForm((prev) => ({
       ...prev,
       [id]:
-        id === "originalPrice" || id === "salePrice" ? Math.ceil((Number.parseFloat(value) || 0) * 100) / 100 : value,
+        id === "originalPrice" || id === "salePrice" 
+          ? value === "" ? "" : Math.ceil((Number.parseFloat(value) || 0) * 100) / 100 
+          : value,
     }))
   }
 
   const handleNewVariantChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
-    setNewVariant((prev) => ({ ...prev, [id]: id === "quantity" ? Math.max(1, parseInt(value) || 1) : value }));
+    setNewVariant((prev) => ({ 
+      ...prev, 
+      [id]: id === "quantity" 
+        ? value === "" ? "" : Math.max(1, parseInt(value) || 1)
+        : value 
+    }));
   }
 
   const handleAddCustomLocation = async () => {
@@ -323,7 +330,7 @@ export function AddProductForm({
 
     startTransition(async () => {
       try {
-        const supabase = createClient();
+        const supabase = createClient(undefined);
         const { data: { session } } = await supabase.auth.getSession();
 
         if (!session) {
@@ -386,7 +393,7 @@ export function AddProductForm({
     setIsSubmitting(true);
 
     try {
-      const supabase = createClient();
+      const supabase = createClient(undefined);
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError || !session) {
@@ -403,7 +410,7 @@ export function AddProductForm({
         const variantLimitData = await variantLimitResponse.json();
         
         if (variantLimitData.success) {
-          const variantsToAdd = newVariant.quantity || 1;
+          const variantsToAdd = typeof newVariant.quantity === "string" ? parseInt(newVariant.quantity) || 1 : newVariant.quantity || 1;
           if (variantLimitData.data.current + variantsToAdd > variantLimitData.data.limit) {
             const remaining = variantLimitData.data.remaining;
             toast({
@@ -434,7 +441,8 @@ export function AddProductForm({
           return;
         }
       }
-      if (!newVariant.size || !newVariant.location || !newVariant.status || !newVariant.dateAdded || !newVariant.condition || !newVariant.quantity || newVariant.quantity < 1) {
+      const quantityNum = typeof newVariant.quantity === "string" ? parseInt(newVariant.quantity) || 0 : newVariant.quantity;
+      if (!newVariant.size || !newVariant.location || !newVariant.status || !newVariant.dateAdded || !newVariant.condition || !newVariant.quantity || quantityNum < 1) {
         toast({
           title: "Missing Variant Details",
           description: "Please fill in all required fields for the variant.",
@@ -500,7 +508,7 @@ export function AddProductForm({
       }
 
       // 3. Prepare N variants with incremented serials
-      const variants = Array.from({ length: newVariant.quantity }, (_, i) => ({
+      const variants = Array.from({ length: quantityNum }, (_, i) => ({
         id: uuidv4(),
         product_id: productId,
         size: newVariant.size,
@@ -526,7 +534,7 @@ export function AddProductForm({
 
       toast({
         title: "Product Added Successfully! 🎉",
-        description: `Added ${newVariant.quantity} ${newVariant.quantity === 1 ? 'variant' : 'variants'} of "${productForm.name || productDataFromApi?.title || existingProductDetails?.name}" to your inventory.`,
+        description: `Added ${quantityNum} ${quantityNum === 1 ? 'variant' : 'variants'} of "${productForm.name || productDataFromApi?.title || existingProductDetails?.name}" to your inventory.`,
       });
       onOpenChange(false);
       onProductAdded();
@@ -682,6 +690,11 @@ export function AddProductForm({
                   type="number"
                   value={productForm.originalPrice}
                   onChange={handleProductFormChange}
+                  onBlur={(e) => {
+                    if (e.target.value === "") {
+                      setProductForm(prev => ({ ...prev, originalPrice: 0 }))
+                    }
+                  }}
                   step="0.01"
                   max={99999}
                   
@@ -694,6 +707,11 @@ export function AddProductForm({
                   type="number"
                   value={productForm.salePrice}
                   onChange={handleProductFormChange}
+                  onBlur={(e) => {
+                    if (e.target.value === "") {
+                      setProductForm(prev => ({ ...prev, salePrice: 0 }))
+                    }
+                  }}
                   step="0.01"
                   max={99999}
                   
@@ -871,16 +889,21 @@ export function AddProductForm({
                   max={variantLimits ? variantLimits.remaining : undefined}
                   value={newVariant.quantity}
                   onChange={handleNewVariantChange}
+                  onBlur={(e) => {
+                    if (e.target.value === "" || parseInt(e.target.value) < 1) {
+                      setNewVariant(prev => ({ ...prev, quantity: 1 }))
+                    }
+                  }}
                   className={cn(
                     "text-xs",
-                    variantLimits && newVariant.quantity > variantLimits.remaining
+                    variantLimits && (typeof newVariant.quantity === "string" ? parseInt(newVariant.quantity) || 0 : newVariant.quantity) > variantLimits.remaining
                       ? "border-red-300 focus:border-red-500"
                       : ""
                   )}
                 />
-                {variantLimits && newVariant.quantity > variantLimits.remaining && (
+                {variantLimits && (typeof newVariant.quantity === "string" ? parseInt(newVariant.quantity) || 0 : newVariant.quantity) > variantLimits.remaining && (
                   <p className="text-xs text-red-600 mt-1">
-                    Cannot add {newVariant.quantity} variants. Only {variantLimits.remaining} available variant slots remaining on your {variantLimits.plan} plan. 
+                    Cannot add {typeof newVariant.quantity === "string" ? parseInt(newVariant.quantity) || 0 : newVariant.quantity} variants. Only {variantLimits.remaining} available variant slots remaining on your {variantLimits.plan} plan. 
                     {variantLimits.remaining > 0 && (
                       <span className="block font-medium">
                         Please adjust your quantity to {variantLimits.remaining} or upgrade your plan.

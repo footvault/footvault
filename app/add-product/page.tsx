@@ -16,6 +16,7 @@ import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar" // Add th
 import { Separator } from "@/components/ui/separator" // Add this import
 import { searchKicksDev } from "@/lib/searchKickDevs"
 import { createClient } from "@/lib/supabase/client"
+import { Spinner } from "@/components/ui/spinner"
 
 // Create the Supabase client
 const supabase = createClient(undefined);
@@ -55,6 +56,7 @@ export default function AddProductPage() {
   const [showManualAdd, setShowManualAdd] = useState(false)
   const [inventorySkus, setInventorySkus] = useState<string[]>([])
   const [inferredSizeCategory, setInferredSizeCategory] = useState<string | undefined>(undefined);
+  const [loadingProductId, setLoadingProductId] = useState<string | null>(null) // Track which product is loading
   // Fetch all SKUs in inventory for this user
   useEffect(() => {
     const fetchInventorySkus = async () => {
@@ -110,6 +112,7 @@ export default function AddProductPage() {
   }
 
   const handleAddProductClick = (kicksDevProductId: string, kicksDevProductSku: string) => {
+    setLoadingProductId(kicksDevProductId) // Set loading state for this specific product
     startSearchTransition(async () => {
       try {
         // First, fetch product details from KicksDev
@@ -203,6 +206,8 @@ export default function AddProductPage() {
           description: error.message || "An unexpected error occurred",
           variant: "destructive",
         });
+      } finally {
+        setLoadingProductId(null); // Clear loading state
       }
     });
   }
@@ -313,7 +318,13 @@ export default function AddProductPage() {
   <CircleCheck className="h-5 w-5 text-white" />
 </div>
                     )}
-                    <CardContent className="p-4 flex-grow">
+                    <CardContent className="p-4 flex-grow relative">
+                      {/* Loading spinner overlay */}
+                      {loadingProductId === product.id && (
+                        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-20 rounded-md">
+                          <Spinner size="lg" />
+                        </div>
+                      )}
                       <Image
                         src={product.image || "/placeholder.svg?height=150&width=150"}
                         alt={product.title}
@@ -330,9 +341,17 @@ export default function AddProductPage() {
                       <Button
                         className="w-full"
                         onClick={() => handleAddProductClick(product.id, product.sku)}
-                        disabled={isSearching}
+                        disabled={isSearching || loadingProductId === product.id}
                       >
-                        <Plus className="h-4 w-4 mr-2" /> Add Product
+                        {loadingProductId === product.id ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Adding...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-4 w-4 mr-2" /> Add Product
+                          </>
+                        )}
                       </Button>
                     </div>
                   </Card>

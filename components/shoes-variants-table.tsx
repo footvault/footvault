@@ -159,7 +159,7 @@ export function ShoesVariantsTable() {
   // For searchable size dropdown
   const [sizeSearch, setSizeSearch] = useState("")
 
-  const supabase = createClient()
+  const supabase = createClient(undefined)
 
   // Fetch user plan
   const fetchUserPlan = async () => {
@@ -209,7 +209,6 @@ export function ShoesVariantsTable() {
         console.error('Error fetching variants:', error)
       } else {
         console.log('Variants loaded:', data?.length, 'variants');
-        console.log('Sample variant data:', data?.[0]);
         setVariants(data || [])
       }
     } catch (error) {
@@ -281,18 +280,18 @@ export function ShoesVariantsTable() {
         (sizeCategoryFilter === "all" || sizeCategory === sizeCategoryFilter)
       );
     });
-    // Global search: serial number, name, sku
+    // Global search: serial number, name, sku, brand
     if (globalFilter.trim() !== "") {
       const search = globalFilter.trim().toLowerCase();
       result = result.filter(v => {
         const serial = String((v as any).serial_number ?? "").toLowerCase();
         const name = ((v as any).product?.name ?? "").toLowerCase();
         const sku = ((v as any).product?.sku ?? "").toLowerCase();
-        return serial.includes(search) || name.includes(search) || sku.includes(search);
+        const brand = ((v as any).product?.brand ?? "").toLowerCase();
+        
+        return serial.includes(search) || name.includes(search) || sku.includes(search) || brand.includes(search);
       });
     }
-    console.log('Filtered serial_numbers:', result.map(v => (v as any).serial_number));
-    console.log('Full filteredVariants:', result);
     return result;
   }, [variants, locationFilter, sizeFilter, brandFilter, sizeCategoryFilter, globalFilter]);
 
@@ -710,21 +709,19 @@ export function ShoesVariantsTable() {
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: setGlobalFilter,
     state: {
       sorting,
       columnFilters,
-      globalFilter,
     },
     initialState: {
       pagination: { pageSize: 10 },
       sorting: [{ id: "serial_number", desc: true }], // Ensure initial sort is set
     },
     enableSorting: true,
+    enableGlobalFilter: false, // Disable since we handle filtering manually
     manualSorting: false, // Let react-table handle sorting
   })
 
@@ -771,7 +768,7 @@ export function ShoesVariantsTable() {
           <InventorySearchWithQR
             searchTerm={globalFilter}
             onSearchChange={setGlobalFilter}
-            placeholder="Search by serial number, name, or SKU..."
+            placeholder="Search by serial number, name, SKU, or brand..."
             className="w-full"
           />
         </div>

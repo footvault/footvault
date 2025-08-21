@@ -162,7 +162,7 @@ export default function PricingPage() {
           </div>
 
           {/* Yearly/Monthly Toggle */}
-          <div className="flex items-center justify-center space-x-6 mb-16">
+          {/* <div className="flex items-center justify-center space-x-6 mb-16">
             <span className={cn("text-lg font-medium transition-all duration-200", !isYearly ? "text-foreground" : "text-muted-foreground")}>
               Monthly
             </span>
@@ -181,7 +181,7 @@ export default function PricingPage() {
                 Save 25%
               </Badge>
             )}
-          </div>
+          </div> */}
 
           {/* Loading State */}
           {isLoading ? (
