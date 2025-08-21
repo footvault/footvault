@@ -197,7 +197,7 @@ export default function CheckoutPage() {
 
         {/* CTA */}
         <div className="text-center">
-          <Link href="/signup">
+          <Link href="/login">
             <Button size="lg" className="px-8 py-3">
               Start Processing Sales
             </Button>
@@ -213,7 +213,7 @@ export default function CheckoutPage() {
         buttons={{
           primary: {
             text: "Get Started",
-            url: "/signup"
+            url: "/login"
           }
         }}
       />

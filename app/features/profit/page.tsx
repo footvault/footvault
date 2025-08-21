@@ -197,7 +197,7 @@ export default function ProfitPage() {
 
         {/* CTA Section */}
         <div className="text-center">
-          <Link href="/signup">
+          <Link href="/login">
             <Button size="lg" className="text-lg px-8 py-4">
               Optimize Your Profits
               <DollarSign className="h-5 w-5 ml-2" />
@@ -214,7 +214,7 @@ export default function ProfitPage() {
         buttons={{
           primary: {
             text: "Get Started",
-            url: "/signup"
+            url: "/login"
           }
         }}
       />

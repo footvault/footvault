@@ -197,7 +197,7 @@ export default function SalesPage() {
 
         {/* CTA */}
         <div className="text-center">
-          <Link href="/signup">
+          <Link href="/login">
             <Button size="lg" className="px-8 py-3">
               Start Tracking Sales
             </Button>
@@ -213,7 +213,7 @@ export default function SalesPage() {
         buttons={{
           primary: {
             text: "Get Started",
-            url: "/signup"
+            url: "/login"
           }
         }}
       />

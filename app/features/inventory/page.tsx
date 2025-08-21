@@ -199,7 +199,7 @@ export default function InventoryPage() {
 
         {/* CTA */}
         <div className="text-center">
-          <Link href="/signup">
+          <Link href="/login">
             <Button size="lg" className="px-8 py-3">
               Start Managing Your Inventory
             </Button>
@@ -215,7 +215,7 @@ export default function InventoryPage() {
         buttons={{
           primary: {
             text: "Get Started",
-            url: "/signup"
+            url: "/login"
           }
         }}
       />

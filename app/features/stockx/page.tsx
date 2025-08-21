@@ -180,7 +180,7 @@ export default function StockXPage() {
         buttons={{
           primary: {
             text: "Get Started",
-            url: "/signup"
+            url: "/login"
           }
         }}
       />

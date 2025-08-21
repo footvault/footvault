@@ -184,7 +184,7 @@ export default function QRCodesPage() {
 
         {/* CTA */}
         <div className="text-center">
-          <Link href="/signup">
+          <Link href="/login">
             <Button size="lg" className="px-8 py-3">
               Start Using QR Codes
             </Button>
@@ -200,7 +200,7 @@ export default function QRCodesPage() {
         buttons={{
           primary: {
             text: "Get Started",
-            url: "/signup"
+            url: "/login"
           }
         }}
       />

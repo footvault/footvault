@@ -102,7 +102,7 @@ export default function TestimonialsSection() {
               sneaker inventory management platform. Your feedback drives our development.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a href="/signup">
+              <a href="/login">
                 <button className="bg-primary text-primary-foreground px-8 py-3 rounded-lg hover:bg-primary/90 transition-all duration-200 font-medium">
                   Join Beta - Free Access
                 </button>

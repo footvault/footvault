@@ -22,7 +22,7 @@ export function AuthForm({ user }: AuthFormProps) {
             <Link href="/login">Login</Link>
           </Button>
           <Button asChild variant="ghost" className="w-full justify-start">
-            <Link href="/signup">Sign Up</Link>
+            <Link href="/login">Sign Up</Link>
           </Button>
         </div>
       )}
