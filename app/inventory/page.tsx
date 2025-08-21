@@ -2,16 +2,23 @@ import { ShoesInventoryTable } from "@/components/shoes-inventory-table"
 import { getProducts } from "@/lib/data"
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar" // Add this import
 import { Separator } from "@/components/ui/separator" // Add this import
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-
-
-
+import { cookies } from "next/headers";
 
 export default async function HomePage() {
+  // Check authentication
+  const cookieStore = await cookies();
+  const supabase = await createClient(cookieStore);
+  
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
- 
-
+  // Redirect unauthenticated users to home page
+  if (!user) {
+    redirect("/");
+  }
 
   const shoesData = await getProducts()
 
