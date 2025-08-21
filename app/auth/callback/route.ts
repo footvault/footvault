@@ -24,7 +24,7 @@ function getRedirectUrl(request: Request, path: string): string {
 }
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
+  const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   const error = searchParams.get('error')
   const errorDescription = searchParams.get('error_description')
@@ -34,6 +34,7 @@ export async function GET(request: Request) {
   // Add debugging logs
   console.log('=== AUTH CALLBACK DEBUG ===')
   console.log('Request URL:', request.url)
+  console.log('Origin:', origin)
   console.log('Environment:', process.env.NODE_ENV)
   console.log('Code:', code?.substring(0, 8) + '...')
   console.log('Next:', next)
@@ -109,12 +110,15 @@ export async function GET(request: Request) {
       
       // Check if it's a specific error type
       if (exchangeError.message?.includes('expired')) {
-        return NextResponse.redirect(`${origin}/auth/auth-code-error?error=code_expired&details=${encodeURIComponent('Authorization code has expired. Please try signing in again.')}`)
+        const errorUrl = getRedirectUrl(request, `/auth/auth-code-error?error=code_expired&details=${encodeURIComponent('Authorization code has expired. Please try signing in again.')}`)
+        return NextResponse.redirect(errorUrl)
       } else if (exchangeError.message?.includes('invalid')) {
-        return NextResponse.redirect(`${origin}/auth/auth-code-error?error=invalid_code&details=${encodeURIComponent('Invalid authorization code. Please try signing in again.')}`)
+        const errorUrl = getRedirectUrl(request, `/auth/auth-code-error?error=invalid_code&details=${encodeURIComponent('Invalid authorization code. Please try signing in again.')}`)
+        return NextResponse.redirect(errorUrl)
       }
       
-      return NextResponse.redirect(`${origin}/auth/auth-code-error?error=exchange_failed&details=${encodeURIComponent(exchangeError.message)}`)
+      const errorUrl = getRedirectUrl(request, `/auth/auth-code-error?error=exchange_failed&details=${encodeURIComponent(exchangeError.message)}`)
+      return NextResponse.redirect(errorUrl)
     }
 
     console.log('Code exchange successful!')

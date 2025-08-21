@@ -4,8 +4,10 @@ import { validateAuth, validateInput, getSecurityHeaders } from '@/lib/simple-se
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const KICKS_DEV_API_KEY = process.env.KICKS_DEV_API_KEY;
+const KICKS_DEV_API_KEY = process.env.NEXT_PUBLIC_KICKS_DEV_API_KEY;
 const KICKS_DEV_BASE_URL = "https://api.kicks.dev/v3/stockx";
+
+console.log("🔑 API Route - KICKS_DEV_API_KEY:", KICKS_DEV_API_KEY ? "Set" : "Not set");
 
 export async function POST(request: NextRequest) {
   const securityHeaders = getSecurityHeaders();
@@ -58,19 +60,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Log the search for monitoring
-    console.log(`Product search by user ${authResult.user.id}: "${sanitizedQuery}"`);
+    console.log(`🔍 Product search by user ${authResult.user.id}: "${sanitizedQuery}"`);
 
-    const response = await fetch(`${KICKS_DEV_BASE_URL}/search?query=${encodeURIComponent(sanitizedQuery)}`, {
+    // Updated URL to use the correct v3 products endpoint with query parameter
+    const searchUrl = `${KICKS_DEV_BASE_URL}/products?query=${encodeURIComponent(sanitizedQuery)}&limit=20`;
+    console.log("🌐 API Route - Making request to URL:", searchUrl);
+
+    const response = await fetch(searchUrl, {
       headers: {
-        'Authorization': `Bearer ${KICKS_DEV_API_KEY}`,
+        'Authorization': KICKS_DEV_API_KEY, // Updated: Remove Bearer prefix for kicks.dev v3
+        'Content-Type': 'application/json'
       },
       // Add timeout to prevent hanging requests
       signal: AbortSignal.timeout(10000) // 10 seconds timeout
     });
 
+    console.log("📡 API Route - Response status:", response.status, response.statusText);
+
     if (!response.ok) {
       // Don't expose internal API errors to client
-      console.error(`KicksDev API error: ${response.status} - ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`❌ API Route - KicksDev API error: ${response.status} - ${response.statusText}`);
+      console.error(`❌ API Route - Error details:`, errorText);
       return NextResponse.json({
         success: false,
         error: "Search service temporarily unavailable. Please try again."
@@ -81,13 +92,27 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
+    console.log("📦 API Route - Response data:", JSON.stringify(data, null, 2));
 
-    return NextResponse.json({
-      success: true,
-      data: data
-    }, {
-      headers: securityHeaders
-    });
+    // Handle the new v3 API response structure: { $schema, data: [...], meta }
+    if (data.data && Array.isArray(data.data)) {
+      console.log("✅ API Route - Valid v3 response format, returning data");
+      return NextResponse.json({
+        success: true,
+        data: data.data // Return the products array from the data property
+      }, {
+        headers: securityHeaders
+      });
+    } else {
+      console.error("❌ API Route - Unexpected response structure:", data);
+      return NextResponse.json({
+        success: false,
+        error: "Search service returned unexpected format. Please try again."
+      }, { 
+        status: 503,
+        headers: securityHeaders 
+      });
+    }
 
   } catch (error: any) {
     console.error("Error in searchKicksDev API route:", error);
