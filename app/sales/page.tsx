@@ -132,12 +132,17 @@ async function calculateAvatarProfits(sales: any[], avatars: any[]) {
 }
 
 export default async function SalesPage() {
-  const cookieStore = cookies();
-    const supabase = await createClient(cookieStore);
-  const { data: { session } } = await supabase.auth.getSession();
+  // Check authentication
+  const cookieStore = await cookies();
+  const supabase = await createClient(cookieStore);
+  
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session) {
-    return redirect('/login');
+  // Redirect unauthenticated users to home page
+  if (!user) {
+    redirect("/");
   }
 
   const [
@@ -145,9 +150,9 @@ export default async function SalesPage() {
     { data: initialAvatars },
     { data: initialProfitTemplates }
   ] = await Promise.all([
-    getSales(session.user.id),
-    getAvatars(session.user.id),
-    getProfitTemplates(session.user.id)
+    getSales(user.id),
+    getAvatars(user.id),
+    getProfitTemplates(user.id)
   ]);
 
   // Handle the case when there are no sales yet

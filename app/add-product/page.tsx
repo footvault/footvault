@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator" // Add this import
 import { searchKicksDev } from "@/lib/searchKickDevs"
 import { createClient } from "@/lib/supabase/client"
 import { Spinner } from "@/components/ui/spinner"
+import { useRouter } from "next/navigation"
 
 // Create the Supabase client
 const supabase = createClient(undefined);
@@ -26,6 +27,18 @@ console.log("fetchKicksDevProduct:", fetchKicksDevProduct);
 
 
 export default function AddProductPage() {
+  const router = useRouter();
+
+  // Check authentication on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/");
+      }
+    };
+    checkAuth();
+  }, [router]);
   interface KicksDevProductData {
     id: string
     title: string // Added property to match the usage

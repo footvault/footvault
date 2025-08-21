@@ -133,16 +133,28 @@ async function getAvailableVariants(userId: string) {
 }
 
 export default async function CheckoutPage() {
-  const cookieStore = cookies();
+  // Check authentication
+  const cookieStore = await cookies();
   const supabase = await createClient(cookieStore);
+  
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Redirect unauthenticated users to home page
+  if (!user) {
+    redirect("/");
+  }
+
+  // Get session for access token
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session) {
-    return redirect('/login');
+    redirect("/");
   }
 
   // Fetch variants as before
-  const { data: allVariants, error: variantsError } = await getAvailableVariants(session.user.id);
+  const { data: allVariants, error: variantsError } = await getAvailableVariants(user.id);
 
   // Fetch avatars and profit templates from API routes
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "";
