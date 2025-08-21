@@ -11,8 +11,9 @@ interface RateLimitConfig {
 
 export function rateLimit(config: RateLimitConfig) {
   return async (req: NextRequest): Promise<NextResponse | null> => {
-    // Skip rate limiting in development if bypass is enabled
-    if (process.env.NODE_ENV === 'development' && process.env.BYPASS_RATE_LIMIT === 'true') {
+    // Skip rate limiting in development if bypass is enabled OR if NODE_ENV is development
+    if (process.env.NODE_ENV === 'development' || process.env.BYPASS_RATE_LIMIT === 'true') {
+      console.log('🚀 Rate limiting bypassed for development');
       return null
     }
 
@@ -85,33 +86,33 @@ function getClientIP(req: NextRequest): string {
   return realIP || 'unknown'
 }
 
-// Rate limit configurations - Very lenient for development/testing
+// Rate limit configurations - Extremely lenient for development/testing
 export const rateLimits = {
-  // Product search - very permissive
+  // Product search - very permissive for testing
   productSearch: {
-    windowMs: 1000, // 1 second
-    maxRequests: 10, // 10 requests per second
-    message: 'Product search rate limited. Please wait 1 second between searches.'
+    windowMs: 500, // 0.5 seconds
+    maxRequests: 50, // 50 requests per 0.5 seconds (100 per second!)
+    message: 'Product search rate limited. Please wait a moment.'
   },
   
-  // General API endpoints - very high limit
+  // General API endpoints - extremely high limit
   api: {
     windowMs: 60 * 1000, // 1 minute
-    maxRequests: 500, // 500 requests per minute
+    maxRequests: 2000, // 2000 requests per minute
     message: 'Too many API requests. Please wait a moment.'
   },
   
-  // Dashboard/Stats endpoints - extremely permissive for frequent updates
+  // Dashboard/Stats endpoints - virtually unlimited for frequent updates
   dashboard: {
-    windowMs: 10 * 1000, // 10 seconds
-    maxRequests: 100, // 100 requests per 10 seconds
+    windowMs: 5 * 1000, // 5 seconds
+    maxRequests: 500, // 500 requests per 5 seconds
     message: 'Dashboard update rate limited. Please wait a moment.'
   },
   
-  // Authentication endpoints - more lenient
+  // Authentication endpoints - very lenient
   auth: {
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: 50, // 20 attempts per 15 minutes
-    message: 'Too many authentication attempts. Please wait 15 minutes.'
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    maxRequests: 100, // 100 attempts per 5 minutes
+    message: 'Too many authentication attempts. Please wait 5 minutes.'
   }
 }

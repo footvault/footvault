@@ -34,7 +34,6 @@ export default function ClientLayout({ children, user }: ClientLayoutProps) {
         <AuthForm user={user} />
       </AppSidebar>
       <main className="flex-1">
-        <SidebarTrigger className="fixed left-4 top-4 z-50 md:hidden" />
         {children}
       </main>
       <Toaster />

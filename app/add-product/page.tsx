@@ -9,7 +9,7 @@ import Image from "next/image"
 import { fetchKicksDevProduct } from "@/lib/fetchKicksDevProduct";
 import { AddProductForm } from "@/components/add-product-form"
 import { ManualAddProduct } from "./ManualAddProduct"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar" // Add this import
@@ -18,7 +18,7 @@ import { searchKicksDev } from "@/lib/searchKickDevs"
 import { createClient } from "@/lib/supabase/client"
 
 // Create the Supabase client
-const supabase = createClient();
+const supabase = createClient(undefined);
 
 // Debug log to verify the import
 console.log("fetchKicksDevProduct:", fetchKicksDevProduct);
@@ -231,7 +231,7 @@ export default function AddProductPage() {
       {" "}
       {/* Wrap content with SidebarInset */}
       <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1 hidden md:flex" /> {/* Add SidebarTrigger for desktop */}
+        <SidebarTrigger className="-ml-1 bg-white md:bg-transparent" /> {/* Show on mobile with white bg */}
         <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" /> {/* Add separator */}
         <h1 className="text-xl font-semibold">Add Product</h1>
       </header>
@@ -366,6 +366,9 @@ export default function AddProductPage() {
           {/* Manual Add Product/Variant Section */}
           <Dialog open={showManualAdd} onOpenChange={setShowManualAdd}>
             <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Product Manually</DialogTitle>
+              </DialogHeader>
               <ManualAddProduct
                 onProductAdded={handleProductAdded}
                 onClose={() => setShowManualAdd(false)}

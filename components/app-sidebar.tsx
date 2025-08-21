@@ -19,6 +19,7 @@ import {
   SidebarRail,
   SidebarSeparator,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { usePathname } from "next/navigation"
 import { getArchivedProducts } from "@/lib/data"
@@ -85,6 +86,14 @@ const secondaryNavigation = [
 export function AppSidebar({ children, ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const [hasArchive, setHasArchive] = useState(false)
+  const { isMobile, setOpenMobile } = useSidebar()
+
+  // Function to handle link clicks and close sidebar on mobile
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false)
+    }
+  }
 
   useEffect(() => {
     async function checkArchive() {
@@ -110,7 +119,7 @@ export function AppSidebar({ children, ...props }: React.ComponentProps<typeof S
       <SidebarHeader>
         <div className="p-2 text-lg font-semibold flex items-center gap-2">
            <Image src={"/images/FootVault-logo-white-only.png"} alt="FootVault" width={32} height={32} />
-          <Link href="/">FootVault</Link>
+          <Link href="/" onClick={handleLinkClick}>FootVault</Link>
         </div>
           
       </SidebarHeader>
@@ -122,7 +131,7 @@ export function AppSidebar({ children, ...props }: React.ComponentProps<typeof S
               {mainNavigation.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={pathname === item.url}>
-                    <Link href={item.url}>
+                    <Link href={item.url} onClick={handleLinkClick}>
                       <item.icon />
                       <span>{item.title}</span>
                     </Link>
@@ -132,7 +141,7 @@ export function AppSidebar({ children, ...props }: React.ComponentProps<typeof S
               {hasArchive && (
                 <SidebarMenuItem key="Archive">
                   <SidebarMenuButton asChild isActive={pathname === "/archive"}>
-                    <Link href="/archive">
+                    <Link href="/archive" onClick={handleLinkClick}>
                       <Archive />
                       <span>Archive</span>
                     </Link>
@@ -153,12 +162,12 @@ export function AppSidebar({ children, ...props }: React.ComponentProps<typeof S
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={pathname === item.url}>
                     {item.external ? (
-                      <a href={item.url} target="_blank" rel="noopener noreferrer">
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={handleLinkClick}>
                         <item.icon />
                         <span>{item.title}</span>
                       </a>
                     ) : (
-                      <Link href={item.url}>
+                      <Link href={item.url} onClick={handleLinkClick}>
                         <item.icon />
                         <span>{item.title}</span>
                       </Link>
