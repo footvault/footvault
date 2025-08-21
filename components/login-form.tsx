@@ -93,7 +93,10 @@ export function LoginForm({
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: redirectUrl
+          redirectTo: redirectUrl,
+          queryParams: {
+            prompt: 'select_account'
+          }
         },
       });
 
@@ -107,17 +110,21 @@ export function LoginForm({
       if (error) {
         console.error('❌ Google OAuth error:', error);
         setError(`Google sign-in failed: ${error.message}`);
+        setIsLoading(false); // Only reset loading on error
+        console.log('=== END GOOGLE LOGIN DEBUG (ERROR) ===')
       } else {
         console.log('✅ OAuth redirect initiated successfully');
         console.log('Will redirect to:', redirectUrl);
+        console.log('=== END GOOGLE LOGIN DEBUG (SUCCESS - REDIRECTING) ===')
+        // Don't reset loading state - keep spinner until redirect happens
       }
     } catch (err) {
       console.error('❌ Unexpected error during OAuth:', err);
       setError('An unexpected error occurred during sign-in');
-    } finally {
-      console.log('=== END GOOGLE LOGIN DEBUG ===')
-      setIsLoading(false);
+      setIsLoading(false); // Only reset loading on error
+      console.log('=== END GOOGLE LOGIN DEBUG (CATCH ERROR) ===')
     }
+    // Removed finally block - don't reset loading on successful OAuth
   };
 
   return (
