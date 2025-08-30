@@ -152,7 +152,7 @@ export function SalesClientWrapper({
       });
       const result = await response.json();
       if (result.success && result.data) {
-        console.log('Fetched sales from API:', result.data);
+      
         setSales(result.data);
         // Recalculate avatar profits with the updated sales data
         const updatedAvatarProfits = calculateAvatarProfits(result.data, avatars);
