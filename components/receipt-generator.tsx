@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import jsPDF from "jspdf"
+import { useCurrency } from "@/context/CurrencyContext"
 
 interface ReceiptData {
   saleId: string
@@ -38,6 +39,7 @@ interface ReceiptGeneratorProps {
 
 export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGeneratorProps) {
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null)
+  const { currency } = useCurrency()
 
   const fetchReceiptData = async () => {
     if (!saleId) return
@@ -57,8 +59,6 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
       
       if (result.success) {
         setReceiptData(result.data)
-        // Auto-generate PDF once data is loaded
-        generatePDF(result.data)
       } else {
         onError?.(result.error || "Failed to fetch receipt data")
       }
@@ -74,195 +74,355 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
     }
   }, [saleId])
 
+  useEffect(() => {
+    if (receiptData) {
+      generatePDF(receiptData)
+    }
+  }, [receiptData])
+
   const generatePDF = (data: ReceiptData) => {
     if (!data) return
     
     try {
-      // Create PDF with thermal paper dimensions (80mm wide)
-      // 80mm = 226.77 points, but we'll use a more standard width
+      // Constants for document formatting
+      const pageWidth = 80
+      const margin = 4
+      const contentWidth = pageWidth - (margin * 2)
+      const lineHeight = 4.5
+      
+      // Helper function to calculate content height
+      const calculateHeight = () => {
+        let calculatedY = 8 // Starting Y position
+        
+        // Create a temporary document just for measuring
+        const tempDoc = new jsPDF({
+          unit: 'mm',
+          format: [80, 500], // Large temporary height for measurement
+          orientation: 'portrait'
+        })
+        tempDoc.setFont('helvetica', 'normal')
+        
+        // Measure all content sections
+        // Store name
+        tempDoc.setFontSize(14)
+        tempDoc.setFont('helvetica', 'bolditalic')
+        const storeNameText = data.userInfo.username.toUpperCase()
+        const storeNameLinesHeight = tempDoc.splitTextToSize(storeNameText, contentWidth)
+        calculatedY += (storeNameLinesHeight.length * 5) + 2
+        
+        // Store address
+        if (data.userInfo.receiptAddress) {
+          tempDoc.setFontSize(10)
+          tempDoc.setFont('helvetica', 'normal')
+          const addressLines = tempDoc.splitTextToSize(data.userInfo.receiptAddress, contentWidth)
+          calculatedY += (addressLines.length * lineHeight) + 2
+        }
+        
+        // Notice section
+        calculatedY += (lineHeight * 2) + 6 // Two notice lines + spacing
+        
+        // Invoice box
+        calculatedY += 14
+        
+        // Items header
+        calculatedY += lineHeight + 1 + 5 // Header + separator spacing
+        
+        // Items content
+        data.saleInfo.items.forEach(item => {
+          const itemNameText = `${item.name}`
+          const sizeText = item.size ? `Size: ${item.size}` : ''
+          const fullItemText = sizeText ? `${itemNameText}\n${sizeText}` : itemNameText
+          const wrappedLines = tempDoc.splitTextToSize(fullItemText, contentWidth * 0.48)
+          calculatedY += (wrappedLines.length * lineHeight) + 3 // Item spacing
+        })
+        
+        // Items separator
+        calculatedY += 5 + 6 // Before and after separator
+        
+        // Totals section (5 lines: items, discount, additional, total, separator)
+        calculatedY += (lineHeight * 4) + 3 + 5 // Totals + spacing + separator
+        
+        // Payment section (2 lines)
+        calculatedY += (lineHeight * 2) + 5 // Payment info + spacing
+        
+        // More info section
+        if (data.userInfo.receiptMoreInfo) {
+          const moreInfoLines = data.userInfo.receiptMoreInfo.split('\n')
+          let infoHeight = 0
+          moreInfoLines.forEach(line => {
+            if (line.trim()) {
+              const wrappedLines = tempDoc.splitTextToSize(line.trim(), contentWidth - 4)
+              infoHeight += wrappedLines.length * lineHeight
+            } else {
+              infoHeight += lineHeight / 2
+            }
+          })
+          calculatedY += 5 + infoHeight + 4 // Separator + content + spacing
+        }
+        
+        // Footer
+        calculatedY += 5 + lineHeight + 2 + lineHeight + 5 // Footer spacing and text
+        
+        // Add bottom margin
+        return calculatedY + 10
+      }
+      
+      // Calculate the exact height needed
+      const finalHeight = calculateHeight()
+      
+      // Create the actual PDF with the calculated height
       const doc = new jsPDF({
         unit: 'mm',
-        format: [80, 200], // 80mm wide, 200mm tall (will auto-extend)
+        format: [80, Math.max(finalHeight, 80)], // Minimum 80mm height
         orientation: 'portrait'
       })
 
-      // Set font
-      doc.setFont('courier', 'normal')
+      // Currency formatting helper - just numbers now
+      const formatAmount = (amount: number) => {
+        return amount.toLocaleString('en-US', { 
+          minimumFractionDigits: 2, 
+          maximumFractionDigits: 2 
+        })
+      }
+
+      // Set default font to Helvetica
+      doc.setFont('helvetica', 'normal')
       
-      let y = 10 // Starting Y position
-      const pageWidth = 80
-      const margin = 5
-      const contentWidth = pageWidth - (margin * 2)
+      let y = 8 // Starting Y position
       
-      // Store name (centered, bold)
+      // Helper function to check if we need more space (simplified for single page)
+      const checkPageBreak = (neededSpace: number) => {
+        // Just ensure we have enough space - let the page extend naturally
+        return true
+      }
+      
+      // Store name (centered, bold, italic, underlined, wrapped)
+      checkPageBreak(8)
       doc.setFontSize(14)
-      doc.setFont('courier', 'bold')
+      doc.setFont('helvetica', 'bolditalic')
       const storeName = data.userInfo.username.toUpperCase()
-      const storeNameWidth = doc.getTextWidth(storeName)
-      doc.text(storeName, (pageWidth - storeNameWidth) / 2, y)
       
-      // Underline the store name
-      const underlineY = y + 1
-      doc.line((pageWidth - storeNameWidth) / 2, underlineY, (pageWidth + storeNameWidth) / 2, underlineY)
-      y += 8
+      // Wrap store name if too long
+      const storeNameLines = doc.splitTextToSize(storeName, contentWidth)
+      storeNameLines.forEach((line: string, index: number) => {
+        const lineWidth = doc.getTextWidth(line)
+        doc.text(line, (pageWidth - lineWidth) / 2, y)
+        
+        // Underline each line
+        const underlineY = y + 0.5
+        doc.line((pageWidth - lineWidth) / 2, underlineY, (pageWidth + lineWidth) / 2, underlineY)
+        y += 5
+      })
+      y += 2 // Extra space after store name
       
       // Store address (centered)
       if (data.userInfo.receiptAddress) {
-        doc.setFontSize(9)
-        doc.setFont('courier', 'normal')
+        checkPageBreak(8)
+        doc.setFontSize(10)
+        doc.setFont('helvetica', 'normal')
         const addressLines = doc.splitTextToSize(data.userInfo.receiptAddress, contentWidth)
         addressLines.forEach((line: string) => {
           const lineWidth = doc.getTextWidth(line)
           doc.text(line, (pageWidth - lineWidth) / 2, y)
-          y += 4
+          y += lineHeight
         })
+        y += 2
       }
-      y += 3
       
       // Notice (centered, bold)
+      checkPageBreak(8)
       doc.setFontSize(10)
-      doc.setFont('courier', 'bold')
-      const notice1 = "ALL SALES ARE FINAL"
-      const notice2 = "*ASK FOR OFFICIAL RECEIPT*"
+      doc.setFont('helvetica', 'bold')
       
+      const notice1 = "ALL SALES ARE FINAL"
       let noticeWidth = doc.getTextWidth(notice1)
       doc.text(notice1, (pageWidth - noticeWidth) / 2, y)
-      y += 4
+      y += lineHeight
       
+      const notice2 = "*ASK FOR OFFICIAL RECEIPT*"
       noticeWidth = doc.getTextWidth(notice2)
       doc.text(notice2, (pageWidth - noticeWidth) / 2, y)
-      y += 8
+      y += 6 // More space before invoice box
       
-      // Invoice info box (black background effect with border)
-      doc.setFillColor(0, 0, 0) // Black background
-      doc.rect(margin, y - 3, contentWidth, 12, 'F')
+      // Invoice info box (black background)
+      checkPageBreak(12)
+      doc.setFillColor(0, 0, 0)
+      doc.rect(margin, y - 2, contentWidth, 10, 'F')
       
       doc.setTextColor(255, 255, 255) // White text
-      doc.setFontSize(9)
-      doc.text(`INV#: ${data.saleInfo.invoiceNumber}`, margin + 2, y + 2)
-      doc.text(`${data.saleInfo.date} | ${data.saleInfo.time}`, margin + 2, y + 7)
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`INV#: ${data.saleInfo.invoiceNumber}`, margin + 1, y + 2)
+      doc.text(`${data.saleInfo.date} | ${data.saleInfo.time}`, margin + 1, y + 6)
       
       doc.setTextColor(0, 0, 0) // Back to black text
-      y += 15
+      y += 14 // More space after invoice box
       
-      // Items
-      doc.setFont('courier', 'normal')
-      doc.setFontSize(9)
+      // Items section
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
       
-      data.saleInfo.items.forEach((item) => {
-        // Item name and size
-        const itemText = `${item.name} (${item.size})`
-        const itemLines = doc.splitTextToSize(itemText, contentWidth)
+      // Add a subtle header for the items section
+      checkPageBreak(lineHeight)
+      doc.setFont('helvetica', 'bold')
+      doc.text('ITEM', margin, y)
+      doc.text('PRICE', pageWidth - margin - doc.getTextWidth('PRICE'), y)
+      y += lineHeight + 1 // Extra space after headers
+      
+      // Add a light separator line under headers
+      doc.setLineWidth(0.1)
+      doc.line(margin, y, pageWidth - margin, y)
+      y += 5 // More space after separator line
+      
+      // Helper for drawing each item in 50/50 layout
+      const drawItemRow = (name: string, size: string, price: number) => {
+        const leftColWidth = contentWidth * 0.48 // Slightly less than 50% for safety
+        const rightColStart = margin + leftColWidth + 3 // 3mm gap
+
+        // Format item name with size prominently displayed
+        const itemNameText = `${name}`
+        const sizeText = size ? `Size: ${size}` : '' // This will show the full size like "7 US"
+        const fullItemText = sizeText ? `${itemNameText}\n${sizeText}` : itemNameText
         
-        itemLines.forEach((line: string) => {
-          doc.setFont('courier', 'bold')
-          doc.text(line, margin, y)
-          y += 4
+        // Set font for items
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10)
+        
+        // Force text to wrap strictly within left column
+        const wrappedNameLines = doc.splitTextToSize(fullItemText, leftColWidth)
+
+        // Format price
+        const priceText = formatAmount(price)
+
+        // Draw each line of item name - strictly within left column
+        wrappedNameLines.forEach((line: string, idx: number) => {
+          checkPageBreak(lineHeight)
+          
+          // Ensure line doesn't exceed left column width
+          let displayLine = line
+          while (doc.getTextWidth(displayLine) > leftColWidth && displayLine.length > 0) {
+            displayLine = displayLine.slice(0, -1)
+          }
+          
+          doc.text(displayLine, margin, y)
+
+          // Only print price aligned with the first line
+          if (idx === 0) {
+            const priceWidth = doc.getTextWidth(priceText)
+            doc.text(priceText, pageWidth - margin - priceWidth, y)
+          }
+          y += lineHeight
         })
-        
-        // Price (right aligned)
-        doc.setFont('courier', 'normal')
-        const priceText = new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: 'PHP'
-        }).format(item.price)
-        const priceWidth = doc.getTextWidth(priceText)
-        doc.text(priceText, pageWidth - margin - priceWidth, y)
-        y += 4
-        
-        // Separator line
-        doc.line(margin, y, pageWidth - margin, y)
-        y += 3
+
+        y += 3 // More spacing between items
+      }
+
+      // Loop through all items
+      data.saleInfo.items.forEach(item => {
+        drawItemRow(item.name, item.size, item.price)
       })
       
-      y += 3
+      y += 5 // More space before separator
       
-      // Totals section
-      const addTotalLine = (label: string, amount: number, isBold: boolean = false) => {
-        if (isBold) {
-          doc.setFont('courier', 'bold')
-        } else {
-          doc.setFont('courier', 'normal')
-        }
-        
-        const amountText = new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: 'PHP'
-        }).format(amount)
+      // Separator line
+      checkPageBreak(2)
+      doc.setLineWidth(0.2)
+      doc.line(margin, y, pageWidth - margin, y)
+      y += 6 // More space after separator
+      
+      // Helper function for total lines (right-aligned values)
+      const addTotalLine = (label: string, value: string, isBold: boolean = false) => {
+        checkPageBreak(lineHeight)
+        doc.setFont('helvetica', isBold ? 'bold' : 'normal')
+        doc.setFontSize(10)
         
         doc.text(label, margin, y)
-        const amountWidth = doc.getTextWidth(amountText)
-        doc.text(amountText, pageWidth - margin - amountWidth, y)
-        y += 4
+        const valueWidth = doc.getTextWidth(value)
+        doc.text(value, pageWidth - margin - valueWidth, y)
+        y += lineHeight
       }
       
-      addTotalLine(`Item(s)`, data.saleInfo.items.reduce((sum, item) => sum + item.quantity, 0))
+      // Item count
+      const itemCount = data.saleInfo.items.reduce((sum, item) => sum + item.quantity, 0)
+      addTotalLine('Item(s)', itemCount.toString())
       
-      if (data.saleInfo.discount > 0) {
-        addTotalLine("DISCOUNT", -data.saleInfo.discount)
-      }
+      // Always show discount (even if 0)
+      const discountAmount = data.saleInfo.discount || 0
+      addTotalLine('DISCOUNT', discountAmount > 0 ? `-${formatAmount(discountAmount)}` : '0.00')
       
-      if (data.saleInfo.additionalCharge > 0) {
-        addTotalLine("ADDITIONAL CHARGE", data.saleInfo.additionalCharge)
-      }
+      // Always show additional charge (even if 0)
+      const additionalAmount = data.saleInfo.additionalCharge || 0
+      addTotalLine('ADDITIONAL CHARGE', formatAmount(additionalAmount))
       
-      // Total line with border
+      // Total line
+      addTotalLine('TOTAL', formatAmount(data.saleInfo.total), true)
+      y += 3 // More space before separator
+      
+      // Separator line
+      checkPageBreak(2)
       doc.line(margin, y, pageWidth - margin, y)
-      y += 1
-      addTotalLine("TOTAL", data.saleInfo.total, true)
-      y += 3
+      y += 5 // More space after separator
       
-      // Payment section with border
-      doc.line(margin, y, pageWidth - margin, y)
-      y += 3
-      
-      addTotalLine("PAYMENT RECEIVED", data.saleInfo.paymentReceived)
-      addTotalLine("CHANGE AMOUNT", data.saleInfo.changeAmount)
-      y += 5
+      // Payment section
+      const displayPaymentReceived = data.saleInfo.paymentReceived === 0 ? data.saleInfo.total : data.saleInfo.paymentReceived
+      addTotalLine('PAYMENT RECEIVED', formatAmount(displayPaymentReceived))
+      addTotalLine('CHANGE AMOUNT', formatAmount(data.saleInfo.changeAmount))
+      y += 5 // More space before more info section
       
       // More info section
       if (data.userInfo.receiptMoreInfo) {
+        checkPageBreak(8)
         doc.line(margin, y, pageWidth - margin, y)
-        y += 3
+        y += 5 // More space before more info
         
-        doc.setFontSize(8)
-        doc.setFont('courier', 'normal')
+        doc.setFontSize(10)
+        doc.setFont('helvetica', 'bold')
         const moreInfoLines = data.userInfo.receiptMoreInfo.split('\n')
         
         moreInfoLines.forEach((line) => {
           if (line.trim()) {
-            const wrappedLines = doc.splitTextToSize(line.trim(), contentWidth)
+            const wrappedLines = doc.splitTextToSize(line.trim(), contentWidth - 4) // Slightly smaller for better centering
             wrappedLines.forEach((wrappedLine: string) => {
-              doc.text(wrappedLine, margin, y)
-              y += 3.5
+              checkPageBreak(lineHeight)
+              const lineWidth = doc.getTextWidth(wrappedLine)
+              doc.text(wrappedLine, (pageWidth - lineWidth) / 2, y) // Centered
+              y += lineHeight
             })
           } else {
-            y += 2
+            y += lineHeight / 2
           }
         })
-        y += 3
+        y += 4 // More space after more info
       }
       
       // Footer
+      checkPageBreak(8)
       doc.line(margin, y, pageWidth - margin, y)
-      y += 4
+      y += 5 // More space before footer
       
-      doc.setFontSize(9)
-      doc.setFont('courier', 'italic')
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      
       const footer1 = "Acknowledgement Receipt"
-      const footer2 = "Thank you!"
-      
       let footerWidth = doc.getTextWidth(footer1)
       doc.text(footer1, (pageWidth - footerWidth) / 2, y)
-      y += 4
+      y += lineHeight + 2
       
+      const footer2 = "Thank you!"
       footerWidth = doc.getTextWidth(footer2)
       doc.text(footer2, (pageWidth - footerWidth) / 2, y)
       
-      // Open PDF in new browser tab
-      const pdfBlob = doc.output('blob')
-      const pdfUrl = URL.createObjectURL(pdfBlob)
-      window.open(pdfUrl, '_blank')
+      // Open PDF in new browser tab (with Next.js safety check)
+      if (typeof window !== "undefined") {
+        const pdfBlob = doc.output('blob')
+        const pdfUrl = URL.createObjectURL(pdfBlob)
+        window.open(pdfUrl, '_blank')
+        
+        // Clean up the URL after a delay to prevent memory leaks
+        setTimeout(() => {
+          URL.revokeObjectURL(pdfUrl)
+        }, 1000)
+      }
       
       // Call completion callback
       onComplete?.()

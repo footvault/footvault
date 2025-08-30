@@ -71,7 +71,9 @@ export async function GET(request: Request, { params }: { params: { saleId: stri
         }),
         items: saleData.sale_items.map((item: any) => ({
           name: `${item.variants.products.brand} ${item.variants.products.name}`,
-          size: item.variants.size_label || item.variants.size,
+          size: item.variants.size && item.variants.size_label 
+            ? `${item.variants.size} ${item.variants.size_label}` 
+            : item.variants.size_label || item.variants.size || 'N/A',
           price: item.sold_price,
           quantity: item.quantity || 1
         })),
