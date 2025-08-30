@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -27,6 +28,8 @@ interface SettingsFormProps {
     next_billing_date?: string
     currency?: string
     timezone?: string
+    receipt_address?: string
+    receipt_more_info?: string
   } | null
 }
 
@@ -44,11 +47,15 @@ export function SettingsForm({ user }: SettingsFormProps) {
     try {
       const formData = new FormData(event.currentTarget)
       const username = formData.get("username")?.toString()
+      const receipt_address = formData.get("receipt_address")?.toString()
+      const receipt_more_info = formData.get("receipt_more_info")?.toString()
 
       await updateSettings({
         username,
         currency,
         timezone,
+        receipt_address,
+        receipt_more_info,
       })
 
       setSuccessMessage("Settings updated successfully.")
@@ -76,9 +83,9 @@ export function SettingsForm({ user }: SettingsFormProps) {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Profile</CardTitle>
+          <CardTitle>Profile Settings</CardTitle>
           <CardDescription>
-            Update your profile settings.
+            Update your profile settings and receipt information.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -122,6 +129,25 @@ export function SettingsForm({ user }: SettingsFormProps) {
                   <SelectItem value="Asia/Manila">Asia/Manila (PHT)</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="receipt_address">Receipt Address</Label>
+              <Input
+                id="receipt_address"
+                name="receipt_address"
+                defaultValue={user.receipt_address}
+                placeholder="e.g., 123 Main St, City, State 12345"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="receipt_more_info">Receipt Additional Info</Label>
+              <Textarea
+                id="receipt_more_info"
+                name="receipt_more_info"
+                defaultValue={user.receipt_more_info}
+                placeholder="Visit our facebook page and leave a review.&#10;https://www.facebook.com/your_Facebook_page&#10;your number&#10;Waze/Google Maps: Shoe Store"
+                rows={4}
+              />
             </div>
           </CardContent>
           <CardFooter className="flex flex-col items-start">

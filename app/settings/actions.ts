@@ -44,10 +44,14 @@ export async function updateSettings({
   username,
   currency,
   timezone,
+  receipt_address,
+  receipt_more_info,
 }: {
   username?: string
   currency?: string
   timezone?: string
+  receipt_address?: string
+  receipt_more_info?: string
 }) {
   const cookieStore = cookies()
   const supabase = await createClient(cookieStore)
@@ -61,9 +65,11 @@ export async function updateSettings({
   }
 
   const updates: Record<string, any> = {}
-  if (username) updates.username = username
-  if (currency) updates.currency = currency
-  if (timezone) updates.timezone = timezone
+  if (username !== undefined) updates.username = username
+  if (currency !== undefined) updates.currency = currency
+  if (timezone !== undefined) updates.timezone = timezone
+  if (receipt_address !== undefined) updates.receipt_address = receipt_address
+  if (receipt_more_info !== undefined) updates.receipt_more_info = receipt_more_info
 
   const { error } = await supabase
     .from("users")

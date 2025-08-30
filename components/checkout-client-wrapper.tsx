@@ -21,6 +21,7 @@ import Link from "next/link"
 import { Avatar, ProfitDistributionTemplateDetail } from "@/lib/types"
 import { ConfirmationModal } from "@/components/confirmation-modal"
 import { SaleSuccessModal } from "@/components/sale-success-modal"
+import { ReceiptGenerator } from "@/components/receipt-generator"
 import { useRouter } from "next/navigation"
 import { useCurrency } from "@/context/CurrencyContext"
 import { formatCurrency } from "@/lib/utils/currency"
@@ -70,6 +71,8 @@ export function CheckoutClientWrapper({
   const [discountValue, setDiscountValue] = useState<number>(0)
   const [customerName, setCustomerName] = useState<string>("")
   const [customerPhone, setCustomerPhone] = useState<string>("")
+  const [paymentReceived, setPaymentReceived] = useState<number>(0)
+  const [additionalCharge, setAdditionalCharge] = useState<number>(0)
   const [avatars] = useState<Avatar[]>(initialAvatars) // Avatars are static after initial load
   const [profitTemplates] = useState<ProfitDistributionTemplateDetail[]>(initialProfitTemplates) // Use imported type
   const [isRecordingSale, startSaleTransition] = useTransition()
@@ -77,6 +80,8 @@ export function CheckoutClientWrapper({
   const [showConfirmSaleModal, setShowConfirmSaleModal] = useState(false)
   const [isConfirmingSale, startConfirmSaleTransition] = useTransition() // For the confirmation modal's loading state
   const [showSaleSuccessModal, setShowSaleSuccessModal] = useState(false)
+  const [completedSaleId, setCompletedSaleId] = useState<string | null>(null)
+  const [isPrintingReceipt, setIsPrintingReceipt] = useState(false)
   const [pendingProfitDistribution, setPendingProfitDistribution] = useState<
     { avatarId: string; percentage: number; amount: number }[]
   >([])
@@ -352,14 +357,19 @@ export function CheckoutClientWrapper({
   }, [subtotal, discountType, discountValue])
 
 
-  // Total amount due from customer: subtotal minus discount (add payment fee if applies to cost)
+  // Total amount due from customer: subtotal minus discount plus additional charge (add payment fee if applies to cost)
   const totalAmount = useMemo(() => {
-    let total = subtotal - calculatedDiscount;
+    let total = subtotal - calculatedDiscount + additionalCharge;
     if (paymentFeeAppliesTo === "cost") {
       total += paymentFee;
     }
     return total;
-  }, [subtotal, calculatedDiscount, paymentFee, paymentFeeAppliesTo]);
+  }, [subtotal, calculatedDiscount, additionalCharge, paymentFee, paymentFeeAppliesTo]);
+
+  // Calculate change amount
+  const changeAmount = useMemo(() => {
+    return Math.max(0, paymentReceived - totalAmount);
+  }, [paymentReceived, totalAmount]);
 
   // Cost and profit calculations, payment fee can apply to cost or profit
   const totalCost = useMemo(() => {
@@ -415,6 +425,9 @@ export function CheckoutClientWrapper({
         customerName, // Add customer name
         customerPhone, // Add customer phone
         paymentType: paymentTypeJson, // Save as JSONB
+        paymentReceived,
+        changeAmount,
+        additionalCharge,
       }
 
       try {
@@ -435,11 +448,14 @@ export function CheckoutClientWrapper({
             title: "Sale Recorded Successfully!",
             description: `Sale of $${totalAmount.toFixed(2)} completed.`,
           })
+          setCompletedSaleId(result.saleId) // Store the sale ID
           setSelectedVariants([]) // Clear cart
           setDiscountValue(0) // Reset discount
           setSearchTerm("") // Clear search
           setCustomerName("") // Reset customer name
           setCustomerPhone("") // Reset customer phone
+          setPaymentReceived(0) // Reset payment received
+          setAdditionalCharge(0) // Reset additional charge
           setShowConfirmSaleModal(false) // Close confirmation modal
           setShowSaleSuccessModal(true) // Show success modal
 
@@ -547,9 +563,26 @@ export function CheckoutClientWrapper({
       <SaleSuccessModal
         open={showSaleSuccessModal}
         onOpenChange={setShowSaleSuccessModal}
-        redirectPath="/" // Redirect to inventory page
-        redirectDelay={3000} // 3 seconds
+        saleId={completedSaleId || undefined}
+        isPrintingReceipt={isPrintingReceipt}
+        onPrintReceipt={() => {
+          if (completedSaleId) {
+            setIsPrintingReceipt(true)
+          }
+        }}
       />
+
+      {/* Receipt Generator (invisible, auto-generates PDF) */}
+      {isPrintingReceipt && completedSaleId && (
+        <ReceiptGenerator
+          saleId={completedSaleId}
+          onComplete={() => setIsPrintingReceipt(false)}
+          onError={(error) => {
+            setIsPrintingReceipt(false)
+            console.error("Receipt generation error:", error)
+          }}
+        />
+      )}
 
       {/* Payment type delete confirmation modal */}
       <ConfirmationModal
@@ -1006,10 +1039,62 @@ export function CheckoutClientWrapper({
                   )}
                 </div>
 
+                <div>
+                  <Label htmlFor="additional-charge" className="text-sm">
+                    Additional Charge
+                  </Label>
+                  <Input
+                    id="additional-charge"
+                    type="number"
+                    value={additionalCharge}
+                    onChange={(e) => setAdditionalCharge(Number(e.target.value))}
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    className="mt-1"
+                  />
+                  {additionalCharge > 0 && (
+                    <div className="text-xs text-gray-600 mt-1">
+                      <p>Additional charge of {formatCurrency(additionalCharge, currency)} added to total</p>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="payment-received" className="text-sm">
+                    Payment Received
+                  </Label>
+                  <Input
+                    id="payment-received"
+                    type="number"
+                    value={paymentReceived}
+                    onChange={(e) => setPaymentReceived(Number(e.target.value))}
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    className="mt-1"
+                  />
+                  {paymentReceived > 0 && (
+                    <div className="text-xs text-gray-600 mt-1">
+                      <p>Payment received: {formatCurrency(paymentReceived, currency)}</p>
+                      {changeAmount > 0 && (
+                        <p className="text-green-600">Change to give: {formatCurrency(changeAmount, currency)}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {calculatedDiscount > 0 && (
                   <div className="flex justify-between text-sm text-red-600 font-medium">
                     <span>Discount Applied</span>
                     <span>-{formatCurrency(calculatedDiscount, currency)}</span>
+                  </div>
+                )}
+
+                {additionalCharge > 0 && (
+                  <div className="flex justify-between text-sm text-green-600 font-medium">
+                    <span>Additional Charge</span>
+                    <span>+{formatCurrency(additionalCharge, currency)}</span>
                   </div>
                 )}
 
@@ -1024,6 +1109,22 @@ export function CheckoutClientWrapper({
                   <span>Total</span>
                   <span>{formatCurrency(totalAmount, currency)}</span>
                 </div>
+
+                {paymentReceived > 0 && (
+                  <>
+                    <div className="flex justify-between text-sm text-blue-600 font-medium">
+                      <span>Payment Received</span>
+                      <span>{formatCurrency(paymentReceived, currency)}</span>
+                    </div>
+                    {changeAmount > 0 && (
+                      <div className="flex justify-between text-sm text-green-600 font-medium">
+                        <span>Change Amount</span>
+                        <span>{formatCurrency(changeAmount, currency)}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+
                 <div className="flex justify-between text-sm text-gray-700">
                   <span>Total Cost</span>
                   <span>{formatCurrency(totalCost, currency)}</span>
