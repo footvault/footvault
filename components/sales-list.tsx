@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Eye, Trash2, RotateCcw, Filter, X, Search } from "lucide-react"
+import { MoreHorizontal, Eye, Trash2, RotateCcw, Filter, X, Search, Printer } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils"
 import type { Sale } from "@/lib/types"
 import { SaleDetailModal } from "./sale-detail-modal"
 import { ConfirmationModal } from "./confirmation-modal"
+import { ReceiptGenerator } from "./receipt-generator"
 import { formatCurrency } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
 import type { DateRange } from "react-day-picker"
@@ -39,6 +40,10 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
   const [isRefunding, setIsRefunding] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  
+  // Receipt generation state
+  const [receiptSaleId, setReceiptSaleId] = useState<string | null>(null)
+  const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false)
   
   // Filter states
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<string>("all")
@@ -246,6 +251,22 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
   const handleDeleteClick = (saleId: string) => {
     setSaleToDelete(saleId)
     setIsConfirmModalOpen(true)
+  }
+
+  const handlePrintReceipt = (saleId: string) => {
+    setReceiptSaleId(saleId)
+    setIsGeneratingReceipt(true)
+  }
+
+  const handleReceiptComplete = () => {
+    setReceiptSaleId(null)
+    setIsGeneratingReceipt(false)
+  }
+
+  const handleReceiptError = (error: string) => {
+    console.error("Receipt generation error:", error)
+    setReceiptSaleId(null)
+    setIsGeneratingReceipt(false)
   }
 
   const handleConfirmDelete = async () => {
@@ -530,6 +551,13 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                             <Eye className="h-4 w-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handlePrintReceipt(sale.id)}
+                            disabled={isGeneratingReceipt}
+                          >
+                            <Printer className="h-4 w-4 mr-2" />
+                            {isGeneratingReceipt && receiptSaleId === sale.id ? "Generating..." : "Print Receipt"}
+                          </DropdownMenuItem>
                           {sale.status !== 'refunded' && (
                             <DropdownMenuItem
                               onClick={() => handleRefundClick(sale.id)}
@@ -610,6 +638,15 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
         onConfirm={handleConfirmDelete}
         isConfirming={isDeleting}
       />
+
+      {/* Receipt Generator */}
+      {receiptSaleId && (
+        <ReceiptGenerator
+          saleId={receiptSaleId}
+          onComplete={handleReceiptComplete}
+          onError={handleReceiptError}
+        />
+      )}
     </div>
   )
 }
