@@ -30,6 +30,8 @@ interface SettingsFormProps {
     timezone?: string
     receipt_address?: string
     receipt_more_info?: string
+    receipt_header_type?: 'username' | 'logo'
+    receipt_logo_url?: string
   } | null
 }
 
@@ -38,6 +40,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
   const [successMessage, setSuccessMessage] = useState("")
   const [currency, setCurrency] = useState(user?.currency || "USD")
   const [timezone, setTimezone] = useState(user?.timezone || "America/New_York")
+  const [receiptHeaderType, setReceiptHeaderType] = useState<'username' | 'logo'>(user?.receipt_header_type || 'username')
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -49,6 +52,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
       const username = formData.get("username")?.toString()
       const receipt_address = formData.get("receipt_address")?.toString()
       const receipt_more_info = formData.get("receipt_more_info")?.toString()
+      const receipt_logo_url = formData.get("receipt_logo_url")?.toString()
 
       await updateSettings({
         username,
@@ -56,6 +60,8 @@ export function SettingsForm({ user }: SettingsFormProps) {
         timezone,
         receipt_address,
         receipt_more_info,
+        receipt_header_type: receiptHeaderType,
+        receipt_logo_url,
       })
 
       setSuccessMessage("Settings updated successfully.")
@@ -139,6 +145,33 @@ export function SettingsForm({ user }: SettingsFormProps) {
                 placeholder="e.g., 123 Main St, City, State 12345"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="receipt_header_type">Receipt Header</Label>
+              <Select value={receiptHeaderType} onValueChange={(value: 'username' | 'logo') => setReceiptHeaderType(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose header type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="username">Business Name (Username)</SelectItem>
+                  <SelectItem value="logo">Logo Image</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {receiptHeaderType === 'logo' && (
+              <div className="space-y-2">
+                <Label htmlFor="receipt_logo_url">Logo Image URL</Label>
+                <Input
+                  id="receipt_logo_url"
+                  name="receipt_logo_url"
+                  defaultValue={user.receipt_logo_url}
+                  placeholder="https://example.com/your-logo.png"
+                  type="url"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Recommended: Copy the image address of your social media profile picture or logo image. Make sure it's a direct link to the image (ends with .png, .jpg, etc.).
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="receipt_more_info">Receipt Additional Info</Label>
               <Textarea

@@ -22,6 +22,46 @@ import { v4 as uuidv4 } from 'uuid';
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 
+// Helper functions for number formatting with commas
+const formatNumberWithCommas = (value: number | string): string => {
+  if (value === "" || value === null || value === undefined) return ""
+  const numValue = typeof value === "string" ? parseFloat(value) : value
+  if (isNaN(numValue) || numValue === 0) return ""
+  
+  // Format with commas and preserve up to 2 decimal places
+  return numValue.toLocaleString('en-US', { 
+    minimumFractionDigits: 0, 
+    maximumFractionDigits: 2,
+    useGrouping: true 
+  })
+}
+
+const parseNumberFromCommaSeparated = (value: string): number => {
+  if (!value || value === "") return 0
+  // Remove commas and parse as float
+  const cleaned = value.replace(/,/g, "")
+  const parsed = parseFloat(cleaned)
+  return isNaN(parsed) ? 0 : parsed
+}
+
+const formatInputValue = (value: string): string => {
+  // Remove any non-digit characters except decimal point
+  let cleaned = value.replace(/[^\d.]/g, "")
+  
+  // Handle multiple decimal points - keep only the first one
+  const parts = cleaned.split('.')
+  if (parts.length > 2) {
+    cleaned = parts[0] + '.' + parts.slice(1).join('')
+  }
+  
+  // Limit to 2 decimal places
+  if (parts.length === 2 && parts[1].length > 2) {
+    cleaned = parts[0] + '.' + parts[1].substring(0, 2)
+  }
+  
+  return cleaned
+}
+
 
 interface KicksDevProductData {
   secondary_category: string
@@ -151,6 +191,13 @@ export function AddProductForm({
     image: "/placeholder.svg?height=100&width=100",
     sizeCategory: "Men's", // Default value
   })
+  
+  // State for formatted display values of price fields
+  const [displayPrices, setDisplayPrices] = useState({
+    originalPrice: "",
+    salePrice: ""
+  })
+  
   const [newVariant, setNewVariant] = useState<Omit<VariantFormState, "tempId">>({
     size: undefined,
     location: "Warehouse A", // Default location
@@ -298,17 +345,74 @@ export function AddProductForm({
     // Removed: setEditingVariantId and setEditingVariantValues
   }, [productDataFromApi, existingProductDetails, open, inferredSizeCategory]) // Depend on inferredSizeCategory
 
+  // Sync display prices when productForm prices change
+  useEffect(() => {
+    const originalPriceNum = typeof productForm.originalPrice === "number" ? productForm.originalPrice : parseFloat(productForm.originalPrice) || 0
+    const salePriceNum = typeof productForm.salePrice === "number" ? productForm.salePrice : parseFloat(productForm.salePrice) || 0
+    
+    setDisplayPrices({
+      originalPrice: originalPriceNum > 0 ? formatNumberWithCommas(originalPriceNum) : "",
+      salePrice: salePriceNum > 0 ? formatNumberWithCommas(salePriceNum) : ""
+    })
+  }, [productForm.originalPrice, productForm.salePrice])
+
   const handleProductFormChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
     const { id, value } = e.target
-    setProductForm((prev) => ({
+    
+    // Handle price fields with comma formatting
+    if (id === "originalPrice" || id === "salePrice") {
+      // Clean and format the input value
+      const cleanedValue = formatInputValue(value)
+      
+      // Update display state with cleaned value (no commas during typing)
+      setDisplayPrices(prev => ({
+        ...prev,
+        [id]: cleanedValue
+      }))
+      
+      // Parse the numeric value for the actual form state
+      const numericValue = parseNumberFromCommaSeparated(cleanedValue)
+      const roundedValue = Math.ceil(numericValue * 100) / 100
+      
+      setProductForm((prev) => ({
+        ...prev,
+        [id]: roundedValue
+      }))
+    } else {
+      // Handle non-price fields normally
+      setProductForm((prev) => ({
+        ...prev,
+        [id]: value,
+      }))
+    }
+  }
+
+  // Handle focus on price fields - remove commas for easier editing
+  const handlePriceFocus = (fieldId: "originalPrice" | "salePrice") => {
+    const numericValue = productForm[fieldId]
+    setDisplayPrices(prev => ({
       ...prev,
-      [id]:
-        id === "originalPrice" || id === "salePrice" 
-          ? value === "" ? "" : Math.ceil((Number.parseFloat(value) || 0) * 100) / 100 
-          : value,
+      [fieldId]: numericValue.toString()
     }))
+  }
+
+  // Handle blur on price fields - add comma formatting
+  const handlePriceBlur = (fieldId: "originalPrice" | "salePrice") => {
+    const numericValue = productForm[fieldId]
+    if (numericValue === 0 || numericValue === "") {
+      setDisplayPrices(prev => ({
+        ...prev,
+        [fieldId]: ""
+      }))
+      setProductForm(prev => ({ ...prev, [fieldId]: 0 }))
+    } else {
+      setDisplayPrices(prev => ({
+        ...prev,
+        [fieldId]: formatNumberWithCommas(numericValue)
+      }))
+    }
   }
 
   const handleNewVariantChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -690,34 +794,26 @@ export function AddProductForm({
                 <Label htmlFor="originalPrice">Cost Price ({currencySymbol})</Label>
                 <Input
                   id="originalPrice"
-                  type="number"
-                  value={productForm.originalPrice}
+                  type="text"
+                  value={displayPrices.originalPrice}
                   onChange={handleProductFormChange}
-                  onBlur={(e) => {
-                    if (e.target.value === "") {
-                      setProductForm(prev => ({ ...prev, originalPrice: 0 }))
-                    }
-                  }}
-                  step="0.01"
+                  onFocus={() => handlePriceFocus("originalPrice")}
+                  onBlur={() => handlePriceBlur("originalPrice")}
+                  placeholder="0"
                   max={99999}
-                  
                 />
               </div>
               <div>
                 <Label htmlFor="salePrice">Sale Price ({currencySymbol})</Label>
                 <Input
                   id="salePrice"
-                  type="number"
-                  value={productForm.salePrice}
+                  type="text"
+                  value={displayPrices.salePrice}
                   onChange={handleProductFormChange}
-                  onBlur={(e) => {
-                    if (e.target.value === "") {
-                      setProductForm(prev => ({ ...prev, salePrice: 0 }))
-                    }
-                  }}
-                  step="0.01"
+                  onFocus={() => handlePriceFocus("salePrice")}
+                  onBlur={() => handlePriceBlur("salePrice")}
+                  placeholder="0"
                   max={99999}
-                  
                 />
               </div>
             </div>

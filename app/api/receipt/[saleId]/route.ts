@@ -30,7 +30,7 @@ export async function GET(request: Request, { params }: { params: { saleId: stri
       .from('sales')
       .select(`
         *,
-        users!inner(username, receipt_address, receipt_more_info),
+        users!inner(username, receipt_address, receipt_more_info, receipt_header_type, receipt_logo_url),
         sale_items!inner(
           *,
           variants!inner(
@@ -56,6 +56,8 @@ export async function GET(request: Request, { params }: { params: { saleId: stri
         username: saleData.users.username,
         receiptAddress: saleData.users.receipt_address,
         receiptMoreInfo: saleData.users.receipt_more_info,
+        receiptHeaderType: saleData.users.receipt_header_type || 'username',
+        receiptLogoUrl: saleData.users.receipt_logo_url,
       },
       saleInfo: {
         invoiceNumber: saleData.sales_no || saleData.id.slice(-6),
@@ -70,7 +72,7 @@ export async function GET(request: Request, { params }: { params: { saleId: stri
           hour12: true
         }),
         items: saleData.sale_items.map((item: any) => ({
-          name: `${item.variants.products.brand} ${item.variants.products.name}`,
+          name: item.variants.products.name,
           size: item.variants.size && item.variants.size_label 
             ? `${item.variants.size} ${item.variants.size_label}` 
             : item.variants.size_label || item.variants.size || 'N/A',

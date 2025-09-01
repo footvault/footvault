@@ -254,8 +254,15 @@ export function ProfitDistributionCalculator({
                 <div className="relative w-24">
                   <Input
                     type="number"
-                    value={item.percentage}
-                    onChange={(e) => handleManualPercentageChange(item.id, Number(e.target.value))}
+                    value={item.percentage || ""}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      if (value === "") {
+                        handleManualPercentageChange(item.id, 0)
+                      } else {
+                        handleManualPercentageChange(item.id, Number(value))
+                      }
+                    }}
                     placeholder="0"
                     min="0"
                     max="100"

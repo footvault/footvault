@@ -46,12 +46,16 @@ export async function updateSettings({
   timezone,
   receipt_address,
   receipt_more_info,
+  receipt_header_type,
+  receipt_logo_url,
 }: {
   username?: string
   currency?: string
   timezone?: string
   receipt_address?: string
   receipt_more_info?: string
+  receipt_header_type?: 'username' | 'logo'
+  receipt_logo_url?: string
 }) {
   const cookieStore = cookies()
   const supabase = await createClient(cookieStore)
@@ -70,6 +74,8 @@ export async function updateSettings({
   if (timezone !== undefined) updates.timezone = timezone
   if (receipt_address !== undefined) updates.receipt_address = receipt_address
   if (receipt_more_info !== undefined) updates.receipt_more_info = receipt_more_info
+  if (receipt_header_type !== undefined) updates.receipt_header_type = receipt_header_type
+  if (receipt_logo_url !== undefined) updates.receipt_logo_url = receipt_logo_url
 
   const { error } = await supabase
     .from("users")

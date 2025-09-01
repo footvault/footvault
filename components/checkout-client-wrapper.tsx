@@ -933,8 +933,15 @@ export function CheckoutClientWrapper({
                           className="border rounded px-2 py-1 w-24"
                           type="number"
                           min={0}
-                          value={newFeeValue}
-                          onChange={e => setNewFeeValue(Number(e.target.value))}
+                          value={newFeeValue || ""}
+                          onChange={e => {
+                            const value = e.target.value
+                            if (value === "") {
+                              setNewFeeValue(0)
+                            } else {
+                              setNewFeeValue(Number(value))
+                            }
+                          }}
                           placeholder={newFeeType === "percent" ? "%" : currency}
                         />
                         <label className="text-xs ml-2">Affects:</label>
@@ -974,8 +981,15 @@ export function CheckoutClientWrapper({
                           className="border rounded px-2 py-1 w-24"
                           type="number"
                           min={0}
-                          value={editFeeValue}
-                          onChange={e => setEditFeeValue(Number(e.target.value))}
+                          value={editFeeValue || ""}
+                          onChange={e => {
+                            const value = e.target.value
+                            if (value === "") {
+                              setEditFeeValue(0)
+                            } else {
+                              setEditFeeValue(Number(value))
+                            }
+                          }}
                           placeholder={editFeeType === "percent" ? "%" : currency}
                         />
                         <label className="text-xs ml-2">Affects:</label>
@@ -1022,8 +1036,15 @@ export function CheckoutClientWrapper({
                     <Input
                       id="discount"
                       type="number"
-                      value={discountValue}
-                      onChange={(e) => setDiscountValue(Number(e.target.value))}
+                      value={discountValue || ""}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        if (value === "") {
+                          setDiscountValue(0)
+                        } else {
+                          setDiscountValue(Number(value))
+                        }
+                      }}
                       placeholder="0.00"
                       step="0.01"
                       min="0"
@@ -1046,8 +1067,15 @@ export function CheckoutClientWrapper({
                   <Input
                     id="additional-charge"
                     type="number"
-                    value={additionalCharge}
-                    onChange={(e) => setAdditionalCharge(Number(e.target.value))}
+                    value={additionalCharge || ""}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      if (value === "") {
+                        setAdditionalCharge(0)
+                      } else {
+                        setAdditionalCharge(Number(value))
+                      }
+                    }}
                     placeholder="0.00"
                     step="0.01"
                     min="0"
@@ -1061,14 +1089,32 @@ export function CheckoutClientWrapper({
                 </div>
 
                 <div>
-                  <Label htmlFor="payment-received" className="text-sm">
-                    Payment Received
-                  </Label>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label htmlFor="payment-received" className="text-sm">
+                      Payment Received
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPaymentReceived(totalAmount)}
+                      className="h-6 px-2 text-xs"
+                    >
+                      Exact Amount
+                    </Button>
+                  </div>
                   <Input
                     id="payment-received"
                     type="number"
-                    value={paymentReceived}
-                    onChange={(e) => setPaymentReceived(Number(e.target.value))}
+                    value={paymentReceived || ""}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      if (value === "") {
+                        setPaymentReceived(0)
+                      } else {
+                        setPaymentReceived(Number(value))
+                      }
+                    }}
                     placeholder="0.00"
                     step="0.01"
                     min="0"

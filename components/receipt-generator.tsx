@@ -10,6 +10,8 @@ interface ReceiptData {
     username: string
     receiptAddress?: string
     receiptMoreInfo?: string
+    receiptHeaderType?: 'username' | 'logo'
+    receiptLogoUrl?: string
   }
   saleInfo: {
     invoiceNumber: number
@@ -103,12 +105,18 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
         tempDoc.setFont('helvetica', 'normal')
         
         // Measure all content sections
-        // Store name
-        tempDoc.setFontSize(14)
-        tempDoc.setFont('helvetica', 'bolditalic')
-        const storeNameText = data.userInfo.username.toUpperCase()
-        const storeNameLinesHeight = tempDoc.splitTextToSize(storeNameText, contentWidth)
-        calculatedY += (storeNameLinesHeight.length * 5) + 2
+        // Store header (logo or name)
+        if (data.userInfo.receiptHeaderType === 'logo' && data.userInfo.receiptLogoUrl) {
+          // Logo height calculation
+          calculatedY += 24 + 8 + 2 // Updated: Logo height (24mm) + spacing after (8mm) + spacing before (2mm)
+        } else {
+          // Username height calculation
+          tempDoc.setFontSize(14)
+          tempDoc.setFont('helvetica', 'bolditalic')
+          const storeNameText = data.userInfo.username.toUpperCase()
+          const storeNameLinesHeight = tempDoc.splitTextToSize(storeNameText, contentWidth)
+          calculatedY += (storeNameLinesHeight.length * 5) + 2
+        }
         
         // Store address
         if (data.userInfo.receiptAddress) {
@@ -196,24 +204,62 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
         return true
       }
       
-      // Store name (centered, bold, italic, underlined, wrapped)
+      // Store header (logo or name)
       checkPageBreak(8)
-      doc.setFontSize(14)
-      doc.setFont('helvetica', 'bolditalic')
-      const storeName = data.userInfo.username.toUpperCase()
       
-      // Wrap store name if too long
-      const storeNameLines = doc.splitTextToSize(storeName, contentWidth)
-      storeNameLines.forEach((line: string, index: number) => {
-        const lineWidth = doc.getTextWidth(line)
-        doc.text(line, (pageWidth - lineWidth) / 2, y)
+      if (data.userInfo.receiptHeaderType === 'logo' && data.userInfo.receiptLogoUrl) {
+        // Try to add logo
+        try {
+          const logoHeight = 24 // same as width for better proportion
+          const logoWidth = 24  // Smaller width: 36mm (3:1 ratio)
+          const logoX = (pageWidth - logoWidth) / 2 // Center horizontally
+          
+          // Add some space before logo
+          y += 2
+          
+          // Add logo image (this will only work if the image is accessible)
+          doc.addImage(data.userInfo.receiptLogoUrl, 'JPEG', logoX, y, logoWidth, logoHeight)
+          y += logoHeight + 8 // More spacing after logo: 8mm (increased from 5mm)
+        } catch (error) {
+          // If logo fails to load, fallback to username
+          console.warn('Failed to load receipt logo, falling back to username:', error)
+          doc.setFontSize(14)
+          doc.setFont('helvetica', 'bolditalic')
+          const storeName = data.userInfo.username.toUpperCase()
+          
+          y += 2 // Space before username fallback
+          const storeNameLines = doc.splitTextToSize(storeName, contentWidth)
+          storeNameLines.forEach((line: string, index: number) => {
+            const lineWidth = doc.getTextWidth(line)
+            doc.text(line, (pageWidth - lineWidth) / 2, y)
+            
+            // Underline each line
+            const underlineY = y + 0.5
+            doc.line((pageWidth - lineWidth) / 2, underlineY, (pageWidth + lineWidth) / 2, underlineY)
+            y += 5
+          })
+          y += 2 // Extra space after store name
+        }
+      } else {
+        // Use username (default)
+        doc.setFontSize(14)
+        doc.setFont('helvetica', 'bolditalic')
+        const storeName = data.userInfo.username.toUpperCase()
         
-        // Underline each line
-        const underlineY = y + 0.5
-        doc.line((pageWidth - lineWidth) / 2, underlineY, (pageWidth + lineWidth) / 2, underlineY)
-        y += 5
-      })
-      y += 2 // Extra space after store name
+        y += 2 // Space before username
+        // Wrap store name if too long
+        const storeNameLines = doc.splitTextToSize(storeName, contentWidth)
+        storeNameLines.forEach((line: string, index: number) => {
+          const lineWidth = doc.getTextWidth(line)
+          doc.text(line, (pageWidth - lineWidth) / 2, y)
+          
+          // Underline each line
+          const underlineY = y + 0.5
+          doc.line((pageWidth - lineWidth) / 2, underlineY, (pageWidth + lineWidth) / 2, underlineY)
+          y += 5
+        })
+        y += 2 // Extra space after store name
+      }
       
       // Store address (centered)
       if (data.userInfo.receiptAddress) {
