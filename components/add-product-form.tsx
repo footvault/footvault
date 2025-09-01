@@ -105,22 +105,25 @@ const getDynamicSizes = (sizeCategory: string, sizeLabel: string): string[] => {
       else if (sizeLabel === "CM") generateRange(21, 29, 0.5) // Approx
       break
     case "Youth": // YC
-      if (sizeLabel === "US" || sizeLabel === "YC")
-        generateRange(1, 7, 0.5) // Youth sizes typically 1Y-7Y
+      if (sizeLabel === "US" || sizeLabel === "YC") {
+        // Nike/Adidas standard Youth: 10.5C, 11C, 11.5C, 12C, 12.5C, 13C, 13.5C, 1Y, 1.5Y, 2Y, 2.5Y, 3Y, 3.5Y, 4Y, 4.5Y, 5Y, 5.5Y, 6Y, 6.5Y, 7Y
+        const youthSizes = ['10.5', '11', '11.5', '12', '12.5', '13', '13.5', '1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7'];
+        sizes.push(...youthSizes);
+      }
       else if (sizeLabel === "UK")
-        generateRange(13.5, 6.5, 0.5) // UK youth sizes
+        generateRange(10, 6.5, 0.5) // UK youth sizes
       else if (sizeLabel === "EU")
-        generateRange(31, 40, 0.5) // EU youth sizes
-      else if (sizeLabel === "CM") generateRange(19, 25, 0.5) // CM youth sizes
+        generateRange(28, 40, 0.5) // EU youth sizes
+      else if (sizeLabel === "CM") generateRange(16.5, 25, 0.5) // CM youth sizes
       break
     case "Toddlers": // TD
       if (sizeLabel === "US" || sizeLabel === "TD")
-        generateRange(1, 10, 0.5) // Toddler sizes typically 1C-10C
+        generateRange(2, 10, 0.5) // Nike/Adidas standard: 2C-10C
       else if (sizeLabel === "UK")
-        generateRange(0.5, 9.5, 0.5) // UK toddler sizes
+        generateRange(1.5, 9.5, 0.5) // UK toddler sizes
       else if (sizeLabel === "EU")
-        generateRange(16, 27, 0.5) // EU toddler sizes
-      else if (sizeLabel === "CM") generateRange(8, 16, 0.5) // CM toddler sizes
+        generateRange(17, 27, 0.5) // EU toddler sizes
+      else if (sizeLabel === "CM") generateRange(9, 16, 0.5) // CM toddler sizes
       break
   }
   // Use a Set to ensure uniqueness before sorting
@@ -684,7 +687,7 @@ export function AddProductForm({
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="originalPrice">Original Price ({currencySymbol})</Label>
+                <Label htmlFor="originalPrice">Cost Price ({currencySymbol})</Label>
                 <Input
                   id="originalPrice"
                   type="number"
@@ -781,19 +784,8 @@ export function AddProductForm({
                         Select Size Label & Category First
                       </SelectItem>
                     )}
-                    <SelectItem value="custom-size-input">Custom Size...</SelectItem>
                   </SelectContent>
                 </Select>
-                {newVariant.size === "custom-size-input" && (
-                  <Input
-                    id="customSize"
-                    placeholder="Enter custom size"
-                    value={newVariant.size === "custom-size-input" ? "" : newVariant.size}
-                    onChange={(e) => setNewVariant((prev) => ({ ...prev, size: e.target.value }))
-                    }
-                    className="mt-2 text-xs"
-                  />
-                )}
               </div>
               <div>
                 <Label htmlFor="location" className="text-xs">

@@ -55,8 +55,7 @@ async function handleAddProduct(req: NextRequest, { user }: { user?: any }) {
     }
 
     const { productForm, variantsToAdd } = await req.json();
-    console.log("Adding product:", { productForm, variantsToAdd });
-
+   
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Create authenticated Supabase client with user's token
@@ -75,7 +74,7 @@ async function handleAddProduct(req: NextRequest, { user }: { user?: any }) {
       }
     );
 
-    console.log("User ID from auth:", user.id);
+    
 
     // Check variant limits before proceeding
     // First get user's plan from database
@@ -115,9 +114,7 @@ async function handleAddProduct(req: NextRequest, { user }: { user?: any }) {
       return sum + (parseInt(variant.quantity) || 1);
     }, 0);
 
-    console.log("Current variants:", currentVariants);
-    console.log("Limit:", variantLimit);
-    console.log("Adding:", totalVariantsToAdd);
+   
 
     const currentCount = currentVariants || 0;
     const remaining = Math.max(0, variantLimit - currentCount);
@@ -139,7 +136,7 @@ async function handleAddProduct(req: NextRequest, { user }: { user?: any }) {
     }
 
     // Get the highest serial_number for this user
-    console.log("Getting highest serial number...");
+   
     const { data: maxSerialData, error: serialError } = await authenticatedSupabase
       .from("variants")
       .select("serial_number")
@@ -163,10 +160,9 @@ async function handleAddProduct(req: NextRequest, { user }: { user?: any }) {
       nextSerial = isNaN(last) ? 1 : last + 1;
     }
 
-    console.log("Next serial number:", nextSerial);
 
     // Check if product already exists for this user with the same SKU
-    console.log("Checking if product exists...");
+   
     const { data: existingProduct, error: checkError } = await authenticatedSupabase
       .from("products")
       .select("id, sku")
@@ -186,7 +182,7 @@ async function handleAddProduct(req: NextRequest, { user }: { user?: any }) {
     let productId;
 
     if (!existingProduct) {
-      console.log("Creating new product...");
+    
       const { data: insertedProduct, error: productError } = await authenticatedSupabase
         .from("products")
         .insert([
@@ -216,7 +212,7 @@ async function handleAddProduct(req: NextRequest, { user }: { user?: any }) {
       }
 
       productId = insertedProduct.id;
-      console.log("Created product with ID:", productId);
+    
     } else {
       productId = existingProduct.id;
       console.log("Using existing product ID:", productId);

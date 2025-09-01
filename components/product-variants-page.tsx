@@ -226,7 +226,7 @@ function AddVariantsModal({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
       
-      console.log('👤 User authenticated:', user.id);
+   
 
       // Get the highest serial_number for this user to continue numbering
       console.log('🔍 Fetching highest serial number...');

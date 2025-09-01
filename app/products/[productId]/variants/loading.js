@@ -1,6 +1,6 @@
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
-import { SpinnerContainer } from "@/components/ui/spinner"
+import { Spinner } from "@/components/ui/spinner"
 
 export default function ProductsLoading() {
   return (
@@ -10,10 +10,14 @@ export default function ProductsLoading() {
         <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
         <h1 className="text-xl font-semibold">Products</h1>
       </header>
-      <div className="flex flex-1 flex-col gap-4 p-4">
-        <SpinnerContainer>
-          Loading products data...
-        </SpinnerContainer>
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="flex flex-col items-center space-y-4 text-center">
+          <Spinner size="lg" className="animate-pulse" />
+          <div className="space-y-2">
+            <p className="text-lg font-medium text-foreground">Loading product variants...</p>
+            <p className="text-sm text-muted-foreground">Please wait while we fetch the variant data</p>
+          </div>
+        </div>
       </div>
     </SidebarInset>
   )

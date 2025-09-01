@@ -6,7 +6,7 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export async function POST(request: Request) {
   try {
-    console.log('--- Incoming add-profit-template request ---');
+   
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
       console.error('No authorization header');
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
     const body = await request.json();
-    console.log('Request body:', body);
+ 
     const { name, description, distributions } = body;
     if (!name || !Array.isArray(distributions) || distributions.length === 0) {
       console.error('Invalid input:', { name, distributions });
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       console.error('Insert error:', insertError);
       return NextResponse.json({ success: false, error: insertError.message }, { status: 500 });
     }
-    console.log('Inserted template:', template);
+   
     // Insert distributions into profit_template_items (or your actual table name)
     const itemsToInsert = distributions.map((d: any) => ({
       template_id: template.id,

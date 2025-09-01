@@ -58,7 +58,7 @@ export async function GET(request: Request) {
         .from('profit_template_items')
         .select('template_id, avatar_id, percentage')
         .in('template_id', templateIds);
-      console.log('Fetched items from profit_template_items:', items);
+     
       if (itemsError) {
         console.error('Error fetching template items:', itemsError);
         return NextResponse.json({ success: false, error: itemsError.message }, { status: 500 });
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
       ...t,
       distributions: distributionsByTemplate[t.id] || []
     }));
-    console.log('API response:', templatesWithDistributions);
+  
 
     return NextResponse.json({
       success: true,

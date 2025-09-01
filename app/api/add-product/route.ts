@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     if (productForm.brand) productForm.brand = validateInput(productForm.brand, 100);
     if (productForm.sku) productForm.sku = validateInput(productForm.sku, 100);
 
-    console.log("Adding product:", { productForm, variantsToAdd });
+  
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    console.log("User ID from auth:", user.id);
+  
 
     // Get user's current plan and existing variant count
     const { data: userData, error: userDataError } = await authenticatedSupabase

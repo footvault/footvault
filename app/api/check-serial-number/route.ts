@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request) {
   try {
     const { serialNumber } = await request.json();
-    console.log("Checking serial number:", serialNumber);
+   
 
     if (!serialNumber) {
       return NextResponse.json({ 
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       .eq("user_id", user.id) // Filter by the current user's ID
       .maybeSingle(); // Use maybeSingle to allow for 0 or 1 result
 
-    console.log("Query result:", { data, error });
+  
 
     if (error && error.code !== "PGRST116") {
       console.error("Database error:", error);

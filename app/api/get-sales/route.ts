@@ -140,7 +140,7 @@ export async function GET(request: Request) {
       .eq('user_id', user.id)
       .order('sale_date', { ascending: false });
 
-    console.log('Raw sales data from supabase:', sales);
+  
     if (salesError) {
       console.error("Error fetching sales:", salesError);
       return NextResponse.json({ 
@@ -195,7 +195,7 @@ export async function GET(request: Request) {
         } : null
       }))
     })) || [];
-    console.log('Transformed sales for client:', transformedSales);
+  
 
     return NextResponse.json({
       success: true,

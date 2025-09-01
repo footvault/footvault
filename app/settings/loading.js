@@ -10,10 +10,13 @@ export default function SettingsLoading() {
         <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
         <h1 className="text-xl font-semibold">Settings</h1>
       </header>
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <Spinner size="lg" />
-          <p className="mt-4 text-gray-600">Loading Settings data...</p>
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="flex flex-col items-center space-y-4 text-center">
+          <Spinner size="lg" className="animate-pulse" />
+          <div className="space-y-2">
+            <p className="text-lg font-medium text-foreground">Loading settings...</p>
+            <p className="text-sm text-muted-foreground">Please wait while we fetch your settings</p>
+          </div>
         </div>
       </div>
     </SidebarInset>

@@ -20,16 +20,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const supabase = await createClient(req);
   const { data: { user } } = await supabase.auth.getUser();
-  console.log("[POST /api/payment-types] user:", user);
+ 
   if (!user) {
-    console.log("[POST /api/payment-types] Unauthorized: no user");
+    console.log("[POST] Unauthorized: no user");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = await req.json();
-  console.log("[POST /api/payment-types] body:", body);
+  
   const { name, fee_type, fee_value, applies_to } = body;
   if (!name || !fee_type) {
-    console.log("[POST /api/payment-types] Missing fields", { name, fee_type });
+    console.log("[POST] Missing fields", { name, fee_type });
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
   const { data, error } = await supabase
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
   if (error) {
-    console.log("[POST /api/payment-types] Supabase error:", error);
+    console.log("[POST] Supabase error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json({ data });

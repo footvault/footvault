@@ -10,10 +10,13 @@ export default function InventoryLoading() {
         <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
         <h1 className="text-xl font-semibold">Inventory</h1>
       </header>
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <Spinner size="lg" />
-          <p className="mt-4 text-gray-600">Loading inventory...</p>
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="flex flex-col items-center space-y-4 text-center">
+          <Spinner size="lg" className="animate-pulse" />
+          <div className="space-y-2">
+            <p className="text-lg font-medium text-foreground">Loading inventory...</p>
+            <p className="text-sm text-muted-foreground">Please wait while we fetch your products</p>
+          </div>
         </div>
       </div>
     </SidebarInset>

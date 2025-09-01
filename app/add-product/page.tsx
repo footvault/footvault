@@ -22,8 +22,7 @@ import { useRouter } from "next/navigation"
 // Create the Supabase client
 const supabase = createClient(undefined);
 
-// Debug log to verify the import
-console.log("fetchKicksDevProduct:", fetchKicksDevProduct);
+
 
 
 export default function AddProductPage() {
@@ -99,9 +98,9 @@ export default function AddProductPage() {
 
     startSearchTransition(async () => {
       const result = await searchKicksDev(searchTerm)
-      console.log("Search result:", result) // Debug log
+    
       if (result.success && result.data) {
-        console.log("Search data:", result.data) // Debug log
+     
         if (result.data.length === 0) {
           toast({
             title: "No Results",
@@ -153,8 +152,7 @@ export default function AddProductPage() {
         } else if (/\bgs\b|\(gs|youth/i.test(title) || sku.includes("gs") || sku.includes("youth")) {
           detectedSizeCategory = "Youth";
         }
-        // Debug log
-        console.log("Product title:", kicksDevResult.data.title, "SKU:", kicksDevResult.data.sku, "Inferred size category:", detectedSizeCategory);
+      
         setInferredSizeCategory(detectedSizeCategory);
         setSelectedProductForModal({
           id: kicksDevResult.data.id,
@@ -194,7 +192,7 @@ export default function AddProductPage() {
        
         
         const result = await response.json();
-        console.log("API Response:", result); // Debug log
+       
 
         // If product exists, set the details
         if (result?.success && !result.isUnique) {

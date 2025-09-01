@@ -6,7 +6,7 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export async function POST(request: Request) {
   try {
-    console.log('--- Incoming record-sale request ---');
+  
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
       console.error('No authorization header');

@@ -70,8 +70,8 @@ export default function PHPricingPage() {
     },
     {
       title: 'Team',
-      priceMonthly: 799,
-      priceYearly: 7990,
+      priceMonthly: 999,
+      priceYearly: 9990,
       subtitle: 'For small reseller teams',
       features: [
         'All Individual features',

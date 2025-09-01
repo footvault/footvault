@@ -198,7 +198,7 @@ export function ShoesInventoryTable() {
       if (error) {
         console.error('Error fetching products:', error)
       } else {
-        console.log('Debug - Fetched products:', data?.slice(0, 3)) // Log first 3 products
+      
         setProducts(data || [])
       }
     } catch (error) {
@@ -232,7 +232,7 @@ export function ShoesInventoryTable() {
 
   // Debug: Log sorting state
   useEffect(() => {
-    console.log('Current sorting state:', sorting);
+   
   }, [sorting])
 
 
@@ -252,17 +252,17 @@ export function ShoesInventoryTable() {
   // Calculate max price from products for price filter
   const maxPrice = useMemo(() => {
     const prices = products.map(p => p.sale_price || 0).filter(price => price > 0)
-    console.log('Debug - All prices:', prices)
+   
     if (prices.length === 0) return 1000
     const calculatedMax = Math.ceil(Math.max(...prices) / 10) * 10
-    console.log('Debug - Calculated max price:', calculatedMax)
+
     return calculatedMax // Round up to nearest 10
   }, [products])
 
   // Set initial max price when products change
   useEffect(() => {
     if (maxPrice > 0 && (priceMax === 0 || priceMax < maxPrice)) {
-      console.log('Debug - Setting priceMax to:', maxPrice)
+    
       setPriceMax(maxPrice)
     }
   }, [maxPrice, priceMax])
@@ -1520,7 +1520,7 @@ function AddVariantsModal({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
       
-      console.log('👤 User authenticated:', user.id);
+
 
       // Get the highest serial_number for this user to continue numbering
       console.log('🔍 Fetching highest serial number...');

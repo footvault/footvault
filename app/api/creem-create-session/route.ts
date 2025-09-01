@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       if (planType === 'store') productId = process.env.CREEM_PLAN_ID_STORE;
     }
 
-    console.log('Creating checkout for user:', user.id, 'plan:', planType, 'billing:', billingPeriod, 'productId:', productId);
+   
 
     // CREATE the checkout session on Creem's test API
     const creemRes = await fetch("https://test-api.creem.io/v1/checkouts", {
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       console.error("Failed to parse Creem response:", creemText);
     }
     
-    console.log('Creem API raw response:', creemText);
+   
     
     if (!creemRes.ok) {
       console.error("Creem API error:", creemText);
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     }
 
     const checkout_url = creemJson?.checkout_url;
-    console.log('Checkout URL:', checkout_url);
+
     
     if (checkout_url) {
       return NextResponse.json({ success: true, url: checkout_url });

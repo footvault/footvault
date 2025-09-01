@@ -49,16 +49,14 @@ export function LoginForm({
     setIsLoading(true);
     setError(null);
     
-    console.log('=== GOOGLE LOGIN DEBUG ===')
-    console.log('Starting Google OAuth flow...')
-    console.log('Current URL:', window.location.href)
+   
     
     try {
       // Get the correct base URL for redirects - works for both dev and prod
       const getBaseUrl = () => {
         if (typeof window !== 'undefined') {
           const origin = window.location.origin;
-          console.log('Detected origin:', origin);
+      
           
           // For development
           if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
@@ -83,12 +81,7 @@ export function LoginForm({
       const baseUrl = getBaseUrl()
       const redirectUrl = `${baseUrl}/auth/callback?next=${encodeURIComponent('/inventory')}`
       
-      console.log('Environment details:', {
-        nodeEnv: process.env.NODE_ENV,
-        windowOrigin: window.location.origin,
-        baseUrl,
-        redirectUrl
-      })
+   
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -100,18 +93,12 @@ export function LoginForm({
         },
       });
 
-      console.log('OAuth request result:', {
-        hasData: !!data,
-        hasError: !!error,
-        errorMessage: error?.message,
-        data: data
-      })
-
+    
       if (error) {
         console.error('❌ Google OAuth error:', error);
         setError(`Google sign-in failed: ${error.message}`);
         setIsLoading(false); // Only reset loading on error
-        console.log('=== END GOOGLE LOGIN DEBUG (ERROR) ===')
+     
       } else {
         console.log('✅ OAuth redirect initiated successfully');
         console.log('Will redirect to:', redirectUrl);

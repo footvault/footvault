@@ -70,10 +70,7 @@ export async function GET(request: Request) {
       }, { status: 500 });
     }
 
-    // Log the results for debugging
-    console.log("User ID:", user.id);
-    console.log("Variants found:", variants?.length || 0);
-    console.log("First variant (if any):", variants?.[0]);
+  
 
     return NextResponse.json({
       success: true,
