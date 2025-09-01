@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input as ShadInput } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { VariantsStatsCard } from "@/components/variants-stats-card";
 
 type EditVariantModalProps = {
   open: boolean;
@@ -36,6 +37,10 @@ function EditVariantModal({ open, onClose, variant, product, onSave }: EditVaria
   const [sizeCategory, setSizeCategory] = useState(product?.size_category || "");
    const { currency } = useCurrency(); // Get the user's selected currency
   const currencySymbol = getCurrencySymbol(currency);
+  
+  // Check if this variant is sold
+  const isSold = variant?.status === "Sold";
+  
   // Update state when variant or product changes
   useEffect(() => {
     setStatus(variant?.status || "Available");
@@ -50,22 +55,32 @@ function EditVariantModal({ open, onClose, variant, product, onSave }: EditVaria
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
           <DialogTitle>Edit Variant</DialogTitle>
+          {isSold && (
+            <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
+              ⚠️ This item is marked as "Sold". Status cannot be changed unless the sale is refunded first.
+            </div>
+          )}
         </DialogHeader>
         <div className="space-y-3 py-2">
           <div>
             <label className="block text-xs mb-1">Status</label>
-            <Select value={status} onValueChange={setStatus}>
+            <Select value={status} onValueChange={setStatus} disabled={isSold}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Available">Available</SelectItem>
-                <SelectItem value="Sold">Sold</SelectItem>
+              
                 <SelectItem value="PullOut">PullOut</SelectItem>
                 <SelectItem value="Reserved">Reserved</SelectItem>
                 <SelectItem value="PreOrder">PreOrder</SelectItem>
               </SelectContent>
             </Select>
+            {isSold && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Status is locked for sold items
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-xs mb-1">Cost</label>
@@ -157,9 +172,26 @@ export default function ProductVariantsBySizePage({ params }: Props) {
     fetchData();
   }, [productId, size]);
 
-  if (loading) return <div className="p-8">Loading...</div>;
-  if (!product) return <div className="p-8">Product not found.</div>;
-
+  // Calculate stats for all variants (not just filtered ones) - MOVED BEFORE CONDITIONAL RETURNS
+  const stats = React.useMemo(() => {
+    const totalVariants = variants.length;
+    const totalCostValue = variants.reduce((sum, variant) => {
+      const cost = variant.cost_price || product?.original_price || 0;
+      return sum + cost;
+    }, 0);
+    const totalSaleValue = variants.reduce((sum, variant) => {
+      const price = product?.sale_price || 0;
+      return sum + price;
+    }, 0);
+    const profit = totalSaleValue - totalCostValue;
+    
+    return {
+      totalVariants,
+      totalCostValue,
+      totalSaleValue,
+      profit
+    };
+  }, [variants, product]);
 
   // Filtered variants
   const filteredVariants = variants.filter(v => {
@@ -172,6 +204,9 @@ export default function ProductVariantsBySizePage({ params }: Props) {
     }
     return statusOk && dateOk;
   });
+
+  if (loading) return <div className="p-8">Loading...</div>;
+  if (!product) return <div className="p-8">Product not found.</div>;
 
   // Edit handler
   async function handleEditSave(data: any) {
@@ -275,6 +310,18 @@ export default function ProductVariantsBySizePage({ params }: Props) {
         ← Back
       </Button>
       </Link>
+      
+      {/* Stats Cards */}
+      <div className="mb-6">
+        <VariantsStatsCard
+          totalVariants={stats.totalVariants}
+          totalCostValue={stats.totalCostValue}
+          totalSaleValue={stats.totalSaleValue}
+          profit={stats.profit}
+          loading={loading}
+        />
+      </div>
+      
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-2 mb-4 items-center">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -346,13 +393,32 @@ export default function ProductVariantsBySizePage({ params }: Props) {
                   <TableCell>
                     {(() => {
                       const status = variant.status || '-';
-                      let badgeClass = '';
-                      if (status === 'Available') badgeClass = 'bg-green-600 text-white';
-                      else if (status === 'Reserved') badgeClass = 'bg-blue-600 text-white';
-                      else if (status === 'PullOut') badgeClass = 'bg-red-600 text-white';
-                      else if (status === 'PreOrder') badgeClass = 'bg-black text-white';
-                      else badgeClass = 'bg-gray-300 text-gray-800';
-                      return <Badge className={badgeClass}>{status}</Badge>;
+                      let badgeVariant: string = 'default';
+                      if (status === 'Available') badgeVariant = 'success';
+                      else if (status === 'Sold') badgeVariant = 'destructive';
+                      else if (status === 'Reserved') badgeVariant = 'warning';
+                      else if (status === 'PullOut') badgeVariant = 'destructive';
+                      else if (status === 'PreOrder') badgeVariant = 'default';
+                      
+                      return (
+                        <span
+                          className={`
+                            inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
+                            shadow-sm transition-colors duration-200
+                            ${
+                              badgeVariant === "success"
+                                ? "bg-green-100 text-green-800"
+                                : badgeVariant === "destructive"
+                                ? "bg-red-100 text-red-800"
+                                : badgeVariant === "warning"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-gray-100 text-gray-800"
+                            }
+                          `}
+                        >
+                          {status}
+                        </span>
+                      );
                     })()}
                   </TableCell>
                   <TableCell>{product.size_category || "-"}</TableCell>
@@ -367,12 +433,24 @@ export default function ProductVariantsBySizePage({ params }: Props) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setEditModal({ open: true, variant: variant })}>
+                        <DropdownMenuItem 
+                          onClick={() => setEditModal({ open: true, variant: variant })}
+                          disabled={variant.status === "Sold"}
+                        >
                           <Edit className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setDeleteModal({ open: true, variant: variant })} className="text-red-600">
+                        <DropdownMenuItem 
+                          onClick={() => setDeleteModal({ open: true, variant: variant })} 
+                          className="text-red-600"
+                          disabled={variant.status === "Sold"}
+                        >
                           <Trash2 className="mr-2 h-4 w-4" /> Delete
                         </DropdownMenuItem>
+                        {variant.status === "Sold" && (
+                          <div className="px-2 py-1 text-xs text-muted-foreground">
+                            Sold items cannot be modified
+                          </div>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

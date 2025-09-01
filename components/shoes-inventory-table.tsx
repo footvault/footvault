@@ -1226,28 +1226,37 @@ export function ShoesInventoryTable() {
                             {(rowVariants[product.id] || []).filter(v => v.status === 'Available').length === 0 ? (
                               <span className="text-muted-foreground text-xs">No available variants</span>
                             ) : (
-                              // Show unique sizes only for available variants
-                              Array.from(new Set(rowVariants[product.id].filter(v => v.status === 'Available').map(v => v.size)))
-                                .sort((a, b) => {
-                                  // Try to sort numerically if possible
-                                  const na = Number(a), nb = Number(b);
-                                  if (!isNaN(na) && !isNaN(nb)) return na - nb;
-                                  return String(a).localeCompare(String(b));
-                                })
-                                .map(size => (
-                                  <Button
-                                    key={size}
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-xs px-3 py-1"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      window.open(`/products/${product.id}/variants/size/${size}`, "_blank");
-                                    }}
-                                  >
-                                    {size}
-                                  </Button>
-                                ))
+                              // Group available variants by size and count quantities
+                              (() => {
+                                const availableVariants = rowVariants[product.id].filter(v => v.status === 'Available');
+                                const sizeQuantities = availableVariants.reduce((acc, variant) => {
+                                  acc[variant.size] = (acc[variant.size] || 0) + 1;
+                                  return acc;
+                                }, {} as Record<string, number>);
+                                
+                                return Object.entries(sizeQuantities)
+                                  .sort(([a], [b]) => {
+                                    // Try to sort numerically if possible
+                                    const na = Number(a), nb = Number(b);
+                                    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+                                    return String(a).localeCompare(String(b));
+                                  })
+                                  .map(([size, quantity]) => (
+                                    <Button
+                                      key={size}
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs px-3 py-1.5 h-auto"
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        window.open(`/products/${product.id}/variants/size/${size}`, "_blank");
+                                      }}
+                                    >
+                                      <span className="font-medium">{size}</span>
+                                      <span className="text-xs text-muted-foreground ml-1.5 font-normal">({quantity})</span>
+                                    </Button>
+                                  ));
+                              })()
                             )}
                           </div>
                         </TableCell>
