@@ -48,7 +48,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, ShoppingCart, ReceiptText, Filter, Search, Plus, Sliders } from "lucide-react"
+import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, ShoppingCart, ReceiptText, Filter, Search, Plus, Sliders, Grid } from "lucide-react"
 import jsPDF from "jspdf"
 import QRCode from "qrcode"
 import { createClient } from "@/lib/supabase/client"
@@ -721,7 +721,7 @@ export function ShoesInventoryTable() {
                   Add Variants
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => { if (productId) { window.open(`/products/${productId}/variants`, "_blank"); }}}>
-                    <Trash2 className="mr-2 h-4 w-4" />
+                    <Grid className="mr-2 h-4 w-4" />
                   View All Variants
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setEditModal({ open: true, product })}>

@@ -62,6 +62,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import Link from "next/link"
+import { VariantsStatsCard } from "@/components/variants-stats-card"
 
 interface ProductVariantsPageProps {
   productId: string;
@@ -671,6 +672,27 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
     return result
   }, [variants, locationFilter, sizeFilter, statusFilter, globalFilter])
 
+  // Calculate stats for all variants (not just filtered ones)
+  const stats = useMemo(() => {
+    const totalVariants = variants.length;
+    const totalCostValue = variants.reduce((sum, variant) => {
+      const cost = variant.cost_price || product?.original_price || 0;
+      return sum + cost;
+    }, 0);
+    const totalSaleValue = variants.reduce((sum, variant) => {
+      const price = product?.sale_price || 0;
+      return sum + price;
+    }, 0);
+    const profit = totalSaleValue - totalCostValue;
+    
+    return {
+      totalVariants,
+      totalCostValue,
+      totalSaleValue,
+      profit
+    };
+  }, [variants, product]);
+
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const allVisibleIds = useMemo(() => filteredVariants.map((v: any) => v.id), [filteredVariants])
@@ -895,6 +917,7 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
       header: "Actions",
       cell: (info) => {
         const variant = info.row.original as Variant
+        const isSold = variant.status === "Sold"
         return (
           <div className="flex justify-center min-w-[60px]">
             <DropdownMenu>
@@ -904,7 +927,10 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setEditModal({ open: true, variant })}>
+                <DropdownMenuItem 
+                  onClick={() => setEditModal({ open: true, variant })}
+                  disabled={isSold}
+                >
                   <Edit className="mr-2 h-4 w-4" />
                   Edit
                 </DropdownMenuItem>
@@ -915,10 +941,16 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
                 <DropdownMenuItem 
                   onClick={() => setDeleteModal({ open: true, variant })} 
                   className="text-red-600"
+                  disabled={isSold}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
                 </DropdownMenuItem>
+                {isSold && (
+                  <div className="px-2 py-1 text-xs text-muted-foreground">
+                    Sold items cannot be modified
+                  </div>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -1016,6 +1048,17 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
           </div>
         </CardHeader>
       </Card>
+
+      {/* Stats Cards */}
+      <div className="mb-6">
+        <VariantsStatsCard
+          totalVariants={stats.totalVariants}
+          totalCostValue={stats.totalCostValue}
+          totalSaleValue={stats.totalSaleValue}
+          profit={stats.profit}
+          loading={loading}
+        />
+      </div>
 
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-2 justify-between items-center">
