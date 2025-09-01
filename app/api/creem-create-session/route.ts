@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const { planType } = await req.json();
+    const { planType, billingPeriod = 'monthly' } = await req.json();
 
     // Authenticate
     const cookieStore = (req as any).cookies ?? undefined;
@@ -25,12 +25,22 @@ export async function POST(req: NextRequest) {
       console.warn("Could not fetch user details:", userError);
     }
 
-    // Map planType to productId
-    let productId = process.env.CREEM_PLAN_ID_INDIVIDUAL;
-    if (planType === 'team') productId = process.env.CREEM_PLAN_ID_TEAM;
-    if (planType === 'store') productId = process.env.CREEM_PLAN_ID_STORE;
+    // Map planType and billingPeriod to productId
+    let productId;
+    
+    if (billingPeriod === 'yearly') {
+      // Use yearly plan IDs from environment variables
+      if (planType === 'individual') productId = process.env.CREEM_PLAN_ID_INDIVIDUAL_YEARLY;
+      if (planType === 'team') productId = process.env.CREEM_PLAN_ID_TEAM_YEARLY;
+      if (planType === 'store') productId = process.env.CREEM_PLAN_ID_STORE_YEARLY;
+    } else {
+      // Use existing monthly plan IDs
+      if (planType === 'individual') productId = process.env.CREEM_PLAN_ID_INDIVIDUAL;
+      if (planType === 'team') productId = process.env.CREEM_PLAN_ID_TEAM;
+      if (planType === 'store') productId = process.env.CREEM_PLAN_ID_STORE;
+    }
 
-    console.log('Creating checkout for user:', user.id, 'plan:', planType, 'productId:', productId);
+    console.log('Creating checkout for user:', user.id, 'plan:', planType, 'billing:', billingPeriod, 'productId:', productId);
 
     // CREATE the checkout session on Creem's test API
     const creemRes = await fetch("https://test-api.creem.io/v1/checkouts", {
@@ -47,6 +57,7 @@ export async function POST(req: NextRequest) {
         metadata: {
           user_id: user.id,
           plan_type: planType,
+          billing_period: billingPeriod,
           source: "webapp"
         },
         // If Creem supports customer data, pass it here too
@@ -55,7 +66,8 @@ export async function POST(req: NextRequest) {
           name: userData?.username || user.user_metadata?.username || "User",
           metadata: {
             user_id: user.id,
-            plan_type: planType
+            plan_type: planType,
+            billing_period: billingPeriod
           }
         }
       }),

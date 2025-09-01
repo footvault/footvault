@@ -48,7 +48,10 @@ export default function PricingPage() {
   const handleSubscribe = async (planType: string) => {
     const res = await fetch('/api/creem-create-session', {
       method: 'POST',
-      body: JSON.stringify({ planType }),
+      body: JSON.stringify({ 
+        planType,
+        billingPeriod: isYearly ? 'yearly' : 'monthly'
+      }),
       headers: { 'Content-Type': 'application/json' }
     })
     const data = await res.json()
@@ -69,7 +72,10 @@ export default function PricingPage() {
     setShowCancelModal(false)
     const res = await fetch('/api/cancel-subscription', {
       method: 'POST',
-      body: JSON.stringify({ planType: pendingCancelPlan }),
+      body: JSON.stringify({ 
+        planType: pendingCancelPlan,
+        billingPeriod: isYearly ? 'yearly' : 'monthly'
+      }),
       headers: { 'Content-Type': 'application/json' }
     })
     const data = await res.json()
@@ -162,7 +168,7 @@ export default function PricingPage() {
           </div>
 
           {/* Yearly/Monthly Toggle */}
-          {/* <div className="flex items-center justify-center space-x-6 mb-16">
+          <div className="flex items-center justify-center space-x-6 mb-16">
             <span className={cn("text-lg font-medium transition-all duration-200", !isYearly ? "text-foreground" : "text-muted-foreground")}>
               Monthly
             </span>
@@ -181,7 +187,7 @@ export default function PricingPage() {
                 Save 25%
               </Badge>
             )}
-          </div> */}
+          </div>
 
           {/* Loading State */}
           {isLoading ? (

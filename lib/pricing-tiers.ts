@@ -23,7 +23,7 @@ export const pricingTiers = [
     planType: "individual",
     subtitle: "For serious solo resellers",
     monthlyPrice: 10,
-    yearlyPrice: 90,
+    yearlyPrice: 100,
     features: [
       { label: "Everything in Free Tier" },
       { label: "Up to 500 available variants" },
@@ -43,7 +43,7 @@ export const pricingTiers = [
     planType: "team",
     subtitle: "For small reseller teams",
     monthlyPrice: 14,
-    yearlyPrice: 150,
+    yearlyPrice: 140,
     features: [
       { label: "All Individual features" },
       { label: "Up to 1,500 available variants" },
@@ -63,7 +63,7 @@ export const pricingTiers = [
     planType: "store",
     subtitle: "For full-scale sneaker stores",
     monthlyPrice: 20,
-    yearlyPrice: 190,
+    yearlyPrice: 200,
     features: [
       { label: "All Team features" },
       { label: "Up to 5,000 available variants" },
