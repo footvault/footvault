@@ -15,6 +15,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { pricingTiers } from "@/lib/pricing-tiers"
 import { cn } from "@/lib/utils"
+import PHPricingPage from "@/components/ph-pricing-page"
 
 export default function PricingPage() {
   const [isYearly, setIsYearly] = useState(false)
@@ -22,6 +23,8 @@ export default function PricingPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [pendingCancelPlan, setPendingCancelPlan] = useState<string | null>(null)
+  const [isPhilippines, setIsPhilippines] = useState(false)
+  const [isLocationLoading, setIsLocationLoading] = useState(true)
 
   useEffect(() => {
     const fetchUserPlan = async () => {
@@ -42,7 +45,28 @@ export default function PricingPage() {
       }
     }
 
+    const detectLocation = async () => {
+      try {
+        const response = await fetch('https://ipapi.co/json/')
+        const data = await response.json()
+        
+        if (data.country_code === 'PH') {
+          setIsPhilippines(true)
+        }
+      } catch (error) {
+        console.log('Failed to detect location:', error)
+        // Fallback: try to detect from timezone
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+        if (timezone.includes('Manila') || timezone.includes('Asia/Manila')) {
+          setIsPhilippines(true)
+        }
+      } finally {
+        setIsLocationLoading(false)
+      }
+    }
+
     fetchUserPlan()
+    detectLocation()
   }, [])
 
   const handleSubscribe = async (planType: string) => {
@@ -116,6 +140,23 @@ export default function PricingPage() {
       onClick: () => handleSubscribe(tier.planType),
       variant: 'default'
     }
+  }
+
+  // Show loading while detecting location
+  if (isLocationLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show Philippines pricing page if user is from Philippines
+  if (isPhilippines) {
+    return <PHPricingPage />
   }
 
   return (
