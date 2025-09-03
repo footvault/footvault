@@ -48,14 +48,9 @@ export async function GET(req: NextRequest) {
     // Continue without logo if there's an error
   }
 
-  // Generate PDF with multiple cards (2x4 grid per page)
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const cardWidth = 90; // Width for 2 columns
-  const cardHeight = 65; // Height for 4 rows
-  const cardsPerRow = 2;
-  const cardsPerPage = 8; // 2x4 grid
-  const marginX = (210 - (cardsPerRow * cardWidth)) / (cardsPerRow + 1); // A4 portrait width = 210mm
-  const marginY = 10;
+  // Generate PDF with individual labels (one per page for better printing/cutting)
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: [90, 54] });
+  let pageAdded = false;
 
   for (let i = 0; i < data.length; i++) {
     const v: any = data[i];
@@ -84,35 +79,57 @@ export async function GET(req: NextRequest) {
       qrUrl = await QRCode.toDataURL(String(v.id), { width: 128, margin: 1 });
     }
 
-    // Calculate position
-    const cardIndex = i % cardsPerPage;
-    const row = Math.floor(cardIndex / cardsPerRow);
-    const col = cardIndex % cardsPerRow;
-    const x = marginX + col * (cardWidth + marginX);
-    const y = marginY + row * (cardHeight + marginY);
-
-    // Add new page if needed (except for first card)
-    if (i > 0 && cardIndex === 0) {
+    // Add new page for each label (except the first one)
+    if (pageAdded) {
       doc.addPage();
     }
+    pageAdded = true;
 
-    // Draw card border (optional)
-    doc.setDrawColor(200, 200, 200);
-    doc.rect(x, y, cardWidth, cardHeight);
+    // Define responsive layout constants
+    const LABEL_WIDTH = 90;
+    const LABEL_HEIGHT = 54;
+    const MARGIN_LEFT = 6;
+    const QR_SIZE = 22;
+    const QR_X = 62;
+    const QR_Y = 6;
+    const USERNAME_MAX_WIDTH = 45; // Space for QR code
+    const CONTENT_MAX_WIDTH = 50;  // Consistent content width
+    const MIN_BOTTOM_MARGIN = 8;   // Minimum space for bottom elements
 
-    // Username at top - all caps and bold for cleaner look
+    // Reset font settings for each label to ensure consistency
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+
+    // Username at top - make responsive with line breaks for long usernames
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text(labelBrand.toUpperCase(), x + 5, y + 12);
-    doc.setLineWidth(0.5);
-    doc.line(x + 5, y + 14, x + 50, y + 14); // Longer underline
     
-    // Draw SKU with bold font
+    // Split username into multiple lines if too long - ensure space for QR code
+    const splitUsername = doc.splitTextToSize(labelBrand.toUpperCase(), USERNAME_MAX_WIDTH);
+    
+    // Display username (up to 2 lines) with responsive positioning
+    const usernameLines = splitUsername.slice(0, 2);
+    let currentY = 12; // Starting top margin
+    
+    for (let i = 0; i < usernameLines.length; i++) {
+      doc.setFontSize(16);
+      doc.text(usernameLines[i], MARGIN_LEFT, currentY);
+      currentY += 5; // Line spacing
+    }
+    
+    // Draw underline under the last line of username - responsive width
+    doc.setLineWidth(0.5);
+    const lastLineWidth = doc.getTextWidth(usernameLines[usernameLines.length - 1]);
+    const underlineEndX = Math.min(MARGIN_LEFT + lastLineWidth, USERNAME_MAX_WIDTH + MARGIN_LEFT);
+    doc.line(MARGIN_LEFT, currentY + 1, underlineEndX, currentY + 1);
+    
+    // SKU with bold font - responsive positioning
+    currentY += 8; // Spacing after underline
+    const skuY = currentY;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.text(sku, x + 5, y + 22);
+    doc.text(sku, MARGIN_LEFT, skuY);
     
-    // Product details in bold italic
+    // Product details - responsive text wrapping
     doc.setFont("helvetica", "bolditalic");
     doc.setFontSize(10);
     
@@ -128,51 +145,122 @@ export async function GET(req: NextRequest) {
       productDesc += " " + color;
     }
     
-    // Split product description into multiple lines with no limit
-    // Give more space by using almost full width of card
-    const maxWidth = cardWidth - 40; // Leave space for QR code
+    // Split product description - responsive width with dynamic line limiting
+    const splitDesc = doc.splitTextToSize(productDesc, CONTENT_MAX_WIDTH);
+    currentY += 8; // Spacing after SKU
+    const productY = currentY;
     
-    // Allow text to wrap naturally with no truncation
-    const splitDesc = doc.splitTextToSize(productDesc, maxWidth);
+    // Calculate available space for product description to ensure serial number fits
+    const reservedBottomSpace = 15; // Reserve space for serial + logo
+    const maxContentY = LABEL_HEIGHT - reservedBottomSpace;
+    const availableLines = Math.floor((maxContentY - productY - 8) / 5); // 5mm per line + 8mm for size
     
-    // Show full product info - no cutting, will wrap to multiple lines as needed
-    doc.text(splitDesc, x + 5, y + 30);
+    // Limit description lines to prevent bottom overlap
+    const maxDescLines = Math.min(splitDesc.length, Math.max(availableLines, 1), 2);
+    const displayDesc = splitDesc.slice(0, maxDescLines);
+    doc.text(displayDesc, MARGIN_LEFT, productY);
     
-    // Use the actual size_label from the variants table
-    // Format size info with size label from database
+    // Update currentY based on actual description lines
+    currentY += (displayDesc.length * 5) + 3;
+    
+    // Size information - responsive positioning
     let sizeInfo = `Size: ${sizeLabel} ${size}`;
     
-    // Add gender info from the variant data
+    // Add gender info from the variant data if available
     if (v.gender && !size.includes('(')) {
       sizeInfo += ` (${v.gender.toUpperCase()})`;
     }
     
-    // Calculate position for size based on product description length
-    const sizeY = y + 30 + (splitDesc.length * 6) + 2;
-    
-    // Make size info bold
+    const sizeY = currentY;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
-    doc.text(sizeInfo, x + 5, sizeY);
-
-    // Draw QR code in top right
-    doc.addImage(qrUrl, "PNG", x + cardWidth - 35, y + 5, 30, 30);
-
-    // Draw serial number (large and centered at the bottom) like in the example
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(38);
-    const serialTextWidth = doc.getTextWidth(labelSerial);
-    const serialX = x + (cardWidth - serialTextWidth) / 2;
-    doc.text(labelSerial, serialX, y + cardHeight - 14); // Moved up slightly to make room for logo
+    doc.text(sizeInfo, MARGIN_LEFT, sizeY);
     
-    // Add FootVault logo in bottom right corner if available
+    // Calculate available space for bottom elements
+    const bottomContentStart = LABEL_HEIGHT - MIN_BOTTOM_MARGIN;
+    const availableHeight = bottomContentStart - (sizeY + 3);
+
+    // QR code in top right - fixed position to avoid overlap
+    doc.addImage(qrUrl, "PNG", QR_X, QR_Y, QR_SIZE, QR_SIZE);
+
+    // Serial number - responsive positioning and sizing with bounds checking
+    doc.setFont("helvetica", "bold");
+    
+    // Calculate optimal serial number position - ensure it stays visible
+    let serialFontSize = 24; // Slightly smaller default for bulk
+    let serialY = 47;
+    const maxSerialY = LABEL_HEIGHT - 6; // Keep 6mm from bottom edge
+    
+    // Adjust font size based on serial length
+    if (labelSerial.length >= 6) {
+      serialFontSize = 20;
+      serialY = 48;
+    }
+    
+    doc.setFontSize(serialFontSize);
+    const serialTextWidth = doc.getTextWidth(labelSerial);
+    
+    // If serial is too wide, reduce font size further
+    if (serialTextWidth > LABEL_WIDTH - 20) {
+      serialFontSize = 18;
+      serialY = 49;
+      doc.setFontSize(serialFontSize);
+    }
+    
+    // Ensure serial doesn't go below label bounds
+    if (sizeY + 8 > maxSerialY - 5) {
+      // If content is too long, use smaller serial font and position higher
+      serialFontSize = Math.min(serialFontSize, 16);
+      serialY = Math.min(maxSerialY, 50);
+      doc.setFontSize(serialFontSize);
+    } else {
+      // Normal positioning with collision detection
+      const minSerialY = sizeY + 6; // Reduced gap to fit better
+      serialY = Math.min(Math.max(serialY, minSerialY), maxSerialY);
+    }
+    
+    // Center the serial number
+    const serialX = (LABEL_WIDTH - doc.getTextWidth(labelSerial)) / 2;
+    doc.text(labelSerial, serialX, serialY);
+    
+    // FootVault logo and text - responsive bottom positioning
     if (footvaultLogoBase64) {
-      // Small shoe icon logo
-      doc.addImage(footvaultLogoBase64, 'PNG', x + cardWidth - 25, y + cardHeight - 15, 10, 10);
-      // Add FootVault text next to logo
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(8);
-      doc.text("FootVault", x + cardWidth - 15, y + cardHeight - 8);
+      const logoSize = 8;
+      const logoX = 66;
+      
+      // Position logo to avoid serial number overlap
+      let logoY = 47;
+      
+      // If serial is positioned low, move logo up or to the side
+      if (serialY > 47) {
+        logoY = Math.max(serialY - logoSize - 2, 39); // Keep above serial with 2mm gap
+      }
+      
+      // Ensure logo doesn't overlap with serial number horizontally
+      const serialEndX = serialX + doc.getTextWidth(labelSerial);
+      let adjustedLogoX = logoX;
+      
+      // If logo would overlap serial, move it to the right
+      if (logoX < serialEndX + 3) {
+        adjustedLogoX = Math.min(serialEndX + 3, LABEL_WIDTH - logoSize - 1);
+      }
+      
+      // Only add logo if there's enough space
+      if (adjustedLogoX + logoSize <= LABEL_WIDTH - 1 && logoY + logoSize <= LABEL_HEIGHT - 1) {
+        doc.addImage(footvaultLogoBase64, 'PNG', adjustedLogoX, logoY, logoSize, logoSize);
+        
+        // FootVault text with responsive positioning
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(7);
+        
+        const textX = adjustedLogoX + logoSize + 2;
+        const textY = logoY + (logoSize / 2) + 2;
+        
+        // Only add text if there's space
+        if (textX + doc.getTextWidth("FootVault") <= LABEL_WIDTH - 1) {
+          doc.text("FootVault", textX, textY);
+        }
+      }
     }
   }
 

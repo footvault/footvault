@@ -67,6 +67,7 @@ export function ShoesVariantsTable() {
   const [loading, setLoading] = useState(true)
   const [editModal, setEditModal] = useState<{ open: boolean, variant?: Variant }>({ open: false })
   const [deleteModal, setDeleteModal] = useState<{ open: boolean, variant?: Variant }>({ open: false })
+  const [bulkDeleteModal, setBulkDeleteModal] = useState<{ open: boolean, count: number }>({ open: false, count: 0 })
   const [userPlan, setUserPlan] = useState<string>('free')
   const [showPremiumModal, setShowPremiumModal] = useState(false)
    const { currency } = useCurrency(); // Get the user's selected currency
@@ -768,13 +769,9 @@ export function ShoesVariantsTable() {
       {selectedIds.length > 0 && (
         <div className="flex items-center gap-4 bg-muted px-4 py-2 rounded mb-2">
           <span>{selectedIds.length} selected</span>
-          <Button size="sm" variant="outline" onClick={async () => {
-            // Bulk archive
-            await supabase.from('variants').update({ isArchived: true }).in('id', selectedIds);
-            setSelectedIds([]);
-            fetchVariants();
-            fetchVariantStats();
-          }}>Bulk Archive</Button>
+          <Button size="sm" variant="destructive" onClick={() => {
+            setBulkDeleteModal({ open: true, count: selectedIds.length });
+          }}>Bulk Delete</Button>
           <Button 
             size="sm" 
             variant={userPlan === 'free' ? "outline" : "default"} 
@@ -816,7 +813,7 @@ export function ShoesVariantsTable() {
                 />
               </div>
               {/* Group sizes by category and size label */}
-              {['Men\'s', 'Women\'s', 'Kids', 'Unisex'].map(category => {
+              {['Men\'s', 'Women\'s', 'Youth', 'Toddlers', 'Kids', 'Unisex', 'T-Shirts', 'Figurines', 'Collectibles', 'Pop Marts'].map(category => {
                 // Get unique size labels for this category
                 const sizeLabelsInCategory = [...new Set(
                   variants
@@ -1086,6 +1083,24 @@ export function ShoesVariantsTable() {
             await supabase.from('variants').delete().eq('id', deleteModal.variant.id);
           }
           setDeleteModal({ open: false });
+          await fetchVariants();
+          fetchVariantStats(); // Refresh stats data
+          setSorting([{ id: "serial_number", desc: true }]); // Reset sort to Stock descending
+        }}
+      />
+
+      {/* Bulk Delete Modal */}
+      <ConfirmationModal
+        open={bulkDeleteModal.open}
+        onOpenChange={(open) => setBulkDeleteModal({ open, count: bulkDeleteModal.count })}
+        title="Bulk Delete Variants"
+        description={`Are you sure you want to delete ${bulkDeleteModal.count} selected variants? This action cannot be undone.`}
+        isConfirming={false}
+        onConfirm={async () => {
+          // Bulk delete
+          await supabase.from('variants').delete().in('id', selectedIds);
+          setSelectedIds([]);
+          setBulkDeleteModal({ open: false, count: 0 });
           await fetchVariants();
           fetchVariantStats(); // Refresh stats data
           setSorting([{ id: "serial_number", desc: true }]); // Reset sort to Stock descending

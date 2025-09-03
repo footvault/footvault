@@ -122,9 +122,13 @@ export default function EditProductModal({
                 <SelectContent>
                   <SelectItem value="Men's">Men's</SelectItem>
                   <SelectItem value="Women's">Women's</SelectItem>
-                  <SelectItem value="Toddlers">Toddlers</SelectItem>
                   <SelectItem value="Youth">Youth</SelectItem>
+                  <SelectItem value="Toddlers">Toddlers</SelectItem>
                   <SelectItem value="Unisex">Unisex</SelectItem>
+                  <SelectItem value="T-Shirts">T-Shirts</SelectItem>
+                  <SelectItem value="Figurines">Figurines</SelectItem>
+                  <SelectItem value="Collectibles">Collectibles</SelectItem>
+                  <SelectItem value="Pop Marts">Pop Marts</SelectItem>
                 </SelectContent>
               </Select>
             </div>
