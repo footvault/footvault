@@ -11,13 +11,14 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, MapPin, Plus } from "lucide-react";
 
 import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input as ShadInput } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { VariantsStatsCard } from "@/components/variants-stats-card";
@@ -35,11 +36,44 @@ function EditVariantModal({ open, onClose, variant, product, onSave }: EditVaria
   const [cost, setCost] = useState((variant?.cost_price || product?.original_price)?.toString() ?? "");
   const [price, setPrice] = useState(product?.sale_price?.toString() ?? "");
   const [sizeCategory, setSizeCategory] = useState(product?.size_category || "");
-   const { currency } = useCurrency(); // Get the user's selected currency
+  const [location, setLocation] = useState(variant?.location || "");
+  
+  // Location management state
+  const [customLocations, setCustomLocations] = useState<string[]>([]);
+  const [showAddLocationInput, setShowAddLocationInput] = useState(false);
+  const [newLocation, setNewLocation] = useState("");
+  
+  const { currency } = useCurrency(); // Get the user's selected currency
   const currencySymbol = getCurrencySymbol(currency);
+  const supabase = createClient();
   
   // Check if this variant is sold
   const isSold = variant?.status === "Sold";
+
+  // Fetch custom locations
+  useEffect(() => {
+    if (!open) return;
+    
+    const fetchLocations = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from("custom_locations")
+        .select("name")
+        .eq("user_id", user.id);
+        
+      let locs = (data || []).map((row: any) => row.name);
+      // Add default locations if not present
+      const defaultLocations = ["Warehouse A", "Warehouse B", "Warehouse C"];
+      defaultLocations.forEach((defaultLoc: string) => {
+        if (!locs.includes(defaultLoc)) locs.push(defaultLoc);
+      });
+      setCustomLocations(locs);
+    };
+    
+    fetchLocations();
+  }, [open, supabase]);
   
   // Update state when variant or product changes
   useEffect(() => {
@@ -48,7 +82,38 @@ function EditVariantModal({ open, onClose, variant, product, onSave }: EditVaria
     setCost((variant?.cost_price || product?.original_price)?.toString() ?? "");
     setPrice(product?.sale_price?.toString() ?? "");
     setSizeCategory(product?.size_category || "");
+    setLocation(variant?.location || "");
   }, [variant, product]);
+
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!open) {
+      setShowAddLocationInput(false);
+      setNewLocation("");
+    }
+  }, [open]);
+
+  const handleAddLocation = async () => {
+    if (!newLocation.trim()) return;
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("custom_locations")
+        .insert({ name: newLocation.trim(), user_id: user.id });
+
+      if (!error) {
+        setCustomLocations(prev => [...prev, newLocation.trim()]);
+        setLocation(newLocation.trim());
+        setNewLocation("");
+        setShowAddLocationInput(false);
+      }
+    } catch (error) {
+      console.error('Error adding location:', error);
+    }
+  };
   if (!open) return null;
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
@@ -94,6 +159,59 @@ function EditVariantModal({ open, onClose, variant, product, onSave }: EditVaria
             <label className="block text-xs mb-1">Size Category</label>
             <ShadInput value={sizeCategory} onChange={e => setSizeCategory(e.target.value)} />
           </div>
+          <div>
+            <Label className="flex items-center gap-2 text-xs mb-1">
+              <MapPin className="h-3 w-3" />
+              Location
+            </Label>
+            <div className="space-y-2">
+              {showAddLocationInput ? (
+                <div className="flex gap-2">
+                  <ShadInput
+                    placeholder="Enter new location name"
+                    value={newLocation}
+                    onChange={(e) => setNewLocation(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleAddLocation()}
+                  />
+                  <Button onClick={handleAddLocation} size="sm">
+                    Add
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowAddLocationInput(false)}
+                    size="sm"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Select value={location} onValueChange={(value) => {
+                  if (value === "__add_new__") {
+                    setShowAddLocationInput(true);
+                  } else {
+                    setLocation(value);
+                  }
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customLocations.map((loc) => (
+                      <SelectItem key={loc} value={loc}>
+                        {loc}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__add_new__" className="border-t">
+                      <div className="flex items-center gap-2 text-blue-600">
+                        <Plus className="h-3 w-3" />
+                        Add New Location
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -102,6 +220,7 @@ function EditVariantModal({ open, onClose, variant, product, onSave }: EditVaria
             cost_price: cost, // Use cost_price to match database schema
             sale_price: price, 
             size_category: sizeCategory, 
+            location,
             original_price: cost // Also include original_price for product update
           })}>Save</Button>
         </DialogFooter>
@@ -226,6 +345,7 @@ export default function ProductVariantsBySizePage({ params }: Props) {
       status: data.status,
       // Use cost_price as it's the column name in the variants table
       cost_price: data.cost_price !== undefined ? Number(data.cost_price) : undefined,
+      location: data.location,
     }).eq("id", editModal.variant.id);
     
     if (variantError) {

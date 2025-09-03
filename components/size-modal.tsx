@@ -1,6 +1,6 @@
 "use client"
-import { useState } from "react"
-import { updateVariantStatusAndLocation } from "@/app/actions"
+import { useState, useEffect } from "react"
+import { createClient } from "@/lib/supabase/client"
 import {
   Dialog,
   DialogContent,
@@ -67,6 +67,62 @@ export function SizeModal({ shoe, open, onOpenChange, refreshData }: SizeModalPr
   const [isSaving, setIsSaving] = useState(false)
   const [showAddVariantModal, setShowAddVariantModal] = useState(false)
   const [serialError, setSerialError] = useState<string | null>(null)
+  
+  // Custom location state
+  const [customLocations, setCustomLocations] = useState<string[]>([])
+  const [showLocationSelect, setShowLocationSelect] = useState<string | null>(null)
+  const [showAddLocationInput, setShowAddLocationInput] = useState(false)
+  const [newLocation, setNewLocation] = useState("")
+  
+  const supabase = createClient()
+
+  // Fetch custom locations
+  useEffect(() => {
+    if (!open) return
+    
+    const fetchLocations = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      
+      const { data, error } = await supabase
+        .from("custom_locations")
+        .select("name")
+        .eq("user_id", user.id)
+        
+      let locs = (data || []).map((row: any) => row.name)
+      // Add default locations if not present
+      const defaultLocations = ["Warehouse A", "Warehouse B", "Warehouse C"]
+      defaultLocations.forEach((defaultLoc: string) => {
+        if (!locs.includes(defaultLoc)) locs.push(defaultLoc)
+      })
+      setCustomLocations(locs)
+    }
+    
+    fetchLocations()
+  }, [open, supabase])
+
+  const handleAddLocation = async () => {
+    if (!newLocation.trim()) return
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { error } = await supabase
+        .from("custom_locations")
+        .insert({ name: newLocation.trim(), user_id: user.id })
+
+      if (!error) {
+        setCustomLocations(prev => [...prev, newLocation.trim()])
+        setEditValues(prev => prev ? { ...prev, location: newLocation.trim() } : null)
+        setNewLocation("")
+        setShowAddLocationInput(false)
+        setShowLocationSelect(null)
+      }
+    } catch (error) {
+      console.error('Error adding location:', error)
+    }
+  }
 
   if (!shoe) return null
 
@@ -80,10 +136,31 @@ export function SizeModal({ shoe, open, onOpenChange, refreshData }: SizeModalPr
     if (serialError) return // Prevent save if serial is not unique
     setIsSaving(true)
     try {
-      // Add size to update call
-      const { error } = await updateVariantStatusAndLocation(editValues.id, editValues.status, editValues.location, editValues.size)
-      if (error) {
-        console.error("Failed to update variant:", error)
+      // Get the auth token for the API call
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        console.error("No auth session")
+        return
+      }
+
+      // Call the update-variant API endpoint
+      const response = await fetch('/api/update-variant', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          variantId: editValues.id,
+          status: editValues.status,
+          location: editValues.location
+        })
+      })
+
+      const result = await response.json()
+      
+      if (!response.ok || !result.success) {
+        console.error("Failed to update variant:", result.error)
         // You can add a toast notification here for error feedback
       } else {
         await refreshData() // Re-fetch data to reflect changes
@@ -94,6 +171,9 @@ export function SizeModal({ shoe, open, onOpenChange, refreshData }: SizeModalPr
       setEditingVariant(null)
       setEditValues(null)
       setIsSaving(false)
+      setShowLocationSelect(null)
+      setShowAddLocationInput(false)
+      setNewLocation("")
     }
   }
 
@@ -278,12 +358,79 @@ export function SizeModal({ shoe, open, onOpenChange, refreshData }: SizeModalPr
                       </TableCell>
                       <TableCell className="hidden xs:table-cell">
                         {editingVariant === variant.id ? (
-                          <Input
-                            value={editValues?.location}
-                            onChange={handleLocationChange}
-                            placeholder="Enter location"
-                            className="h-9 text-sm border-gray-200 bg-white"
-                          />
+                          <div className="space-y-2">
+                            {showLocationSelect === variant.id && showAddLocationInput ? (
+                              <div className="flex gap-1">
+                                <Input
+                                  placeholder="New location"
+                                  value={newLocation}
+                                  onChange={(e) => setNewLocation(e.target.value)}
+                                  onKeyPress={(e) => e.key === 'Enter' && handleAddLocation()}
+                                  className="h-8 text-xs"
+                                />
+                                <Button onClick={handleAddLocation} size="sm" className="h-8 px-2">
+                                  <Check className="h-3 w-3" />
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  onClick={() => {
+                                    setShowAddLocationInput(false)
+                                    setShowLocationSelect(null)
+                                  }}
+                                  size="sm" 
+                                  className="h-8 px-2"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : showLocationSelect === variant.id ? (
+                              <Select 
+                                value={editValues?.location} 
+                                onValueChange={(value) => {
+                                  if (value === "__add_new__") {
+                                    setShowAddLocationInput(true)
+                                  } else {
+                                    setEditValues(prev => prev ? { ...prev, location: value } : null)
+                                    setShowLocationSelect(null)
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="h-9 text-sm border-gray-200 bg-white">
+                                  <SelectValue placeholder="Select location" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {customLocations.map((loc) => (
+                                    <SelectItem key={loc} value={loc}>
+                                      {loc}
+                                    </SelectItem>
+                                  ))}
+                                  <SelectItem value="__add_new__" className="border-t">
+                                    <div className="flex items-center gap-2 text-blue-600">
+                                      <Plus className="h-3 w-3" />
+                                      Add New Location
+                                    </div>
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  value={editValues?.location}
+                                  onChange={handleLocationChange}
+                                  placeholder="Enter location"
+                                  className="h-9 text-sm border-gray-200 bg-white"
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setShowLocationSelect(variant.id)}
+                                  className="h-9 px-2"
+                                >
+                                  <MapPin className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-sm text-gray-600 font-mono">
                             {variant.location || '—'}
