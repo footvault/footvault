@@ -579,6 +579,10 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
             size_category,
             user_id,
             isArchived
+          ),
+          consignor:consignors (
+            id,
+            name
           )
         `)
         .eq('product_id', productId)
@@ -886,6 +890,29 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
         const b = String(rowB.getValue('status') || '')
         return a.localeCompare(b)
       },
+    }),
+    // Owner
+    columnHelper.display({
+      id: "owner",
+      header: () => <span>Owner</span>,
+      cell: (info) => {
+        const variant = info.row.original as any;
+        const isStore = variant.owner_type === 'store' || !variant.owner_type || !variant.consignor_id;
+        
+        return (
+          <div className="min-w-[100px]">
+            {isStore ? (
+              <span className="text-sm font-medium">You</span>
+            ) : (
+              <span className="text-sm font-medium text-blue-600">
+                {variant.consignor?.name || `Consignor ${variant.consignor_id}`}
+              </span>
+            )}
+          </div>
+        );
+      },
+      enableSorting: true,
+      enableColumnFilter: true,
     }),
     // Date Added
     columnHelper.accessor('date_added', {

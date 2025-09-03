@@ -18,7 +18,7 @@ export default function ClientLayout({ children, user }: ClientLayoutProps) {
   const [mounted, setMounted] = useState(false);
 
   // Define routes where the sidebar should not appear
-  const noSidebarRoutes = ["/", "/login", "/features/inventory", "/features/profit", "/features/qr-scanner", "/features/sales", "/features/stockx", "/features/checkout", "/terms", "/privacy", "/contact", "/auth/callback"];
+  const noSidebarRoutes = ["/", "/login", "/features/inventory", "/features/profit", "/features/qr-scanner", "/features/sales", "/features/stockx", "/features/checkout", "/terms", "/privacy", "/contact", "/auth/callback", "/consignors/portal"];
   const showSidebar = !noSidebarRoutes.includes(pathname);
 
   useEffect(() => {

@@ -81,6 +81,19 @@ export type ProductTable = {
   size_category: string | null;
   user_id: string;
   isArchived: boolean;
+  // Consignor fields
+  consignor_id?: number;
+  is_consignment?: boolean;
+  consignment_agreement_date?: string;
+  consignment_end_date?: string;
+  consignment_duration_months?: number;
+  minimum_price?: number;
+  consignor_notes?: string;
+  consignor?: {
+    id: number;
+    name: string;
+    commission_rate: number;
+  };
 };
 
 // Helper to fetch variants for a product
@@ -88,8 +101,8 @@ async function fetchVariantsForProduct(productId: number, supabase: any): Promis
   const { data, error } = await supabase
     .from('variants')
     .select('*')
-    .eq('product_id', productId)
-    .eq('isArchived', false);
+    .eq('product_id', productId);
+  
   if (error) {
     console.error('Error fetching variants:', error);
     return [];
@@ -191,14 +204,11 @@ export function ShoesInventoryTable() {
         .from('products')
         .select('*')
         .eq('user_id', user.id)
-        .eq('isArchived', false)
-       
         .order('created_at', { ascending: false })
 
       if (error) {
         console.error('Error fetching products:', error)
       } else {
-      
         setProducts(data || [])
       }
     } catch (error) {
@@ -652,7 +662,7 @@ export function ShoesInventoryTable() {
           badgeVariant = "destructive";
         }
         return (
-          <div className="min-w-[100px]">
+          <div className="min-w-[100px] space-y-1">
             <span
   className={`
     inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
@@ -818,18 +828,6 @@ export function ShoesInventoryTable() {
           </>
         )}
       </div>
-      {/* Bulk actions bar */}
-      {selectedIds.length > 0 && (
-        <div className="flex items-center gap-4 bg-muted px-4 py-2 rounded mb-2">
-          <span>{selectedIds.length} selected</span>
-          <Button size="sm" variant="outline" onClick={async () => {
-            // Bulk archive
-            await supabase.from('products').update({ isArchived: true }).in('id', selectedIds);
-            setSelectedIds([]);
-            fetchProducts();
-          }}>Bulk Archive</Button>
-        </div>
-      )}
       {/* Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2 items-center flex-1">

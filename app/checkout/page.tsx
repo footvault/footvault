@@ -46,6 +46,13 @@ interface TransformedVariant {
   productSalePrice: number;
   productCategory: string | null;
   productSizeCategory: string;
+  ownerType?: 'store' | 'consignor';
+  consignorId?: string;
+  consignorName?: string;
+  consignorCommissionRate?: number;
+  consignorPayoutMethod?: 'cost_price' | 'cost_plus_fixed' | 'cost_plus_percentage' | 'percentage_split';
+  consignorFixedMarkup?: number;
+  consignorMarkupPercentage?: number;
 }
 
 
@@ -64,6 +71,8 @@ async function getAvailableVariants(userId: string) {
         status,
         serial_number,
         cost_price,
+        owner_type,
+        consignor_id,
         products (
           id,
           name,
@@ -74,6 +83,14 @@ async function getAvailableVariants(userId: string) {
           sale_price,
           image,
           size_category
+        ),
+        consignors (
+          id,
+          name,
+          commission_rate,
+          payout_method,
+          fixed_markup,
+          markup_percentage
         )
       `)
       .eq('user_id', userId)
@@ -121,7 +138,21 @@ async function getAvailableVariants(userId: string) {
          // @ts-ignore
         productCategory: variant.products.category,
          // @ts-ignore
-        productSizeCategory: variant.products.size_category
+        productSizeCategory: variant.products.size_category,
+        // @ts-ignore
+        ownerType: variant.owner_type || 'store',
+        // @ts-ignore
+        consignorId: variant.consignor_id,
+        // @ts-ignore
+        consignorName: variant.consignors?.name,
+        // @ts-ignore
+        consignorCommissionRate: variant.consignors?.commission_rate,
+        // @ts-ignore
+        consignorPayoutMethod: variant.consignors?.payout_method,
+        // @ts-ignore
+        consignorFixedMarkup: variant.consignors?.fixed_markup,
+        // @ts-ignore
+        consignorMarkupPercentage: variant.consignors?.markup_percentage
       } as TransformedVariant;
     }).filter((variant): variant is TransformedVariant => variant !== null);
 

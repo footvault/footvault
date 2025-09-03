@@ -29,6 +29,8 @@ export async function GET(request: Request) {
         status,
         serial_number,
         cost_price,
+        owner_type,
+        consignor_id,
         products:products (
           id,
           name,
@@ -39,6 +41,14 @@ export async function GET(request: Request) {
           sale_price,
           image,
           size_category
+        ),
+        consignors:consignors (
+          id,
+          name,
+          commission_rate,
+          payout_method,
+          fixed_markup,
+          markup_percentage
         )
       `)
       .eq('status', 'Available');
@@ -49,6 +59,7 @@ export async function GET(request: Request) {
     const transformedVariants = (variants || []).map(variant => {
       // Always use the first element if products is an array (PostgREST join returns array)
       const product = Array.isArray(variant.products) ? variant.products[0] : variant.products;
+      const consignor = Array.isArray(variant.consignors) ? variant.consignors[0] : variant.consignors;
       if (!product) return null;
       return {
         id: variant.id,
@@ -66,7 +77,14 @@ export async function GET(request: Request) {
         productOriginalPrice: product.original_price,
         productSalePrice: product.sale_price,
         productCategory: product.category,
-        productSizeCategory: product.size_category
+        productSizeCategory: product.size_category,
+        ownerType: variant.owner_type || 'store',
+        consignorId: variant.consignor_id,
+        consignorName: consignor?.name,
+        consignorCommissionRate: consignor?.commission_rate,
+        consignorPayoutMethod: consignor?.payout_method,
+        consignorFixedMarkup: consignor?.fixed_markup,
+        consignorMarkupPercentage: consignor?.markup_percentage
       };
     }).filter(Boolean);
     return NextResponse.json({ success: true, data: transformedVariants });

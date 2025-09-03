@@ -198,6 +198,10 @@ export function ShoesVariantsTable() {
             size_category,
             user_id,
             isArchived
+          ),
+          consignor:consignors (
+            id,
+            name
           )
         `)
         .eq('user_id', user.id)
@@ -618,6 +622,29 @@ export function ShoesVariantsTable() {
             >
               {status}
             </Badge>
+          </div>
+        );
+      },
+      enableSorting: true,
+      enableColumnFilter: true,
+    }),
+    // Owner
+    columnHelper.display({
+      id: "owner",
+      header: () => <span>Owner</span>,
+      cell: (info) => {
+        const variant = info.row.original as Variant;
+        const isStore = variant.owner_type === 'store' || !variant.owner_type || !variant.consignor_id;
+        
+        return (
+          <div className="min-w-[100px]">
+            {isStore ? (
+              <span className="text-sm font-medium">You</span>
+            ) : (
+              <span className="text-sm font-medium text-blue-600">
+                {variant.consignor?.name || `Consignor ${variant.consignor_id}`}
+              </span>
+            )}
           </div>
         );
       },

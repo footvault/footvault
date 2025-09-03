@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Search, Plus, X, DollarSign, Loader2, CheckCircle, User } from "lucide-react"
 import Image from "next/image"
 import { CheckoutCart } from "@/components/checkout-cart"
+import { processConsignmentSalesForCheckout, calculateSaleSplit } from "@/lib/utils/consignment"
 import { useEffect } from "react"
 import { ProfitDistributionCalculator } from "@/components/profit-distribution-calculator"
 
@@ -43,6 +44,13 @@ interface TransformedVariant {
   productSalePrice: number
   productCategory: string | null
   productSizeCategory: string
+  ownerType?: 'store' | 'consignor'
+  consignorId?: string
+  consignorName?: string
+  consignorCommissionRate?: number
+  consignorPayoutMethod?: 'cost_price' | 'cost_plus_fixed' | 'cost_plus_percentage' | 'percentage_split'
+  consignorFixedMarkup?: number
+  consignorMarkupPercentage?: number
 }
 
 interface CheckoutClientWrapperProps {
@@ -64,6 +72,7 @@ export function CheckoutClientWrapper({
   const [searchTerm, setSearchTerm] = useState("")
   const [brandFilter, setBrandFilter] = useState<string>("all")
   const [sizeCategoryFilter, setSizeCategoryFilter] = useState<string>("all")
+  const [locationFilter, setLocationFilter] = useState<string>("all")
   const [sizeFilter, setSizeFilter] = useState<string[]>([]) // array of selected sizes
   const [sizeSearch, setSizeSearch] = useState("")
   const [selectedVariants, setSelectedVariants] = useState<TransformedVariant[]>([])
@@ -73,6 +82,11 @@ export function CheckoutClientWrapper({
   const [customerPhone, setCustomerPhone] = useState<string>("")
   const [paymentReceived, setPaymentReceived] = useState<number>(0)
   const [additionalCharge, setAdditionalCharge] = useState<number>(0)
+  const [commissionFrom, setCommissionFrom] = useState<'total' | 'profit'>('total')
+  const [consignorCommissionType, setConsignorCommissionType] = useState<'percentage' | 'from_cost'>('percentage')
+  const [customCommissionRates, setCustomCommissionRates] = useState<Record<string, number>>({}) // Override commission rates by consignor ID
+  const [customStoreAmounts, setCustomStoreAmounts] = useState<Record<string, string>>({}) // Independent store amounts
+  const [customConsignorAmounts, setCustomConsignorAmounts] = useState<Record<string, string>>({}) // Independent consignor amounts
   const [avatars] = useState<Avatar[]>(initialAvatars) // Avatars are static after initial load
   const [profitTemplates] = useState<ProfitDistributionTemplateDetail[]>(initialProfitTemplates) // Use imported type
   const [isRecordingSale, startSaleTransition] = useTransition()
@@ -103,6 +117,11 @@ export function CheckoutClientWrapper({
   const sizeCategoryOptions = useMemo(() => {
     const categories = new Set(availableVariants.map(v => v.productSizeCategory).filter(Boolean))
     return ["all", ...Array.from(categories)]
+  }, [availableVariants])
+
+  const locationOptions = useMemo(() => {
+    const locations = new Set(availableVariants.map(v => v.location).filter((loc): loc is string => Boolean(loc)))
+    return ["all", ...Array.from(locations)]
   }, [availableVariants])
 
   const sizeOptionsByCategory = useMemo(() => {
@@ -153,13 +172,18 @@ export function CheckoutClientWrapper({
       filtered = filtered.filter(variant => variant.productSizeCategory === sizeCategoryFilter)
     }
 
+    // Apply location filter
+    if (locationFilter !== "all") {
+      filtered = filtered.filter(variant => variant.location === locationFilter)
+    }
+
     // Apply size filter
     if (sizeFilter.length > 0) {
       filtered = filtered.filter(variant => sizeFilter.includes(String(variant.size)))
     }
 
     return filtered
-  }, [searchTerm, availableVariants, brandFilter, sizeCategoryFilter, sizeFilter])
+  }, [searchTerm, availableVariants, brandFilter, sizeCategoryFilter, locationFilter, sizeFilter])
 
   // Pagination logic for variants
   const totalVariantPages = filteredVariants.length > 12 ? Math.ceil(filteredVariants.length / variantsPerPage) : 1
@@ -380,15 +404,94 @@ export function CheckoutClientWrapper({
     return baseCost;
   }, [selectedVariants, paymentFee, paymentFeeAppliesTo]);
 
-  const netProfit = useMemo(() => {
-    let baseProfit = selectedVariants.reduce((sum, variant) => sum + (variant.productSalePrice - variant.productOriginalPrice), 0);
-    // Subtract discount from profit (discount reduces both revenue and profit)
-    baseProfit -= calculatedDiscount;
+  // Calculate true store profit (only commission from consigned items + full profit from store items)
+  const storeProfit = useMemo(() => {
+    let totalStoreProfit = 0;
+    
+    selectedVariants.forEach(variant => {
+      const salePrice = variant.productSalePrice;
+      const costPrice = variant.productOriginalPrice;
+      
+      if (variant.ownerType === 'consignor' && variant.consignorCommissionRate) {
+        // For consigned items: use actual input value if available, otherwise calculate
+        const consignorId = variant.consignorId || 'unknown';
+        if (customStoreAmounts[consignorId] !== undefined && customStoreAmounts[consignorId] !== '') {
+          // Use the actual input value
+          const inputAmount = parseFloat(customStoreAmounts[consignorId]) || 0;
+          totalStoreProfit += inputAmount;
+        } else {
+          // Fall back to calculated commission
+          const commissionRate = customCommissionRates[consignorId] || variant.consignorCommissionRate;
+          const commissionAmount = salePrice * (commissionRate / 100);
+          totalStoreProfit += commissionAmount;
+        }
+      } else {
+        // For store items: full profit (sale price - cost price)
+        totalStoreProfit += (salePrice - costPrice);
+      }
+    });
+    
+    // Subtract discount and fees from store profit
+    totalStoreProfit -= calculatedDiscount;
     if (paymentFeeAppliesTo === "profit") {
-      baseProfit -= paymentFee;
+      totalStoreProfit -= paymentFee;
     }
-    return baseProfit;
-  }, [selectedVariants, paymentFee, paymentFeeAppliesTo, calculatedDiscount]);
+    
+    return totalStoreProfit;
+  }, [selectedVariants, paymentFee, paymentFeeAppliesTo, calculatedDiscount, customCommissionRates, customStoreAmounts]);
+
+  // Calculate total consignor payouts for display
+  const totalConsignorPayout = useMemo(() => {
+    return selectedVariants
+      .filter(v => v.ownerType === 'consignor')
+      .reduce((sum, v) => {
+        const salePrice = v.productSalePrice;
+        const variant = {
+          id: v.id,
+          cost_price: v.costPrice,
+          owner_type: 'consignor' as const,
+          // Add minimal required fields to satisfy Variant type
+          date_added: '',
+          variant_sku: v.variantSku,
+          serial_number: v.serialNumber || '',
+          product_id: 0,
+          size: v.size,
+          color: '',
+          quantity: 1,
+          location: v.location || '',
+          status: v.status,
+          qr_code_url: null,
+          created_at: '',
+          updated_at: '',
+          consignor_id: v.consignorId ? parseInt(v.consignorId) : undefined,
+          user_id: '',
+          isArchived: false,
+          size_label: v.sizeLabel
+        };
+        
+        const consignorData = {
+          payout_method: v.consignorPayoutMethod || 'percentage_split',
+          fixed_markup: v.consignorFixedMarkup,
+          markup_percentage: v.consignorMarkupPercentage
+        };
+        
+        const split = calculateSaleSplit(
+          variant,
+          salePrice,
+          // Use custom commission rate if set, otherwise use default
+          v.consignorId && customCommissionRates[v.consignorId] 
+            ? customCommissionRates[v.consignorId] 
+            : v.consignorCommissionRate,
+          commissionFrom,
+          consignorData
+        );
+        
+        return sum + split.consignor_gets;
+      }, 0);
+  }, [selectedVariants, commissionFrom, customCommissionRates]);
+
+  // Keep netProfit for backwards compatibility but use storeProfit
+  const netProfit = storeProfit;
 
   const handleConfirmSale = async (profitDistribution: { avatarId: string; percentage: number; amount: number }[]) => {
     startConfirmSaleTransition(async () => {
@@ -444,6 +547,56 @@ export function CheckoutClientWrapper({
         })
         const result = await response.json()
         if (result.success) {
+          // Process consignment sales if any variants are consigned
+          const consignmentVariants = selectedVariants.filter(v => v.ownerType === 'consignor')
+          if (consignmentVariants.length > 0) {
+            try {
+              await processConsignmentSalesForCheckout(
+                result.saleId,
+                consignmentVariants.map(v => {
+                  const consignorId = v.consignorId;
+                  
+                  // Use custom amounts if they exist, otherwise calculate from commission rate
+                  const hasCustomAmounts = consignorId && 
+                    customStoreAmounts[consignorId] !== undefined && 
+                    customConsignorAmounts[consignorId] !== undefined;
+                  
+                  const customStoreAmount = hasCustomAmounts ? 
+                    parseFloat(customStoreAmounts[consignorId]) || 0 : undefined;
+                  const customConsignorAmount = hasCustomAmounts ? 
+                    parseFloat(customConsignorAmounts[consignorId]) || 0 : undefined;
+                  
+                  return {
+                    variant: {
+                      id: v.id,
+                      owner_type: 'consignor',
+                      consignor_id: v.consignorId ? parseInt(v.consignorId) : undefined,
+                      cost_price: v.costPrice
+                    } as any,
+                    salePrice: v.productSalePrice,
+                    customStoreAmount, // Pass custom amounts
+                    customConsignorAmount, // Pass custom amounts
+                    consignor: v.consignorId && v.consignorCommissionRate ? {
+                      id: parseInt(v.consignorId),
+                      commission_rate: v.consignorCommissionRate,
+                      payout_method: v.consignorPayoutMethod || 'percentage_split',
+                      fixed_markup: v.consignorFixedMarkup,
+                      markup_percentage: v.consignorMarkupPercentage
+                    } : undefined
+                  }
+                }).filter(v => v.consignor),
+                commissionFrom // Pass the commission type
+              )
+            } catch (consignmentError) {
+              console.error('Error processing consignment sales:', consignmentError)
+              toast({
+                title: "Warning: Consignment Processing Failed",
+                description: "Main sale recorded but consignment splits may need manual processing.",
+                variant: "destructive",
+              })
+            }
+          }
+
           toast({
             title: "Sale Recorded Successfully!",
             description: `Sale of $${totalAmount.toFixed(2)} completed.`,
@@ -522,6 +675,41 @@ export function CheckoutClientWrapper({
       })
       return
     }
+
+    // Check if consignment splits are valid
+    const consignedVariants = selectedVariants.filter(v => v.ownerType === 'consignor');
+    if (consignedVariants.length > 0) {
+      const consignorGroups = consignedVariants.reduce((groups, variant) => {
+        const key = variant.consignorId || 'unknown';
+        if (!groups[key]) {
+          groups[key] = {
+            name: variant.consignorName!,
+            totalSale: 0,
+            originalCommissionRate: variant.consignorCommissionRate || 20
+          };
+        }
+        groups[key].totalSale += variant.productSalePrice;
+        return groups;
+      }, {} as Record<string, { name: string; totalSale: number; originalCommissionRate: number }>);
+
+      // Check each consignor's split
+      for (const [consignorId, group] of Object.entries(consignorGroups)) {
+        const currentCommissionRate = customCommissionRates[consignorId] || group.originalCommissionRate;
+        const storeCommission = group.totalSale * (currentCommissionRate / 100);
+        const consignorPayout = group.totalSale - storeCommission;
+        
+        // Check if the split adds up correctly (with small tolerance for floating point)
+        if (Math.abs((storeCommission + consignorPayout) - group.totalSale) > 0.01) {
+          toast({
+            title: "Invalid Consignment Split",
+            description: `The split for ${group.name} doesn't add up to the total sale amount. Please adjust the amounts.`,
+            variant: "destructive",
+          })
+          return
+        }
+      }
+    }
+
     if (totalDistributedPercentage !== 100) {
       toast({
         title: "Distribution Mismatch",
@@ -651,6 +839,19 @@ export function CheckoutClientWrapper({
                   </SelectContent>
                 </Select>
 
+                <Select value={locationFilter} onValueChange={setLocationFilter}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="All Locations" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locationOptions.map(location => (
+                      <SelectItem key={location} value={location}>
+                        {location === "all" ? "All Locations" : location}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-[150px] justify-between">
@@ -751,13 +952,20 @@ export function CheckoutClientWrapper({
                     {paginatedVariants.map((variant) => (
                       <Card key={variant.id} className="flex flex-col">
                         <CardContent className="p-3 flex-grow">
-                          <Image
-                            src={variant.productImage || "/placeholder.svg?height=100&width=100"}
-                            alt={variant.productName || "Placeholder image"}
-                            width={80}
-                            height={80}
-                            className="rounded-md object-cover mx-auto mb-2"
-                          />
+                          <div className="relative">
+                            <Image
+                              src={variant.productImage || "/placeholder.svg?height=100&width=100"}
+                              alt={variant.productName || "Placeholder image"}
+                              width={80}
+                              height={80}
+                              className="rounded-md object-cover mx-auto mb-2"
+                            />
+                            {variant.ownerType === 'consignor' && (
+                              <div className="absolute top-1 right-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs px-2 py-1 rounded-md shadow-sm">
+                                Consigned
+                              </div>
+                            )}
+                          </div>
                           <h3 className="font-semibold text-sm line-clamp-2">{variant.productName}</h3>
                           <p className="text-xs text-gray-600">{variant.productBrand}</p>
                           <p className="text-xs font-mono text-gray-500">SKU: {variant.productSku}</p>
@@ -765,6 +973,14 @@ export function CheckoutClientWrapper({
                           <p className="text-xs text-gray-500">
                             Size: {variant.size} ({variant.sizeLabel})
                           </p>
+                          <p className="text-xs text-gray-500">
+                            Location: {variant.location || 'Not specified'}
+                          </p>
+                          {variant.ownerType === 'consignor' && variant.consignorName && (
+                            <p className="text-xs text-blue-600 font-medium mt-1">
+                              Owner: {variant.consignorName}
+                            </p>
+                          )}
                           <p className="text-sm font-bold text-green-600 mt-2">{formatCurrency(variant.productSalePrice, currency)}</p>
                         </CardContent>
                         <div className="p-3 border-t">
@@ -849,7 +1065,11 @@ export function CheckoutClientWrapper({
               </CardContent>
             </Card>
 
-            <CheckoutCart selectedVariants={selectedVariants} onRemove={handleRemoveVariantFromCart} />
+            <CheckoutCart 
+              selectedVariants={selectedVariants} 
+              onRemove={handleRemoveVariantFromCart} 
+              commissionFrom={commissionFrom}
+            />
 
             <Card>
               <CardHeader>
@@ -1088,6 +1308,217 @@ export function CheckoutClientWrapper({
                   )}
                 </div>
 
+                {/* Commission Configuration */}
+                {selectedVariants.some(v => v.ownerType === 'consignor') && (
+                  <div className="border-t pt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <Label className="text-sm font-medium">Commission Settings</Label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="commission-from" className="text-xs text-gray-600">
+                          Commission from:
+                        </Label>
+                        <Select value={commissionFrom} onValueChange={(value: 'total' | 'profit') => setCommissionFrom(value)}>
+                          <SelectTrigger className="w-full mt-1 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="total">Total sale</SelectItem>
+                            <SelectItem value="profit">Profit only</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="consignor-commission-type" className="text-xs text-gray-600">
+                          Payout method:
+                        </Label>
+                        <Select value={consignorCommissionType} onValueChange={(value: 'percentage' | 'from_cost') => setConsignorCommissionType(value)}>
+                          <SelectTrigger className="w-full mt-1 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="percentage">% Split</SelectItem>
+                            <SelectItem value="from_cost">Cost + Markup</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Consignment Split */}
+                {selectedVariants.some(v => v.ownerType === 'consignor') && (
+                  <div className="border-t pt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <Label className="text-sm font-medium">Split Adjustment</Label>
+                    </div>
+                    <div className="space-y-3">
+                      {(() => {
+                        const consignedTotal = selectedVariants
+                          .filter(v => v.ownerType === 'consignor')
+                          .reduce((sum, v) => sum + v.productSalePrice, 0);
+
+                        const totalStoreCommission = (() => {
+                          // Calculate real-time commission from input values
+                          const consignorGroups = selectedVariants
+                            .filter(v => v.ownerType === 'consignor' && v.consignorName)
+                            .reduce((groups, variant) => {
+                              const key = variant.consignorId || 'unknown';
+                              if (!groups[key]) {
+                                groups[key] = {
+                                  totalSale: 0,
+                                  originalCommissionRate: variant.consignorCommissionRate || 20
+                                };
+                              }
+                              groups[key].totalSale += variant.productSalePrice;
+                              return groups;
+                            }, {} as Record<string, { totalSale: number; originalCommissionRate: number }>);
+
+                          return Object.entries(consignorGroups).reduce((total, [consignorId, group]) => {
+                            const currentCommissionRate = customCommissionRates[consignorId] || group.originalCommissionRate;
+                            const calculatedStoreAmount = group.totalSale * (currentCommissionRate / 100);
+                            
+                            // Use input value if available, otherwise use calculated
+                            const storeAmount = customStoreAmounts[consignorId] !== undefined && customStoreAmounts[consignorId] !== ''
+                              ? (parseFloat(customStoreAmounts[consignorId]) || 0)
+                              : calculatedStoreAmount;
+                            
+                            return total + storeAmount;
+                          }, 0);
+                        })();
+
+                        const consignorGroups = selectedVariants
+                          .filter(v => v.ownerType === 'consignor' && v.consignorName)
+                          .reduce((groups, variant) => {
+                            const key = variant.consignorId || 'unknown';
+                            if (!groups[key]) {
+                              groups[key] = {
+                                name: variant.consignorName!,
+                                totalSale: 0,
+                                originalCommissionRate: variant.consignorCommissionRate || 20
+                              };
+                            }
+                            groups[key].totalSale += variant.productSalePrice;
+                            return groups;
+                          }, {} as Record<string, { name: string; totalSale: number; originalCommissionRate: number }>);
+
+                        return (
+                          <div className="space-y-2">
+                            {Object.entries(consignorGroups).map(([consignorId, group]) => {
+                              const currentCommissionRate = customCommissionRates[consignorId] || group.originalCommissionRate;
+                              const calculatedStoreAmount = group.totalSale * (currentCommissionRate / 100);
+                              const calculatedConsignorAmount = group.totalSale - calculatedStoreAmount;
+                              
+                              // Get current input values or use calculated defaults
+                              const currentStoreAmount = customStoreAmounts[consignorId] !== undefined 
+                                ? customStoreAmounts[consignorId] 
+                                : calculatedStoreAmount.toFixed(2);
+                              const currentConsignorAmount = customConsignorAmounts[consignorId] !== undefined 
+                                ? customConsignorAmounts[consignorId] 
+                                : calculatedConsignorAmount.toFixed(2);
+                              
+                              // Parse values for validation and percentage calculation
+                              const storeValue = parseFloat(currentStoreAmount) || 0;
+                              const consignorValue = parseFloat(currentConsignorAmount) || 0;
+                              const totalInput = storeValue + consignorValue;
+                              const isInvalid = Math.abs(totalInput - group.totalSale) > 0.01;
+                              
+                              // Calculate actual commission percentage from inputs
+                              const actualCommissionRate = totalInput > 0 ? (storeValue / totalInput) * 100 : currentCommissionRate;
+
+                              return (
+                                <div key={consignorId} className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-3 border">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <span className="font-medium text-sm">{group.name}</span>
+                                    <span className="text-xs text-gray-600">{formatCurrency(group.totalSale, currency)}</span>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <Label className="text-xs text-green-700">You get</Label>
+                                      <Input
+                                        type="number"
+                                        value={currentStoreAmount}
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          setCustomStoreAmounts(prev => ({
+                                            ...prev,
+                                            [consignorId]: value
+                                          }));
+                                        }}
+                                        className={`h-7 text-sm ${storeValue > group.totalSale ? 'border-red-300 bg-red-50' : ''}`}
+                                        step="0.01"
+                                        min="0"
+                                        max={group.totalSale}
+                                        placeholder="0.00"
+                                      />
+                                      {storeValue > group.totalSale && (
+                                        <p className="text-xs text-red-600 mt-1">⚠️ Cannot exceed total sale</p>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs text-blue-700">They get</Label>
+                                      <Input
+                                        type="number"
+                                        value={currentConsignorAmount}
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          setCustomConsignorAmounts(prev => ({
+                                            ...prev,
+                                            [consignorId]: value
+                                          }));
+                                        }}
+                                        className={`h-7 text-sm ${consignorValue > group.totalSale ? 'border-red-300 bg-red-50' : ''}`}
+                                        step="0.01"
+                                        min="0"
+                                        max={group.totalSale}
+                                        placeholder="0.00"
+                                      />
+                                      {consignorValue > group.totalSale && (
+                                        <p className="text-xs text-red-600 mt-1">⚠️ Cannot exceed total sale</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex items-center justify-between mt-2">
+                                    <span className={`text-xs px-2 py-1 rounded-full border ${
+                                      Math.abs(actualCommissionRate - currentCommissionRate) > 0.1 
+                                        ? 'bg-blue-50 border-blue-200 text-blue-700' 
+                                        : 'bg-white text-gray-600'
+                                    }`}>
+                                      {actualCommissionRate.toFixed(1)}% commission
+                                      {Math.abs(actualCommissionRate - currentCommissionRate) > 0.1 && (
+                                        <span className="ml-1 text-xs">
+                                          (was {currentCommissionRate.toFixed(1)}%)
+                                        </span>
+                                      )}
+                                    </span>
+                                    {isInvalid && (
+                                      <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded-full border border-red-200">
+                                        ⚠️ Total: {formatCurrency(totalInput, currency)} ≠ {formatCurrency(group.totalSale, currency)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 flex items-center gap-2">
+                              <span className="text-amber-600 text-sm">💡</span>
+                              <span className="text-xs text-amber-800">
+                                Team gets {formatCurrency(totalStoreCommission, currency)} commission earnings
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <Label htmlFor="payment-received" className="text-sm">
@@ -1106,7 +1537,7 @@ export function CheckoutClientWrapper({
                   <Input
                     id="payment-received"
                     type="number"
-                    value={paymentReceived || ""}
+                    value={paymentReceived === 0 ? "" : (paymentReceived || totalAmount.toFixed(2))}
                     onChange={(e) => {
                       const value = e.target.value
                       if (value === "") {
@@ -1115,14 +1546,17 @@ export function CheckoutClientWrapper({
                         setPaymentReceived(Number(value))
                       }
                     }}
-                    placeholder="0.00"
+                    placeholder={totalAmount.toFixed(2)}
                     step="0.01"
                     min="0"
-                    className="mt-1"
+                    className={`mt-1 ${paymentReceived > 0 && paymentReceived < totalAmount ? 'border-red-300 bg-red-50' : ''}`}
                   />
                   {paymentReceived > 0 && (
                     <div className="text-xs text-gray-600 mt-1">
                       <p>Payment received: {formatCurrency(paymentReceived, currency)}</p>
+                      {paymentReceived < totalAmount && (
+                        <p className="text-red-600 font-medium">⚠️ Short by {formatCurrency(totalAmount - paymentReceived, currency)}</p>
+                      )}
                       {changeAmount > 0 && (
                         <p className="text-green-600">Change to give: {formatCurrency(changeAmount, currency)}</p>
                       )}
@@ -1176,11 +1610,90 @@ export function CheckoutClientWrapper({
                   <span>{formatCurrency(totalCost, currency)}</span>
                 </div>
                 <div className="flex justify-between font-semibold text-base">
-                  <span>Net Profit</span>
+                  <span>Store Profit {selectedVariants.some(v => v.ownerType === 'consignor') ? '(for team distribution)' : ''}</span>
                   <span className={netProfit < 0 ? "text-red-600" : "text-green-600"}>{formatCurrency(netProfit, currency)}</span>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Consignment Summary */}
+            {selectedVariants.some(v => v.ownerType === 'consignor') && (
+              <Card className="border border-blue-100">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    Consignment Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {(() => {
+                    const consignedItems = selectedVariants.filter(v => v.ownerType === 'consignor');
+                    
+                    // Calculate real-time commission and payout from input values
+                    let actualStoreCommission = 0;
+                    let actualConsignorPayout = 0;
+                    
+                    // Group by consignor to get input values
+                    const consignorGroups = consignedItems.reduce((groups, variant) => {
+                      const key = variant.consignorId || 'unknown';
+                      if (!groups[key]) {
+                        groups[key] = {
+                          name: variant.consignorName!,
+                          totalSale: 0,
+                          originalCommissionRate: variant.consignorCommissionRate || 20
+                        };
+                      }
+                      groups[key].totalSale += variant.productSalePrice;
+                      return groups;
+                    }, {} as Record<string, { name: string; totalSale: number; originalCommissionRate: number }>);
+
+                    // Calculate totals from input values or defaults
+                    Object.entries(consignorGroups).forEach(([consignorId, group]) => {
+                      const currentCommissionRate = customCommissionRates[consignorId] || group.originalCommissionRate;
+                      const calculatedStoreAmount = group.totalSale * (currentCommissionRate / 100);
+                      const calculatedConsignorAmount = group.totalSale - calculatedStoreAmount;
+                      
+                      // Use input values if available, otherwise use calculated
+                      const storeAmount = customStoreAmounts[consignorId] !== undefined 
+                        ? (parseFloat(customStoreAmounts[consignorId]) || 0)
+                        : calculatedStoreAmount;
+                      const consignorAmount = customConsignorAmounts[consignorId] !== undefined 
+                        ? (parseFloat(customConsignorAmounts[consignorId]) || 0)
+                        : calculatedConsignorAmount;
+                      
+                      actualStoreCommission += storeAmount;
+                      actualConsignorPayout += consignorAmount;
+                    });
+
+                    const totalSale = actualStoreCommission + actualConsignorPayout;
+
+                    return (
+                      <>
+                        <div className="text-sm text-gray-600 mb-3">
+                          {consignedItems.length} consigned item{consignedItems.length !== 1 ? 's' : ''} • Total: {formatCurrency(totalSale, currency)}
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-100">
+                            <p className="text-sm text-gray-600 mb-1">Your Commission</p>
+                            <p className="text-lg font-bold text-green-600">{formatCurrency(actualStoreCommission, currency)}</p>
+                          </div>
+                          <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                            <p className="text-sm text-gray-600 mb-1">Consignor Payout</p>
+                            <p className="text-lg font-bold text-blue-600">{formatCurrency(actualConsignorPayout, currency)}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="text-xs text-gray-600 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+                          <span className="text-amber-600">💡</span>
+                          <span>Only your commission earnings ({formatCurrency(actualStoreCommission, currency)}) will be distributed to team members, not the full profit amount.</span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
 
             <ProfitDistributionCalculator
               netProfit={netProfit}

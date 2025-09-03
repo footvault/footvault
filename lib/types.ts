@@ -1,5 +1,6 @@
 // Existing types (assuming they are already here)
 export type Product = {
+  consignor: any
   id: number
   name: string
   brand: string
@@ -12,6 +13,11 @@ export type Product = {
   size_category: string
   created_at: string
   updated_at: string
+  user_id: string
+  isArchived?: boolean
+  archived?: boolean
+  is_consignment?: boolean
+  consignor_id?: string
 }
 
 export type Variant = {
@@ -29,6 +35,17 @@ export type Variant = {
   cost_price: number
   created_at: string
   updated_at: string
+  // Simple owner fields
+  owner_type: 'store' | 'consignor' // Who owns this variant
+  consignor_id?: number // If owner_type is 'consignor', this is the consignor
+  user_id: string
+  isArchived: boolean
+  size_label: string
+  // Relationship for consignor data
+  consignor?: {
+    id: number
+    name: string
+  }
 }
 
 export type CustomLocation = {

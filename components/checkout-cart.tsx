@@ -3,11 +3,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ShoppingCart, Trash2, ChevronDown, ChevronUp, Grid, List } from "lucide-react"
+import { ShoppingCart, Trash2, ChevronDown, ChevronUp, Grid, List, DollarSign } from "lucide-react"
 import Image from "next/image"
 import { formatCurrency } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
 import { useState } from "react"
+import { calculateSaleSplit } from "@/lib/utils/consignment"
 
 interface TransformedVariant {
   id: string;
@@ -26,14 +27,22 @@ interface TransformedVariant {
   productSalePrice: number;
   productCategory: string | null;
   productSizeCategory: string;
+  ownerType?: 'store' | 'consignor';
+  consignorId?: string;
+  consignorName?: string;
+  consignorCommissionRate?: number;
+  consignorPayoutMethod?: 'cost_price' | 'cost_plus_fixed' | 'cost_plus_percentage' | 'percentage_split';
+  consignorFixedMarkup?: number;
+  consignorMarkupPercentage?: number;
 }
 
 interface CheckoutCartProps {
   selectedVariants: TransformedVariant[];
   onRemove: (variantId: string) => void;
+  commissionFrom?: 'total' | 'profit';
 }
 
-export function CheckoutCart({ selectedVariants, onRemove }: CheckoutCartProps) {
+export function CheckoutCart({ selectedVariants, onRemove, commissionFrom = 'total' }: CheckoutCartProps) {
   const { currency } = useCurrency();
   const [showAll, setShowAll] = useState(false);
   const [isCompactView, setIsCompactView] = useState(false);
@@ -99,6 +108,11 @@ export function CheckoutCart({ selectedVariants, onRemove }: CheckoutCartProps) 
                             <span>#{variant.serialNumber}</span>
                           )}
                         </div>
+                        {variant.ownerType === 'consignor' && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 mt-1">
+                            Consigned
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -134,7 +148,7 @@ export function CheckoutCart({ selectedVariants, onRemove }: CheckoutCartProps) 
                       {variant.serialNumber && (
                         <p className="text-xs text-gray-500 mt-0.5">Serial #: {variant.serialNumber}</p>
                       )}
-                      <div className="flex gap-2 mt-1">
+                      <div className="flex gap-2 mt-1 flex-wrap">
                         <Badge variant="outline" className="text-xs">
                           Size: {variant.size} {variant.sizeLabel}
                         </Badge>
@@ -143,8 +157,15 @@ export function CheckoutCart({ selectedVariants, onRemove }: CheckoutCartProps) 
                             {variant.location}
                           </Badge>
                         )}
+                        {variant.ownerType === 'consignor' && (
+                          <Badge className="text-xs bg-blue-500 hover:bg-blue-600 text-white border-0">
+                            Consigned by {variant.consignorName || 'Unknown'}
+                          </Badge>
+                        )}
                       </div>
-                      <p className="text-sm font-semibold mt-1">{formatCurrency(variant.productSalePrice, currency)}</p>
+                      <div className="flex justify-between items-center mt-1">
+                        <p className="text-sm font-semibold">{formatCurrency(variant.productSalePrice, currency)}</p>
+                      </div>
                     </div>
                     <Button
                       variant="ghost"

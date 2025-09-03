@@ -14,7 +14,7 @@ interface ReceiptData {
     receiptLogoUrl?: string
   }
   saleInfo: {
-    invoiceNumber: number
+    invoiceNumber: string
     date: string
     time: string
     items: Array<{
@@ -90,7 +90,7 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
       const pageWidth = 80
       const margin = 4
       const contentWidth = pageWidth - (margin * 2)
-      const lineHeight = 4.5
+      const lineHeight = 6.5 // Increased from 5.5 to 6.5 for even better readability when printing
       
       // Helper function to calculate content height
       const calculateHeight = () => {
@@ -111,19 +111,19 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
           calculatedY += 24 + 8 + 2 // Updated: Logo height (24mm) + spacing after (8mm) + spacing before (2mm)
         } else {
           // Username height calculation
-          tempDoc.setFontSize(14)
+          tempDoc.setFontSize(22) // Increased from 18 to 22
           tempDoc.setFont('helvetica', 'bolditalic')
           const storeNameText = data.userInfo.username.toUpperCase()
           const storeNameLinesHeight = tempDoc.splitTextToSize(storeNameText, contentWidth)
-          calculatedY += (storeNameLinesHeight.length * 5) + 2
+          calculatedY += (storeNameLinesHeight.length * 7) + 4 // Increased line height from 6 to 7, spacing from 3 to 4
         }
         
         // Store address
         if (data.userInfo.receiptAddress) {
-          tempDoc.setFontSize(10)
+          tempDoc.setFontSize(14) // Increased from 12 to 14
           tempDoc.setFont('helvetica', 'normal')
           const addressLines = tempDoc.splitTextToSize(data.userInfo.receiptAddress, contentWidth)
-          calculatedY += (addressLines.length * lineHeight) + 2
+          calculatedY += (addressLines.length * (lineHeight + 2)) + 4 // Increased line height and spacing
         }
         
         // Notice section
@@ -223,7 +223,7 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
         } catch (error) {
           // If logo fails to load, fallback to username
           console.warn('Failed to load receipt logo, falling back to username:', error)
-          doc.setFontSize(14)
+          doc.setFontSize(20) // Reduced from 24 to 20
           doc.setFont('helvetica', 'bolditalic')
           const storeName = data.userInfo.username.toUpperCase()
           
@@ -236,13 +236,13 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
             // Underline each line
             const underlineY = y + 0.5
             doc.line((pageWidth - lineWidth) / 2, underlineY, (pageWidth + lineWidth) / 2, underlineY)
-            y += 5
+            y += 6 // Increased from 5 to 6
           })
-          y += 2 // Extra space after store name
+          y += 3 // Extra space after store name (increased from 2 to 3)
         }
       } else {
         // Use username (default)
-        doc.setFontSize(14)
+        doc.setFontSize(20) // Reduced from 24 to 20
         doc.setFont('helvetica', 'bolditalic')
         const storeName = data.userInfo.username.toUpperCase()
         
@@ -256,28 +256,28 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
           // Underline each line
           const underlineY = y + 0.5
           doc.line((pageWidth - lineWidth) / 2, underlineY, (pageWidth + lineWidth) / 2, underlineY)
-          y += 5
+          y += 6 // Increased from 5 to 6
         })
-        y += 2 // Extra space after store name
+        y += 3 // Extra space after store name (increased from 2 to 3)
       }
       
       // Store address (centered)
       if (data.userInfo.receiptAddress) {
         checkPageBreak(8)
-        doc.setFontSize(10)
+        doc.setFontSize(14) // Reduced from 16 to 14
         doc.setFont('helvetica', 'normal')
         const addressLines = doc.splitTextToSize(data.userInfo.receiptAddress, contentWidth)
         addressLines.forEach((line: string) => {
           const lineWidth = doc.getTextWidth(line)
           doc.text(line, (pageWidth - lineWidth) / 2, y)
-          y += lineHeight
+          y += (lineHeight + 1) // Increased line height
         })
-        y += 2
+        y += 3 // Increased spacing from 2 to 3
       }
       
       // Notice (centered, bold)
       checkPageBreak(8)
-      doc.setFontSize(10)
+      doc.setFontSize(12) // Increased from 10 to 12
       doc.setFont('helvetica', 'bold')
       
       const notice1 = "ALL SALES ARE FINAL"
@@ -293,19 +293,19 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
       // Invoice info box (black background)
       checkPageBreak(12)
       doc.setFillColor(0, 0, 0)
-      doc.rect(margin, y - 2, contentWidth, 10, 'F')
+      doc.rect(margin, y - 2, contentWidth, 12, 'F') // Increased height from 10 to 12
       
       doc.setTextColor(255, 255, 255) // White text
-      doc.setFontSize(10)
+      doc.setFontSize(14) // Reduced from 16 to 14
       doc.setFont('helvetica', 'normal')
-      doc.text(`INV#: ${data.saleInfo.invoiceNumber}`, margin + 1, y + 2)
-      doc.text(`${data.saleInfo.date} | ${data.saleInfo.time}`, margin + 1, y + 6)
+      doc.text(`INV#: ${data.saleInfo.invoiceNumber}`, margin + 1, y + 3) // Adjusted positioning
+      doc.text(`${data.saleInfo.date} | ${data.saleInfo.time}`, margin + 1, y + 8) // Adjusted positioning
       
       doc.setTextColor(0, 0, 0) // Back to black text
-      y += 14 // More space after invoice box
+      y += 16 // More space after invoice box (increased from 14 to 16)
       
       // Items section
-      doc.setFontSize(10)
+      doc.setFontSize(14) // Reduced from 16 to 14
       doc.setFont('helvetica', 'normal')
       
       // Add a subtle header for the items section
@@ -313,7 +313,7 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
       doc.setFont('helvetica', 'bold')
       doc.text('ITEM', margin, y)
       doc.text('PRICE', pageWidth - margin - doc.getTextWidth('PRICE'), y)
-      y += lineHeight + 1 // Extra space after headers
+      y += (lineHeight + 2) + 1 // Extra space after headers (increased line height)
       
       // Add a light separator line under headers
       doc.setLineWidth(0.1)
@@ -332,7 +332,7 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
         
         // Set font for items
         doc.setFont('helvetica', 'normal')
-        doc.setFontSize(10)
+        doc.setFontSize(14) // Reduced from 16 to 14
         
         // Force text to wrap strictly within left column
         const wrappedNameLines = doc.splitTextToSize(fullItemText, leftColWidth)
@@ -380,12 +380,28 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
       const addTotalLine = (label: string, value: string, isBold: boolean = false) => {
         checkPageBreak(lineHeight)
         doc.setFont('helvetica', isBold ? 'bold' : 'normal')
-        doc.setFontSize(10)
+        doc.setFontSize(14) // Reduced from 16 to 14
         
-        doc.text(label, margin, y)
-        const valueWidth = doc.getTextWidth(value)
-        doc.text(value, pageWidth - margin - valueWidth, y)
-        y += lineHeight
+        // Handle multi-line labels
+        if (label.includes('\n')) {
+          const labelLines = label.split('\n')
+          const startY = y
+          labelLines.forEach((line, index) => {
+            doc.text(line, margin, y)
+            if (index < labelLines.length - 1) {
+              y += lineHeight
+            }
+          })
+          // Position value aligned with the last line of the label
+          const valueWidth = doc.getTextWidth(value)
+          doc.text(value, pageWidth - margin - valueWidth, y)
+          y += (lineHeight + 3) // Increased spacing for better readability
+        } else {
+          doc.text(label, margin, y)
+          const valueWidth = doc.getTextWidth(value)
+          doc.text(value, pageWidth - margin - valueWidth, y)
+          y += (lineHeight + 3) // Increased spacing for better readability
+        }
       }
       
       // Item count
@@ -398,7 +414,7 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
       
       // Always show additional charge (even if 0)
       const additionalAmount = data.saleInfo.additionalCharge || 0
-      addTotalLine('ADDITIONAL CHARGE', formatAmount(additionalAmount))
+      addTotalLine('ADDITIONAL\nCHARGE', formatAmount(additionalAmount))
       
       // Total line
       addTotalLine('TOTAL', formatAmount(data.saleInfo.total), true)
@@ -411,7 +427,7 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
       
       // Payment section
       const displayPaymentReceived = data.saleInfo.paymentReceived === 0 ? data.saleInfo.total : data.saleInfo.paymentReceived
-      addTotalLine('PAYMENT RECEIVED', formatAmount(displayPaymentReceived))
+      addTotalLine('PAYMENT\nRECEIVED', formatAmount(displayPaymentReceived))
       addTotalLine('CHANGE AMOUNT', formatAmount(data.saleInfo.changeAmount))
       y += 5 // More space before more info section
       
@@ -421,23 +437,20 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
         doc.line(margin, y, pageWidth - margin, y)
         y += 5 // More space before more info
         
-        doc.setFontSize(10)
+        doc.setFontSize(10) // Reduced from 12 to 10 for smaller text
         doc.setFont('helvetica', 'bold')
-        const moreInfoLines = data.userInfo.receiptMoreInfo.split('\n')
         
-        moreInfoLines.forEach((line) => {
-          if (line.trim()) {
-            const wrappedLines = doc.splitTextToSize(line.trim(), contentWidth - 4) // Slightly smaller for better centering
-            wrappedLines.forEach((wrappedLine: string) => {
-              checkPageBreak(lineHeight)
-              const lineWidth = doc.getTextWidth(wrappedLine)
-              doc.text(wrappedLine, (pageWidth - lineWidth) / 2, y) // Centered
-              y += lineHeight
-            })
-          } else {
-            y += lineHeight / 2
-          }
+        // Display more info as a single line or minimal wrapping
+        const moreInfoText = data.userInfo.receiptMoreInfo.replace(/\n/g, ' ').trim()
+        const wrappedLines = doc.splitTextToSize(moreInfoText, contentWidth)
+        
+        wrappedLines.forEach((line: string) => {
+          checkPageBreak(lineHeight)
+          const lineWidth = doc.getTextWidth(line)
+          doc.text(line, (pageWidth - lineWidth) / 2, y) // Centered
+          y += (lineHeight + 2) // Consistent spacing between lines
         })
+        
         y += 4 // More space after more info
       }
       
@@ -446,17 +459,20 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
       doc.line(margin, y, pageWidth - margin, y)
       y += 5 // More space before footer
       
-      doc.setFontSize(10)
+      doc.setFontSize(14) // Reduced from 16 to 14
       doc.setFont('helvetica', 'normal')
       
       const footer1 = "Acknowledgement Receipt"
       let footerWidth = doc.getTextWidth(footer1)
       doc.text(footer1, (pageWidth - footerWidth) / 2, y)
-      y += lineHeight + 2
+      y += (lineHeight + 1) + 2 // Increased line height
       
       const footer2 = "Thank you!"
       footerWidth = doc.getTextWidth(footer2)
       doc.text(footer2, (pageWidth - footerWidth) / 2, y)
+      
+      // Add extra space after thank you message
+      y += 12 // Added spacing after "Thank you!"
       
       // Open PDF in new browser tab (with Next.js safety check)
       if (typeof window !== "undefined") {

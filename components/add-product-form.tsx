@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Loader2, Trash2, Edit, Save, CheckCircle, XCircle } from "lucide-react"
+import { Plus, Loader2, Trash2, Edit, Save, CheckCircle, XCircle, ExternalLink, RefreshCw } from "lucide-react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 
 import { toast } from "@/hooks/use-toast" // Assuming this toast hook exists
 import { Card } from "@/components/ui/card"
@@ -112,6 +113,8 @@ interface VariantFormState {
   condition: string
   sizeLabel: string // Added
   quantity: number | string
+  owner_type: 'store' | 'consignor' // Who owns this variant
+  consignor_id?: number | null // If owner_type is 'consignor', this is the consignor
 }
 
 // Helper function to generate dynamic size options
@@ -180,6 +183,7 @@ export function AddProductForm({
 }: AddProductFormProps) {
   const { currency } = useCurrency(); // Get the user's selected currency
   const currencySymbol = getCurrencySymbol(currency); // Get the currency symbol
+  const router = useRouter();
   const [isPending, startTransition] = useTransition()
   const [productForm, setProductForm] = useState<ProductFormState>({
     name: "",
@@ -206,6 +210,8 @@ export function AddProductForm({
     condition: "New", // Default condition
     sizeLabel: "US", // Default value
     quantity: 1,
+    owner_type: "store", // Default to store ownership
+    consignor_id: null, // Default to no consignor
   })
   const [customLocations, setCustomLocations] = useState<string[]>([])
   const [showCustomLocationInput, setShowCustomLocationInput] = useState(false)
@@ -218,10 +224,46 @@ export function AddProductForm({
     isAtLimit: boolean;
   } | null>(null)
   const [imageLoading, setImageLoading] = useState(false)
+  const [consignors, setConsignors] = useState<Array<{
+    id: number;
+    name: string;
+    commission_rate: number;
+  }>>([])
   // Removed editingVariantId and editingVariantValues; only single variant input is used
   // Serial number state removed (auto-assigned)
 
   const isAddingToExistingProduct = !!existingProductDetails
+
+  // Function to fetch consignors
+  const fetchConsignors = async () => {
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log("No user found when fetching consignors");
+        return;
+      }
+
+      console.log("Fetching consignors for user:", user.id);
+      const { data, error } = await supabase
+        .from('consignors')
+        .select('id, name, commission_rate, status')
+        .eq('user_id', user.id);
+
+      console.log("Consignors query result:", { data, error });
+
+      if (error) {
+        console.error("Failed to fetch consignors:", error);
+      } else {
+        // Filter for active consignors in the frontend for now
+        const activeConsignors = (data || []).filter(c => c.status === 'active');
+        console.log("Active consignors found:", activeConsignors);
+        setConsignors(activeConsignors);
+      }
+    } catch (error) {
+      console.error("Failed to fetch consignors:", error);
+    }
+  };
 
   useEffect(() => {
   const fetchLocations = async () => {
@@ -264,6 +306,7 @@ export function AddProductForm({
     };
 
     fetchVariantLimits();
+    fetchConsignors();
   }, [open])
 
   useEffect(() => {
@@ -287,6 +330,8 @@ export function AddProductForm({
         condition: "New",
         sizeLabel: "US", // Default value
         quantity: 1,
+        owner_type: "store", // Default to store ownership
+        consignor_id: null, // Default to no consignor
       }) // Reset newVariant for new entry
     } else if (productDataFromApi) {
       // If adding a new product from API, pre-fill product form with API data
@@ -318,6 +363,8 @@ export function AddProductForm({
         condition: "New",
         sizeLabel: "US", // Default value
         quantity: 1,
+        owner_type: "store", // Default to store ownership
+        consignor_id: null, // Default to no consignor
       }) // Reset newVariant for new entry
     } else {
       // Reset form if no product data is provided (e.g., closing modal)
@@ -339,6 +386,8 @@ export function AddProductForm({
         condition: "New",
         sizeLabel: "US", // Default value
         quantity: 1,
+        owner_type: "store", // Default to store ownership
+        consignor_id: null, // Default to no consignor
       }) // Reset newVariant for new entry
     }
     // Reset newVariant and errors regardless of mode
@@ -559,6 +608,17 @@ export function AddProductForm({
         return;
       }
 
+      // Validate consignor selection if owner_type is 'consignor'
+      if (newVariant.owner_type === 'consignor' && !newVariant.consignor_id) {
+        toast({
+          title: "Missing Consignor",
+          description: "Please select a consignor for this variant.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       // 1. Check for existing product (if not adding to existing)
       let productId = existingProductDetails?.id;
       if (!productId) {
@@ -629,6 +689,8 @@ export function AddProductForm({
         cost_price: 0.00,
         user_id: session.user.id,
         isArchived: false,
+        owner_type: newVariant.owner_type,
+        consignor_id: newVariant.owner_type === 'consignor' ? newVariant.consignor_id : null,
       }));
 
       // 4. Insert all variants
@@ -1000,6 +1062,132 @@ export function AddProductForm({
                   </p>
                 )}
               </div>
+              
+              {/* Owner Type Selection */}
+              <div>
+                <Label htmlFor="owner_type" className="text-xs">
+                  Owner
+                </Label>
+                <Select
+                  value={newVariant.owner_type}
+                  onValueChange={(value: 'store' | 'consignor') => {
+                    setNewVariant((prev) => ({ 
+                      ...prev, 
+                      owner_type: value,
+                      consignor_id: value === 'store' ? null : prev.consignor_id
+                    }))
+                  }}
+                >
+                  <SelectTrigger id="owner_type" className="w-full text-xs">
+                    <SelectValue placeholder="Select owner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="store">You (Store Inventory)</SelectItem>
+                    <SelectItem value="consignor">Consignor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Consignor Selection - only show if owner_type is 'consignor' */}
+              {newVariant.owner_type === 'consignor' && (
+                <div>
+                  <Label htmlFor="consignor_id" className="text-xs">
+                    Select Consignor
+                  </Label>
+                  
+                  {consignors.length === 0 ? (
+                    <div className="space-y-2">
+                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                        <p className="text-xs text-yellow-800 mb-2">
+                          No consignors found. You need to add consignors before you can create consignment variants.
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              onOpenChange(false); // Close the modal first
+                              router.push('/consignors');
+                            }}
+                            className="flex-1 text-xs h-8"
+                          >
+                            <ExternalLink className="w-3 h-3 mr-1" />
+                            Add Consignors
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              await fetchConsignors();
+                            }}
+                            className="text-xs h-8 px-3"
+                            title="Refresh consignors list"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <Select
+                        value={newVariant.consignor_id?.toString() || ""}
+                        onValueChange={(value) => setNewVariant((prev) => ({ ...prev, consignor_id: parseInt(value) }))}
+                      >
+                        <SelectTrigger id="consignor_id" className="w-full text-xs">
+                          <SelectValue placeholder="Select consignor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {consignors.map((consignor) => (
+                            <SelectItem key={consignor.id} value={consignor.id.toString()}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{consignor.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {consignor.commission_rate}% commission
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      {/* Commission Info Display */}
+                      {newVariant.consignor_id && (
+                        <div className="mt-2 p-2 bg-blue-50 rounded-md">
+                          {(() => {
+                            const selectedConsignor = consignors.find(c => c.id === newVariant.consignor_id);
+                            if (!selectedConsignor) return null;
+                            
+                            const salePrice = typeof productForm.salePrice === "number" ? productForm.salePrice : parseFloat(productForm.salePrice) || 0;
+                            const commissionAmount = (salePrice * selectedConsignor.commission_rate) / 100;
+                            const storeAmount = salePrice - commissionAmount;
+                            
+                            return (
+                              <div className="text-xs space-y-1">
+                                <div className="font-medium text-blue-700">Commission Breakdown Sample:</div>
+                                <div className="flex justify-between">
+                                  <span>Sale Price:</span>
+                                  <span>{formatCurrency(salePrice, currency)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Consignor ({selectedConsignor.commission_rate}%):</span>
+                                  <span>{formatCurrency(commissionAmount, currency)}</span>
+                                </div>
+                                <div className="flex justify-between font-medium">
+                                  <span>Store Cut:</span>
+                                  <span>{formatCurrency(storeAmount, currency)}</span>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

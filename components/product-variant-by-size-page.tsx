@@ -161,7 +161,13 @@ export default function ProductVariantsBySizePage({ params }: Props) {
       setProduct(productData || null);
       const { data: variantsData } = await supabase
         .from("variants")
-        .select("*")
+        .select(`
+          *,
+          consignor:consignors (
+            id,
+            name
+          )
+        `)
         .eq("product_id", productId)
         .eq("size", size)
         .eq("isArchived", false)
@@ -250,7 +256,13 @@ export default function ProductVariantsBySizePage({ params }: Props) {
     // Refresh data before closing modal
     const { data: variantsData, error: variantsFetchError } = await supabase
       .from("variants")
-      .select("*")
+      .select(`
+        *,
+        consignor:consignors (
+          id,
+          name
+        )
+      `)
       .eq("product_id", productId)
       .eq("size", size)
       .eq("isArchived", false);
@@ -284,7 +296,13 @@ export default function ProductVariantsBySizePage({ params }: Props) {
     // Refresh data before closing modal
     const { data: variantsData, error: fetchError } = await supabase
       .from("variants")
-      .select("*")
+      .select(`
+        *,
+        consignor:consignors (
+          id,
+          name
+        )
+      `)
       .eq("product_id", productId)
       .eq("size", size)
       .eq("isArchived", false);
@@ -363,6 +381,7 @@ export default function ProductVariantsBySizePage({ params }: Props) {
               <TableHead>Name</TableHead>
               <TableHead>Size</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Owner</TableHead>
               <TableHead>Size Category</TableHead>
               <TableHead>Cost</TableHead>
               <TableHead>Price</TableHead>
@@ -373,7 +392,7 @@ export default function ProductVariantsBySizePage({ params }: Props) {
           <TableBody>
             {filteredVariants.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center">No variants for this size.</TableCell>
+                <TableCell colSpan={11} className="text-center">No variants for this size.</TableCell>
               </TableRow>
             ) : (
               filteredVariants.map(variant => (
@@ -417,6 +436,18 @@ export default function ProductVariantsBySizePage({ params }: Props) {
                           `}
                         >
                           {status}
+                        </span>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const isStore = variant.owner_type === 'store' || !variant.owner_type || !variant.consignor_id;
+                      return isStore ? (
+                        <span className="text-sm font-medium">You</span>
+                      ) : (
+                        <span className="text-sm font-medium text-blue-600">
+                          {variant.consignor?.name || `Consignor ${variant.consignor_id}`}
                         </span>
                       );
                     })()}
