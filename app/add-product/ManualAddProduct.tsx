@@ -507,7 +507,7 @@ export function ManualAddProduct({
             .insert(variantsToInsert);
           if (variantError) throw new Error(variantError.message);
         }
-        toast({ title: "Product Added", description: "Product saved to Supabase." });
+        toast({ title: "Product Added", description: "Product saved to inventory." });
         setProduct({ name: "", brand: "", sku: "", category: "", originalPrice: "", salePrice: "0", status: "In Stock", image: "", sizeCategory: "Men's" });
         setVariants([{ size: "", location: "", status: "Available", quantity: 1, condition: "New", dateAdded: new Date().toISOString().split("T")[0] }]);
         setOwnerType('store');
@@ -775,8 +775,6 @@ export function ManualAddProduct({
                     <SelectValue placeholder="Select location or add new" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Warehouse A">Warehouse A</SelectItem>
-                    <SelectItem value="Warehouse B">Warehouse B</SelectItem>
                     {customLocations.map((loc) => (
                       <SelectItem key={loc} value={loc}>
                         {loc}
