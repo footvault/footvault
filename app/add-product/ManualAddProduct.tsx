@@ -20,7 +20,7 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
     sku: "",
     category: "",
     originalPrice: "",
-    salePrice: "",
+    salePrice: "0",
     status: "In Stock",
     image: "",
     sizeCategory: "Men's",
@@ -150,6 +150,34 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
         else if (sizeLabel === "EU")
           generateRange(16, 27, 0.5) // EU toddler sizes
         else if (sizeLabel === "CM") generateRange(8, 16, 0.5) // CM toddler sizes
+        break
+      case "T-Shirts":
+        if (sizeLabel === "Clothing") {
+          sizes.push("XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL")
+        }
+        break
+      case "Figurines":
+        if (sizeLabel === "Standard") {
+          sizes.push("1/6 Scale", "1/12 Scale", "1/18 Scale", "1/24 Scale", "1/32 Scale", "1/64 Scale")
+        } else if (sizeLabel === "Series") {
+          sizes.push("Series 1", "Series 2", "Series 3", "Series 4", "Series 5", "Series 6", "Series 7", "Series 8", "Series 9", "Series 10")
+        }
+        break
+      case "Collectibles":
+        if (sizeLabel === "Standard") {
+          sizes.push("Small", "Medium", "Large", "XL", "Jumbo")
+        } else if (sizeLabel === "Series") {
+          sizes.push("Common", "Uncommon", "Rare", "Ultra Rare", "Secret Rare", "Chase", "Grail")
+        }
+        break
+      case "Pop Marts":
+        if (sizeLabel === "Standard") {
+          sizes.push("Regular", "Mini", "Large", "Mega")
+        } else if (sizeLabel === "Series") {
+          sizes.push("Series 1", "Series 2", "Series 3", "Series 4", "Series 5", "Series 6", "Series 7", "Series 8", "Series 9", "Series 10")
+        } else if (sizeLabel === "Limited") {
+          sizes.push("Regular", "Chase", "Secret", "Hidden", "Special Edition", "Convention Exclusive")
+        }
         break
     }
     // Use a Set to ensure uniqueness before sorting
@@ -336,7 +364,7 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
           if (variantError) throw new Error(variantError.message);
         }
         toast({ title: "Product Added", description: "Product saved to Supabase." });
-        setProduct({ name: "", brand: "", sku: "", category: "", originalPrice: "", salePrice: "", status: "In Stock", image: "", sizeCategory: "US" });
+        setProduct({ name: "", brand: "", sku: "", category: "", originalPrice: "", salePrice: "0", status: "In Stock", image: "", sizeCategory: "US" });
         setVariants([{ size: "", location: "", status: "Available", quantity: 1 }]);
         if (onProductAdded) onProductAdded();
         if (onClose) onClose();
@@ -445,6 +473,10 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
                   <SelectItem value="Unisex">Unisex</SelectItem>
                   <SelectItem value="Youth">Youth</SelectItem>
                   <SelectItem value="Toddlers">Toddlers</SelectItem>
+                  <SelectItem value="T-Shirts">T-Shirts</SelectItem>
+                  <SelectItem value="Figurines">Figurines</SelectItem>
+                  <SelectItem value="Collectibles">Collectibles</SelectItem>
+                  <SelectItem value="Pop Marts">Pop Marts</SelectItem>
                 </SelectContent>
               </Select>
             </div>

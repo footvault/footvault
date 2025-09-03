@@ -1481,6 +1481,34 @@ function AddVariantsModal({
         else if (sizeLabel === "EU") generateRange(16, 27, 0.5)
         else if (sizeLabel === "CM") generateRange(8, 16, 0.5)
         break
+      case "T-Shirts":
+        if (sizeLabel === "Clothing") {
+          sizes.push("XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL")
+        }
+        break
+      case "Figurines":
+        if (sizeLabel === "Standard") {
+          sizes.push("1/6 Scale", "1/12 Scale", "1/18 Scale", "1/24 Scale", "1/32 Scale", "1/64 Scale")
+        } else if (sizeLabel === "Series") {
+          sizes.push("Series 1", "Series 2", "Series 3", "Series 4", "Series 5", "Series 6", "Series 7", "Series 8", "Series 9", "Series 10")
+        }
+        break
+      case "Collectibles":
+        if (sizeLabel === "Standard") {
+          sizes.push("Small", "Medium", "Large", "XL", "Jumbo")
+        } else if (sizeLabel === "Series") {
+          sizes.push("Common", "Uncommon", "Rare", "Ultra Rare", "Secret Rare", "Chase", "Grail")
+        }
+        break
+      case "Pop Marts":
+        if (sizeLabel === "Standard") {
+          sizes.push("Regular", "Mini", "Large", "Mega")
+        } else if (sizeLabel === "Series") {
+          sizes.push("Series 1", "Series 2", "Series 3", "Series 4", "Series 5", "Series 6", "Series 7", "Series 8", "Series 9", "Series 10")
+        } else if (sizeLabel === "Limited") {
+          sizes.push("Regular", "Chase", "Secret", "Hidden", "Special Edition", "Convention Exclusive")
+        }
+        break
     }
     
     return Array.from(new Set(sizes)).sort((a, b) => Number.parseFloat(a) - Number.parseFloat(b))
@@ -1656,6 +1684,10 @@ function AddVariantsModal({
                 <SelectItem value="CM">CM</SelectItem>
                 <SelectItem value="YC">YC</SelectItem>
                 <SelectItem value="TD">TD</SelectItem>
+                <SelectItem value="Clothing">Clothing</SelectItem>
+                <SelectItem value="Standard">Standard</SelectItem>
+                <SelectItem value="Series">Series</SelectItem>
+                <SelectItem value="Limited">Limited</SelectItem>
               </SelectContent>
             </Select>
           </div>

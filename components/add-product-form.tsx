@@ -27,7 +27,8 @@ import { cn } from "@/lib/utils"
 const formatNumberWithCommas = (value: number | string): string => {
   if (value === "" || value === null || value === undefined) return ""
   const numValue = typeof value === "string" ? parseFloat(value) : value
-  if (isNaN(numValue) || numValue === 0) return ""
+  if (isNaN(numValue)) return ""
+  if (numValue === 0) return "0"
   
   // Format with commas and preserve up to 2 decimal places
   return numValue.toLocaleString('en-US', { 
@@ -168,6 +169,41 @@ const getDynamicSizes = (sizeCategory: string, sizeLabel: string): string[] => {
         generateRange(17, 27, 0.5) // EU toddler sizes
       else if (sizeLabel === "CM") generateRange(9, 16, 0.5) // CM toddler sizes
       break
+    case "T-Shirts":
+      if (sizeLabel === "Clothing") {
+        sizes.push('XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL')
+      } else if (sizeLabel === "US") {
+        // US numeric sizing for t-shirts
+        generateRange(0, 20, 2) // 0, 2, 4, 6, 8, etc.
+      }
+      break
+    case "Figurines":
+      if (sizeLabel === "Standard") {
+        sizes.push('1/6 Scale', '1/12 Scale', '1/10 Scale', '1/4 Scale', '1/8 Scale', 'Life Size')
+      } else if (sizeLabel === "Series") {
+        sizes.push('Series 1', 'Series 2', 'Series 3', 'Series 4', 'Series 5', 'Series 6', 'Series 7', 'Series 8', 'Series 9', 'Series 10')
+      } else if (sizeLabel === "Limited") {
+        sizes.push('Standard', 'Deluxe', 'Premium', 'Limited Edition', 'Exclusive', 'Chase')
+      }
+      break
+    case "Collectibles":
+      if (sizeLabel === "Standard") {
+        sizes.push('Mini', 'Regular', 'Large', 'Jumbo', 'Giant')
+      } else if (sizeLabel === "Series") {
+        sizes.push('Wave 1', 'Wave 2', 'Wave 3', 'Wave 4', 'Wave 5', 'Special Edition')
+      } else if (sizeLabel === "Limited") {
+        sizes.push('Common', 'Uncommon', 'Rare', 'Ultra Rare', 'Secret Rare', 'Chase')
+      }
+      break
+    case "Pop Marts":
+      if (sizeLabel === "Standard") {
+        sizes.push('Blind Box', 'Mystery Box', 'Regular', 'Large')
+      } else if (sizeLabel === "Series") {
+        sizes.push('Series 1', 'Series 2', 'Series 3', 'Series 4', 'Series 5', 'Birthday Series', 'Holiday Series', 'Special Collab')
+      } else if (sizeLabel === "Limited") {
+        sizes.push('Regular', 'Secret', 'Hidden', 'Chase', 'Special Edition', 'Artist Series')
+      }
+      break
   }
   // Use a Set to ensure uniqueness before sorting
   return Array.from(new Set(sizes)).sort((a, b) => Number.parseFloat(a) - Number.parseFloat(b)) // Ensure numerical sort
@@ -198,8 +234,8 @@ export function AddProductForm({
   
   // State for formatted display values of price fields
   const [displayPrices, setDisplayPrices] = useState({
-    originalPrice: "",
-    salePrice: ""
+    originalPrice: "0",
+    salePrice: "0"
   })
   
   const [newVariant, setNewVariant] = useState<Omit<VariantFormState, "tempId">>({
@@ -318,7 +354,7 @@ export function AddProductForm({
         sku: existingProductDetails.sku,
         category: existingProductDetails.category || "Uncategorized",
         originalPrice: existingProductDetails.originalPrice || 0,
-        salePrice: existingProductDetails.salePrice || 0,
+        salePrice: 0,
         image: existingProductDetails.image || "/placeholder.svg?height=100&width=100",
         sizeCategory: existingProductDetails.sizeCategory || "Men's", // Use existing size category
       })
@@ -346,7 +382,7 @@ export function AddProductForm({
         sku: productDataFromApi.sku,
         category: productDataFromApi.category || productDataFromApi.secondary_category || "Uncategorized",
         originalPrice: retailPrice || 0,
-        salePrice: productDataFromApi.avg_price || 0,
+        salePrice: 0,
         image: productDataFromApi.image || "/placeholder.svg?height=100&width=100",
         sizeCategory: inferredSizeCategory || "Men's",
       });
@@ -400,8 +436,8 @@ export function AddProductForm({
     const salePriceNum = typeof productForm.salePrice === "number" ? productForm.salePrice : parseFloat(productForm.salePrice) || 0
     
     setDisplayPrices({
-      originalPrice: originalPriceNum > 0 ? formatNumberWithCommas(originalPriceNum) : "",
-      salePrice: salePriceNum > 0 ? formatNumberWithCommas(salePriceNum) : ""
+      originalPrice: formatNumberWithCommas(originalPriceNum),
+      salePrice: formatNumberWithCommas(salePriceNum)
     })
   }, [productForm.originalPrice, productForm.salePrice])
 
@@ -848,6 +884,10 @@ export function AddProductForm({
                   <SelectItem value="Toddlers">Toddlers</SelectItem>
                   <SelectItem value="Youth">Youth</SelectItem>
                   <SelectItem value="Unisex">Unisex</SelectItem>
+                  <SelectItem value="T-Shirts">T-Shirts</SelectItem>
+                  <SelectItem value="Figurines">Figurines</SelectItem>
+                  <SelectItem value="Collectibles">Collectibles</SelectItem>
+                  <SelectItem value="Pop Marts">Pop Marts</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -915,6 +955,10 @@ export function AddProductForm({
                     <SelectItem value="CM">CM</SelectItem>
                     <SelectItem value="TD">TD</SelectItem>
                     <SelectItem value="YC">YC</SelectItem>
+                    <SelectItem value="Clothing">Clothing</SelectItem>
+                    <SelectItem value="Standard">Standard</SelectItem>
+                    <SelectItem value="Series">Series</SelectItem>
+                    <SelectItem value="Limited">Limited</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
