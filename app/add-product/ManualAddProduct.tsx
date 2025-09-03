@@ -6,12 +6,23 @@ import { createClient } from "@/lib/supabase/client"
 import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Label } from "@/components/ui/label"
 import Image from "next/image"
 import { toast } from "@/hooks/use-toast"
+import { Plus, Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 
-export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?: () => void, onClose?: () => void }) {
+export function ManualAddProduct({ 
+  open, 
+  onOpenChange, 
+  onProductAdded 
+}: { 
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onProductAdded?: () => void;
+}) {
   const supabase = createClient();
   const [isPending, startTransition] = useTransition()
   const [product, setProduct] = useState({
@@ -31,9 +42,10 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
     status: string
     quantity: number
     condition?: string
+    dateAdded?: string
   }
   const [variants, setVariants] = useState<Variant[]>([
-    { size: "", location: "", status: "Available", quantity: 1 }
+    { size: "", location: "", status: "Available", quantity: 1, condition: "New", dateAdded: new Date().toISOString().split("T")[0] }
   ])
   // For dynamic size label (US/UK/EU/CM)
   const [sizeLabel, setSizeLabel] = useState("US");
@@ -41,6 +53,19 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
   const [addingLocationIdx, setAddingLocationIdx] = useState<number|null>(null);
   const [newLocation, setNewLocation] = useState("");
   const [customLocations, setCustomLocations] = useState<string[]>([]);
+  
+  // Consignor functionality
+  const [consignors, setConsignors] = useState<Array<{
+    id: number;
+    name: string;
+    commission_rate: number;
+  }>>([])
+  const [ownerType, setOwnerType] = useState<'store' | 'consignor'>('store');
+  const [consignorId, setConsignorId] = useState<number | null>(null);
+  
+  // Custom location functionality
+  const [showCustomLocationInput, setShowCustomLocationInput] = useState(false);
+  const [newCustomLocationName, setNewCustomLocationName] = useState("");
   
   // Variant limits state
   const [variantLimits, setVariantLimits] = useState<{
@@ -67,7 +92,30 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
       });
       setCustomLocations(locs);
     };
+    
+    const fetchConsignors = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from('consignors')
+          .select('id, name, commission_rate, status')
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error("Failed to fetch consignors:", error);
+        } else {
+          const activeConsignors = (data || []).filter(c => c.status === 'active');
+          setConsignors(activeConsignors);
+        }
+      } catch (error) {
+        console.error("Failed to fetch consignors:", error);
+      }
+    };
+    
     fetchLocations();
+    fetchConsignors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -127,56 +175,66 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
         else if (sizeLabel === "CM") generateRange(22, 33, 0.5) // Approx
         break
       case "Women's":
-        if (sizeLabel === "US") generateRange(4, 12, 0.5)
+        if (sizeLabel === "US") generateRange(4, 13, 0.5)
         else if (sizeLabel === "UK") generateRange(2, 10, 0.5)
         else if (sizeLabel === "EU")
           generateRange(34, 44, 0.5) // Approx
         else if (sizeLabel === "CM") generateRange(21, 29, 0.5) // Approx
         break
       case "Youth": // YC
-        if (sizeLabel === "US" || sizeLabel === "YC")
-          generateRange(1, 7, 0.5) // Youth sizes typically 1Y-7Y
+        if (sizeLabel === "US" || sizeLabel === "YC") {
+          // Nike/Adidas standard Youth: 10.5C, 11C, 11.5C, 12C, 12.5C, 13C, 13.5C, 1Y, 1.5Y, 2Y, 2.5Y, 3Y, 3.5Y, 4Y, 4.5Y, 5Y, 5.5Y, 6Y, 6.5Y, 7Y
+          const youthSizes = ['10.5', '11', '11.5', '12', '12.5', '13', '13.5', '1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7'];
+          sizes.push(...youthSizes);
+        }
         else if (sizeLabel === "UK")
-          generateRange(13.5, 6.5, 0.5) // UK youth sizes
+          generateRange(10, 6.5, 0.5) // UK youth sizes
         else if (sizeLabel === "EU")
-          generateRange(31, 40, 0.5) // EU youth sizes
-        else if (sizeLabel === "CM") generateRange(19, 25, 0.5) // CM youth sizes
+          generateRange(28, 40, 0.5) // EU youth sizes
+        else if (sizeLabel === "CM") generateRange(16.5, 25, 0.5) // CM youth sizes
         break
       case "Toddlers": // TD
         if (sizeLabel === "US" || sizeLabel === "TD")
-          generateRange(1, 10, 0.5) // Toddler sizes typically 1C-10C
+          generateRange(2, 10, 0.5) // Nike/Adidas standard: 2C-10C
         else if (sizeLabel === "UK")
-          generateRange(0.5, 9.5, 0.5) // UK toddler sizes
+          generateRange(1.5, 9.5, 0.5) // UK toddler sizes
         else if (sizeLabel === "EU")
-          generateRange(16, 27, 0.5) // EU toddler sizes
-        else if (sizeLabel === "CM") generateRange(8, 16, 0.5) // CM toddler sizes
+          generateRange(17, 27, 0.5) // EU toddler sizes
+        else if (sizeLabel === "CM") generateRange(9, 16, 0.5) // CM toddler sizes
         break
       case "T-Shirts":
         if (sizeLabel === "Clothing") {
           sizes.push("XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL")
+        } else if (sizeLabel === "US") {
+          // US numeric sizing for t-shirts
+          generateRange(0, 20, 2) // 0, 2, 4, 6, 8, etc.
         }
         break
       case "Figurines":
         if (sizeLabel === "Standard") {
-          sizes.push("1/6 Scale", "1/12 Scale", "1/18 Scale", "1/24 Scale", "1/32 Scale", "1/64 Scale")
+          sizes.push("1/6 Scale", "1/12 Scale", "1/10 Scale", "1/4 Scale", "1/8 Scale", "Life Size")
         } else if (sizeLabel === "Series") {
           sizes.push("Series 1", "Series 2", "Series 3", "Series 4", "Series 5", "Series 6", "Series 7", "Series 8", "Series 9", "Series 10")
+        } else if (sizeLabel === "Limited") {
+          sizes.push("Standard", "Deluxe", "Premium", "Limited Edition", "Exclusive", "Chase")
         }
         break
       case "Collectibles":
         if (sizeLabel === "Standard") {
-          sizes.push("Small", "Medium", "Large", "XL", "Jumbo")
+          sizes.push("Mini", "Regular", "Large", "Jumbo", "Giant")
         } else if (sizeLabel === "Series") {
-          sizes.push("Common", "Uncommon", "Rare", "Ultra Rare", "Secret Rare", "Chase", "Grail")
+          sizes.push("Wave 1", "Wave 2", "Wave 3", "Wave 4", "Wave 5", "Special Edition")
+        } else if (sizeLabel === "Limited") {
+          sizes.push("Common", "Uncommon", "Rare", "Ultra Rare", "Secret Rare", "Chase")
         }
         break
       case "Pop Marts":
         if (sizeLabel === "Standard") {
-          sizes.push("Regular", "Mini", "Large", "Mega")
+          sizes.push("Blind Box", "Mystery Box", "Regular", "Large")
         } else if (sizeLabel === "Series") {
-          sizes.push("Series 1", "Series 2", "Series 3", "Series 4", "Series 5", "Series 6", "Series 7", "Series 8", "Series 9", "Series 10")
+          sizes.push("Series 1", "Series 2", "Series 3", "Series 4", "Series 5", "Birthday Series", "Holiday Series", "Special Collab")
         } else if (sizeLabel === "Limited") {
-          sizes.push("Regular", "Chase", "Secret", "Hidden", "Special Edition", "Convention Exclusive")
+          sizes.push("Regular", "Secret", "Hidden", "Chase", "Special Edition", "Artist Series")
         }
         break
     }
@@ -195,6 +253,76 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
     setVariants(prev => prev.map((variant, i) =>
       i === idx ? { ...variant, [name]: name === "quantity" ? Math.max(1, parseInt(value) || 1) : value } : variant
     ))
+  }
+
+  const handleAddCustomLocation = async () => {
+    if (!newCustomLocationName.trim()) {
+      toast({
+        title: "Location Name Empty",
+        description: "Please enter a name for the new location.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!session) {
+          toast({
+            title: "Authentication Required",
+            description: "Please sign in to add a custom location.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const response = await fetch('/api/add-custom-location', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            locationName: newCustomLocationName.trim(),
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to add custom location');
+        }
+
+        if (result.success) {
+          toast({
+            title: "Location Added",
+            description: `"${newCustomLocationName}" has been added to custom locations.`,
+          });
+          setCustomLocations((prev) => [...prev, newCustomLocationName.trim()].sort());
+          setNewCustomLocationName("");
+          setShowCustomLocationInput(false);
+          // Set the new location as selected
+          setVariants(prev => prev.map((variant, i) => 
+            i === 0 ? { ...variant, location: newCustomLocationName.trim() } : variant
+          ));
+        } else {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to add custom location",
+            variant: "destructive",
+          });
+        }
+      } catch (error: any) {
+        console.error("Error adding custom location:", error);
+        toast({
+          title: "Error",
+          description: error.message || "An error occurred while adding the custom location",
+          variant: "destructive",
+        });
+      }
+    });
   }
 
 
@@ -233,6 +361,20 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
             setIsSaving(false);
             return;
           }
+        }
+        for (let i = 0; i < variants.length; i++) {
+          const v = variants[i];
+          if (!v.size || !v.location || !v.quantity) {
+            setIsSaving(false);
+            return;
+          }
+        }
+
+        // Validate consignor selection if owner_type is 'consignor'
+        if (ownerType === 'consignor' && !consignorId) {
+          toast({ title: "Missing Consignor", description: "Please select a consignor for this variant." });
+          setIsSaving(false);
+          return;
         }
         for (let i = 0; i < variants.length; i++) {
           const v = variants[i];
@@ -312,11 +454,13 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
               serial_number: nextSerial++,
               user_id: user.id,
               variant_sku: product.sku,
-              date_added: today,
-              condition: v.condition || null,
+              date_added: v.dateAdded || today,
+              condition: v.condition || "New",
               size_label: sizeLabel,
               cost_price: 0.00,
               isArchived: false,
+              owner_type: ownerType,
+              consignor_id: ownerType === 'consignor' ? consignorId : null,
               // product_id will be set below
             });
           }
@@ -364,10 +508,14 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
           if (variantError) throw new Error(variantError.message);
         }
         toast({ title: "Product Added", description: "Product saved to Supabase." });
-        setProduct({ name: "", brand: "", sku: "", category: "", originalPrice: "", salePrice: "0", status: "In Stock", image: "", sizeCategory: "US" });
-        setVariants([{ size: "", location: "", status: "Available", quantity: 1 }]);
+        setProduct({ name: "", brand: "", sku: "", category: "", originalPrice: "", salePrice: "0", status: "In Stock", image: "", sizeCategory: "Men's" });
+        setVariants([{ size: "", location: "", status: "Available", quantity: 1, condition: "New", dateAdded: new Date().toISOString().split("T")[0] }]);
+        setOwnerType('store');
+        setConsignorId(null);
+        setShowCustomLocationInput(false);
+        setNewCustomLocationName("");
         if (onProductAdded) onProductAdded();
-        if (onClose) onClose();
+        if (onOpenChange) onOpenChange(false);
       } catch (e: any) {
         toast({ title: "Error", description: e.message || "Could not save to Supabase." });
       } finally {
@@ -377,323 +525,461 @@ export function ManualAddProduct({ onProductAdded, onClose }: { onProductAdded?:
   };
 
   return (
-    <Card className="mt-4 max-w-lg mx-auto shadow-xl border-0 rounded-2xl bg-white dark:bg-zinc-900 max-h-[90vh] overflow-y-auto">
-      <CardHeader className="flex flex-col items-center gap-2 pb-4">
-        <CardTitle className="text-2xl font-bold text-center">Add New Product</CardTitle>
-        <p className="text-sm text-gray-500 text-center">Fill in the details below to add a product to your inventory.</p>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 gap-6">
-          {/* Product Image */}
-          <div>
-            <label className="block text-sm font-medium mb-2">Product Image</label>
-            <div className="w-32 h-32 rounded-xl border-2 border-dashed border-gray-300 dark:border-zinc-600 bg-gray-50 dark:bg-zinc-800 flex items-center justify-center overflow-hidden mb-2">
-              {product.image ? (
-                <Image src={product.image} alt="Product Image" width={128} height={128} className="object-contain w-full h-full rounded-xl bg-white" />
-              ) : (
-                <div className="text-center text-gray-400">
-                  <div className="text-3xl mb-1">📷</div>
-                  <div className="text-xs">No Image</div>
-                </div>
-              )}
-            </div>
-            <Input
-              name="image"
-              value={product.image}
-              onChange={handleProductChange}
-              placeholder="Paste image URL here..."
-              className="text-sm"
-              required={true}
-            />
-            {showRequired && !product.image && <span className="text-xs text-red-500">Image URL is required</span>}
-          </div>
-
-          {/* Product Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Product Name *</label>
-              <Input 
-                name="name" 
-                value={product.name} 
-                onChange={handleProductChange} 
-                placeholder="e.g. Nike Dunk Low" 
-                className="text-sm"
-                required 
-              />
-              {showRequired && !product.name && <span className="text-xs text-red-500 mt-1">Required field</span>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Brand *</label>
-              <Input 
-                name="brand" 
-                value={product.brand} 
-                onChange={handleProductChange} 
-                placeholder="e.g. Nike" 
-                className="text-sm"
-                required 
-              />
-              {showRequired && !product.brand && <span className="text-xs text-red-500 mt-1">Required field</span>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">SKU *</label>
-              <Input 
-                name="sku" 
-                value={product.sku} 
-                onChange={handleProductChange} 
-                placeholder="e.g. DD1391-100" 
-                className="text-sm"
-                required 
-              />
-              {showRequired && !product.sku && <span className="text-xs text-red-500 mt-1">Required field</span>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Category *</label>
-              <Input 
-                name="category" 
-                value={product.category} 
-                onChange={handleProductChange} 
-                placeholder="e.g. Sneakers" 
-                className="text-sm"
-                required 
-              />
-              {showRequired && !product.category && <span className="text-xs text-red-500 mt-1">Required field</span>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Size Category *</label>
-              <Select
-                value={product.sizeCategory}
-                onValueChange={val => setProduct(prev => ({ ...prev, sizeCategory: val }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Size Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Men's">Men's</SelectItem>
-                  <SelectItem value="Women's">Women's</SelectItem>
-                  <SelectItem value="Unisex">Unisex</SelectItem>
-                  <SelectItem value="Youth">Youth</SelectItem>
-                  <SelectItem value="Toddlers">Toddlers</SelectItem>
-                  <SelectItem value="T-Shirts">T-Shirts</SelectItem>
-                  <SelectItem value="Figurines">Figurines</SelectItem>
-                  <SelectItem value="Collectibles">Collectibles</SelectItem>
-                  <SelectItem value="Pop Marts">Pop Marts</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Original Price *</label>
-              <Input 
-                name="originalPrice" 
-                value={product.originalPrice} 
-                onChange={handleProductChange} 
-                type="number" 
-                step="0.01"
-                placeholder="0.00" 
-                className="text-sm"
-                required 
-              />
-              {showRequired && !product.originalPrice && <span className="text-xs text-red-500 mt-1">Required field</span>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Sale Price *</label>
-              <Input 
-                name="salePrice" 
-                value={product.salePrice} 
-                onChange={handleProductChange} 
-                type="number" 
-                step="0.01"
-                placeholder="0.00" 
-                className="text-sm"
-                required 
-              />
-              {showRequired && !product.salePrice && <span className="text-xs text-red-500 mt-1">Required field</span>}
-            </div>
-          </div>
-
-          {/* Inventory Details (Size, Location, Quantity) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-            <div>
-              <label className="block text-sm font-medium mb-2">Size Label *</label>
-              <Select
-                value={sizeLabel}
-                onValueChange={val => {
-                  setSizeLabel(val);
-                  // Reset size if label changes
-                  setVariants(prev => prev.map((v, i) => i === 0 ? { ...v, size: "" } : v));
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Size Label" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="US">US</SelectItem>
-                  <SelectItem value="UK">UK</SelectItem>
-                  <SelectItem value="EU">EU</SelectItem>
-                  <SelectItem value="CM">CM</SelectItem>
-                  <SelectItem value="TD">TD</SelectItem>
-                  <SelectItem value="YC">YC</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Size *</label>
-              <Select
-                value={variants[0].size}
-                onValueChange={val => handleVariantChange(0, { target: { name: 'size', value: val } } as any)}
-                disabled={!sizeLabel || !product.sizeCategory}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Size" />
-                </SelectTrigger>
-                <SelectContent>
-                  {getDynamicSizes(product.sizeCategory, sizeLabel).length > 0 ? (
-                    getDynamicSizes(product.sizeCategory, sizeLabel).map(sizeOpt => (
-                      <SelectItem key={sizeOpt} value={sizeOpt}>{sizeOpt}</SelectItem>
-                    ))
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Plus className="h-5 w-5" />
+            Add New Product
+          </DialogTitle>
+        </DialogHeader>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-4">
+          {/* Product Details Column - spans 2 columns */}
+          <div className="md:col-span-2 space-y-4">
+            <h3 className="text-lg font-semibold">Product Details</h3>
+            
+            {/* Product Image and Basic Info */}
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-[100px] h-[100px] rounded-md border-2 border-dashed border-gray-300 dark:border-zinc-600 bg-gray-50 dark:bg-zinc-800 flex items-center justify-center overflow-hidden">
+                  {product.image ? (
+                    <Image src={product.image} alt="Product Image" width={100} height={100} className="object-cover border transition-opacity duration-200 rounded-md" />
                   ) : (
-                    <SelectItem value="placeholder-size-select" disabled>
-                      Select Size Label & Category First
-                    </SelectItem>
+                    <div className="text-center text-gray-400">
+                      <div className="text-4xl mb-2">📷</div>
+                      <div className="text-xs">No Image</div>
+                    </div>
                   )}
-                  <SelectItem value="custom-size-input">Custom Size...</SelectItem>
-                </SelectContent>
-              </Select>
-              {variants[0].size === "custom-size-input" && (
-                <Input
-                  placeholder="Enter custom size"
-                  value={variants[0].size === "custom-size-input" ? "" : variants[0].size}
-                  onChange={e => handleVariantChange(0, { target: { name: 'size', value: e.target.value } } as any)}
-                  className="mt-2 text-xs"
+                </div>
+              </div>
+              
+              <div className="flex-1 space-y-2">
+                <div>
+                  <Label htmlFor="name">Product Name</Label>
+                  <Input 
+                    id="name"
+                    name="name" 
+                    value={product.name} 
+                    onChange={handleProductChange} 
+                    placeholder="e.g. Nike Dunk Low" 
+                    className="text-sm mt-1"
+                    required 
+                  />
+                  {showRequired && !product.name && <span className="text-xs text-red-500 mt-1">Required field</span>}
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="brand">Brand</Label>
+                    <Input 
+                      id="brand"
+                      name="brand" 
+                      value={product.brand} 
+                      onChange={handleProductChange} 
+                      placeholder="e.g. Nike" 
+                      className="text-sm mt-1"
+                      required 
+                    />
+                    {showRequired && !product.brand && <span className="text-xs text-red-500 mt-1">Required field</span>}
+                  </div>
+                  <div>
+                    <Label htmlFor="sku">SKU</Label>
+                    <Input 
+                      id="sku"
+                      name="sku" 
+                      value={product.sku} 
+                      onChange={handleProductChange} 
+                      placeholder="e.g. DD1391-100" 
+                      className="text-sm mt-1"
+                      required 
+                    />
+                    {showRequired && !product.sku && <span className="text-xs text-red-500 mt-1">Required field</span>}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Product Details */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="category">Category</Label>
+                <Input 
+                  id="category"
+                  name="category" 
+                  value={product.category} 
+                  onChange={handleProductChange} 
+                  placeholder="e.g. Sneakers" 
+                  className="text-sm mt-1"
+                  required 
                 />
-              )}
-              {showRequired && !variants[0].size && <span className="text-xs text-red-500 mt-1">Required field</span>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Location *</label>
-              <Select
-                value={variants[0].location}
-                onValueChange={val => handleVariantChange(0, { target: { name: 'location', value: val } } as any)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Location" />
-                </SelectTrigger>
-                <SelectContent>
-                  {customLocations.map(loc => (
-                    <SelectItem key={loc} value={loc}>{loc}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {showRequired && !variants[0].location && <span className="text-xs text-red-500 mt-1">Required field</span>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Quantity *</label>
-              <Input
-                name="quantity"
-                type="number"
-                min={1}
-                value={variants[0].quantity}
-                onChange={e => handleVariantChange(0, e)}
-                placeholder="1"
-                className="text-sm"
-                required
-              />
+                {showRequired && !product.category && <span className="text-xs text-red-500 mt-1">Required field</span>}
+              </div>
+              
+              <div>
+                <Label htmlFor="sizeCategory">Size Category</Label>
+                <Select
+                  value={product.sizeCategory}
+                  onValueChange={val => setProduct(prev => ({ ...prev, sizeCategory: val }))}
+                >
+                  <SelectTrigger id="sizeCategory" className="w-full mt-1">
+                    <SelectValue placeholder="Select Size Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Men's">Men's</SelectItem>
+                    <SelectItem value="Women's">Women's</SelectItem>
+                    <SelectItem value="Unisex">Unisex</SelectItem>
+                    <SelectItem value="Youth">Youth</SelectItem>
+                    <SelectItem value="Toddlers">Toddlers</SelectItem>
+                    <SelectItem value="T-Shirts">T-Shirts</SelectItem>
+                    <SelectItem value="Figurines">Figurines</SelectItem>
+                    <SelectItem value="Collectibles">Collectibles</SelectItem>
+                    <SelectItem value="Pop Marts">Pop Marts</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="originalPrice">Cost Price</Label>
+                  <Input 
+                    id="originalPrice"
+                    name="originalPrice" 
+                    value={product.originalPrice} 
+                    onChange={handleProductChange} 
+                    type="number" 
+                    step="0.01"
+                    placeholder="0.00" 
+                    className="text-sm mt-1"
+                    required 
+                  />
+                  {showRequired && !product.originalPrice && <span className="text-xs text-red-500 mt-1">Required field</span>}
+                </div>
+                <div>
+                  <Label htmlFor="salePrice">Sale Price</Label>
+                  <Input 
+                    id="salePrice"
+                    name="salePrice" 
+                    value={product.salePrice} 
+                    onChange={handleProductChange} 
+                    type="number" 
+                    step="0.01"
+                    placeholder="0.00" 
+                    className="text-sm mt-1"
+                    required 
+                  />
+                  {showRequired && !product.salePrice && <span className="text-xs text-red-500 mt-1">Required field</span>}
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="image">Image URL</Label>
+                <Input
+                  id="image"
+                  name="image"
+                  value={product.image}
+                  onChange={handleProductChange}
+                  placeholder="Paste image URL here..."
+                  className="text-sm mt-1"
+                  required={true}
+                />
+                {showRequired && !product.image && <span className="text-xs text-red-500">Image URL is required</span>}
+              </div>
             </div>
           </div>
-          
-          {/* Variant Limits Visual Indicator */}
-          {loadingLimits ? (
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-32" />
-              </div>
-              <Skeleton className="w-full h-2 rounded-full" />
-              <div className="p-3 rounded-lg border bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <Skeleton className="h-4 w-28" />
-                  <Skeleton className="h-3 w-24" />
-                </div>
-                <Skeleton className="h-3 w-full mt-2" />
-              </div>
-            </div>
-          ) : variantLimits ? (
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">Variant Usage:</span>
-                <span className="text-muted-foreground">
-                  {variantLimits.current.toLocaleString()} / {variantLimits.limit.toLocaleString()} used
-                </span>
+
+          {/* Variant Details Column */}
+          <div className="md:col-span-1 space-y-4">
+            <h3 className="text-lg font-semibold">Individual Shoes (Variants)</h3>
+            
+            <div className="border p-4 rounded-md space-y-3 bg-gray-50">
+              <h4 className="font-medium text-sm">Variant Details</h4>
+              
+              <div>
+                <Label htmlFor="sizeLabel" className="text-xs">
+                  Size Label
+                </Label>
+                <Select
+                  value={sizeLabel}
+                  onValueChange={val => {
+                    setSizeLabel(val);
+                    // Reset size if label changes
+                    setVariants(prev => prev.map((v, i) => i === 0 ? { ...v, size: "" } : v));
+                  }}
+                >
+                  <SelectTrigger id="sizeLabel" className="w-full text-xs">
+                    <SelectValue placeholder="Select size label" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="US">US</SelectItem>
+                    <SelectItem value="UK">UK</SelectItem>
+                    <SelectItem value="EU">EU</SelectItem>
+                    <SelectItem value="CM">CM</SelectItem>
+                    <SelectItem value="TD">TD</SelectItem>
+                    <SelectItem value="YC">YC</SelectItem>
+                    <SelectItem value="Clothing">Clothing</SelectItem>
+                    <SelectItem value="Standard">Standard</SelectItem>
+                    <SelectItem value="Series">Series</SelectItem>
+                    <SelectItem value="Limited">Limited</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
-              {/* Progress Bar */}
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className={`h-2 rounded-full transition-all duration-300 ${
-                    variantLimits.current / variantLimits.limit >= 0.9 
-                      ? 'bg-red-500' 
-                      : variantLimits.current / variantLimits.limit >= 0.7 
-                      ? 'bg-yellow-500' 
-                      : 'bg-green-500'
-                  }`}
-                  style={{
-                    width: `${Math.min((variantLimits.current / variantLimits.limit) * 100, 100)}%`
+              <div>
+                <Label htmlFor="size" className="text-xs">
+                  Size
+                </Label>
+                <Select
+                  value={variants[0].size}
+                  onValueChange={val => handleVariantChange(0, { target: { name: 'size', value: val } } as any)}
+                  disabled={!sizeLabel || !product.sizeCategory}
+                >
+                  <SelectTrigger id="size" className="w-full text-xs">
+                    <SelectValue placeholder="Select size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getDynamicSizes(product.sizeCategory, sizeLabel).length > 0 ? (
+                      getDynamicSizes(product.sizeCategory, sizeLabel).map(sizeOpt => (
+                        <SelectItem key={sizeOpt} value={sizeOpt}>{sizeOpt}</SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="placeholder-size-select" disabled>
+                        Select Size Label & Category First
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                {showRequired && !variants[0].size && <span className="text-xs text-red-500 mt-1">Required field</span>}
+              </div>
+              
+              <div>
+                <Label htmlFor="location" className="text-sm">
+                  Location
+                </Label>
+                <Select
+                  value={variants[0].location}
+                  onValueChange={(value) => {
+                    if (value === "add-custom-location") {
+                      setShowCustomLocationInput(true)
+                      setVariants(prev => prev.map((variant, i) => 
+                        i === 0 ? { ...variant, location: "" } : variant
+                      )); // Clear current selection
+                    } else {
+                      setShowCustomLocationInput(false)
+                      setVariants(prev => prev.map((variant, i) => 
+                        i === 0 ? { ...variant, location: value } : variant
+                      ));
+                    }
                   }}
+                >
+                  <SelectTrigger id="location" className="w-full mt-1">
+                    <SelectValue placeholder="Select location or add new" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Warehouse A">Warehouse A</SelectItem>
+                    <SelectItem value="Warehouse B">Warehouse B</SelectItem>
+                    {customLocations.map((loc) => (
+                      <SelectItem key={loc} value={loc}>
+                        {loc}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="add-custom-location">Add Custom Location...</SelectItem>
+                  </SelectContent>
+                </Select>
+                {showCustomLocationInput && (
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      id="newCustomLocationName"
+                      placeholder="Enter new location name"
+                      value={newCustomLocationName}
+                      onChange={(e) => setNewCustomLocationName(e.target.value)}
+                      className="text-sm flex-1"
+                      disabled={isPending}
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleAddCustomLocation}
+                      size="sm"
+                      className="h-9"
+                      disabled={isPending}
+                    >
+                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                )}
+                {showRequired && !variants[0].location && <span className="text-xs text-red-500 mt-1">Required field</span>}
+              </div>
+              
+              <div>
+                <Label htmlFor="quantity" className="text-sm">
+                  Quantity
+                </Label>
+                <Input
+                  id="quantity"
+                  name="quantity"
+                  type="number"
+                  min={1}
+                  max={variantLimits ? variantLimits.remaining : undefined}
+                  value={variants[0].quantity}
+                  onChange={e => handleVariantChange(0, e)}
+                  onBlur={(e) => {
+                    if (e.target.value === "" || parseInt(e.target.value) < 1) {
+                      setVariants(prev => prev.map((variant, i) => 
+                        i === 0 ? { ...variant, quantity: 1 } : variant
+                      ));
+                    }
+                  }}
+                  placeholder="1"
+                  className={cn(
+                    "text-sm mt-1",
+                    variantLimits && variants[0].quantity > variantLimits.remaining
+                      ? "border-red-300 focus:border-red-500"
+                      : ""
+                  )}
+                  required
+                />
+                {variantLimits && variants[0].quantity > variantLimits.remaining && (
+                  <p className="text-xs text-red-600 mt-1">
+                    Cannot add {variants[0].quantity} variants. Only {variantLimits.remaining} available variant slots remaining on your {variantLimits.plan} plan. 
+                    {variantLimits.remaining > 0 && (
+                      <span className="block font-medium">
+                        Please adjust your quantity to {variantLimits.remaining} or upgrade your plan.
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
+              
+              {/* Condition */}
+              <div>
+                <Label htmlFor="condition" className="text-sm">
+                  Condition
+                </Label>
+                <Select
+                  value={variants[0].condition || "New"}
+                  onValueChange={(value) => setVariants(prev => prev.map((variant, i) => 
+                    i === 0 ? { ...variant, condition: value } : variant
+                  ))}
+                >
+                  <SelectTrigger id="condition" className="w-full mt-1">
+                    <SelectValue placeholder="Select condition" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="New">New</SelectItem>
+                    <SelectItem value="Used">Used</SelectItem>
+                    <SelectItem value="Damaged">Damaged</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Date Added */}
+              <div>
+                <Label htmlFor="dateAdded" className="text-sm">
+                  Date Added
+                </Label>
+                <Input
+                  id="dateAdded"
+                  name="dateAdded"
+                  type="date"
+                  value={variants[0].dateAdded || new Date().toISOString().split("T")[0]}
+                  onChange={e => handleVariantChange(0, e)}
+                  className="text-sm mt-1"
                 />
               </div>
               
-              {/* Impact Indicator */}
-              {variants.length > 0 && variants[0].quantity > 0 && (
-                <div className={`p-3 rounded-lg border ${
-                  variants[0].quantity > variantLimits.remaining
-                    ? 'bg-red-50 border-red-200 text-red-800'
-                    : variantLimits.remaining <= 10
-                    ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
-                    : 'bg-green-50 border-green-200 text-green-800'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">
-                      Adding {variants[0].quantity} variant{variants[0].quantity !== 1 ? 's' : ''}
-                    </span>
-                    <span className="text-xs">
-                      {Math.max(0, variantLimits.remaining - variants[0].quantity)} slot{Math.max(0, variantLimits.remaining - variants[0].quantity) !== 1 ? 's' : ''} remaining
-                    </span>
-                  </div>
-                  {variants[0].quantity > variantLimits.remaining && (
-                    <p className="text-xs mt-1">
-                      Exceeds limit by {variants[0].quantity - variantLimits.remaining}. 
-                      Please reduce quantity or upgrade your {variantLimits.plan} plan.
-                    </p>
+              {/* Owner Type Selection */}
+              <div>
+                <Label htmlFor="owner_type" className="text-sm">
+                  Owner
+                </Label>
+                <Select
+                  value={ownerType}
+                  onValueChange={(value: 'store' | 'consignor') => {
+                    setOwnerType(value);
+                    if (value === 'store') {
+                      setConsignorId(null);
+                    }
+                  }}
+                >
+                  <SelectTrigger id="owner_type" className="w-full mt-1">
+                    <SelectValue placeholder="Select owner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="store">You (Store Inventory)</SelectItem>
+                    <SelectItem value="consignor">Consignor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Consignor Selection - only show if owner_type is 'consignor' */}
+              {ownerType === 'consignor' && (
+                <div>
+                  <Label htmlFor="consignor_id" className="text-sm">
+                    Select Consignor
+                  </Label>
+                  
+                  {consignors.length === 0 ? (
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md mt-1">
+                      <p className="text-xs text-yellow-800 mb-2">
+                        No consignors found. You need to add consignors before you can create consignment variants.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <Select
+                        value={consignorId?.toString() || ""}
+                        onValueChange={(value) => setConsignorId(parseInt(value))}
+                      >
+                        <SelectTrigger id="consignor_id" className="w-full mt-1">
+                          <SelectValue placeholder="Select consignor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {consignors.map((consignor) => (
+                            <SelectItem key={consignor.id} value={consignor.id.toString()}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{consignor.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {consignor.commission_rate}% commission
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      {/* Commission Info Display */}
+                      {consignorId && (
+                        <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                          <p className="text-blue-800">
+                            <strong>Commission:</strong> {consignors.find(c => c.id === consignorId)?.commission_rate}% 
+                            will be deducted from sale proceeds for this consignor.
+                          </p>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
             </div>
-          ) : null}
+          </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t">
-          <div className="flex-1">
-            <p className="text-sm text-gray-500 mb-2">
-              Ready to save? Make sure all required fields are filled out.
-            </p>
-           
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 sm:w-auto w-full">
-            {onClose && (
-              <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
-                Cancel
-              </Button>
-            )}
-            <Button 
-              onClick={handleManualSave} 
-              disabled={isSaving || isPending || isProductMissing || isVariantMissing}
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
-            >
-              {isSaving || isPending ? "Saving..." : "Save Product"}
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        <DialogFooter className="flex justify-end gap-2 py-4">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="px-6"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleManualSave}
+            className={cn("px-6", (isSaving || isPending) && "opacity-50 cursor-not-allowed")}
+            disabled={isSaving || isPending || isProductMissing || isVariantMissing}
+          >
+            {isSaving || isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : "Save Product"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

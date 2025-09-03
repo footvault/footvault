@@ -394,17 +394,11 @@ export default function AddProductPage() {
             inferredSizeCategory={inferredSizeCategory}
           />
           {/* Manual Add Product/Variant Section */}
-          <Dialog open={showManualAdd} onOpenChange={setShowManualAdd}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add Product Manually</DialogTitle>
-              </DialogHeader>
-              <ManualAddProduct
-                onProductAdded={handleProductAdded}
-                onClose={() => setShowManualAdd(false)}
-              />
-            </DialogContent>
-          </Dialog>
+          <ManualAddProduct
+            open={showManualAdd}
+            onOpenChange={setShowManualAdd}
+            onProductAdded={handleProductAdded}
+          />
         </div>
       </div>
     </SidebarInset>

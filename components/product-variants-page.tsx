@@ -164,7 +164,7 @@ function AddVariantsModal({
         else if (sizeLabel === "CM") generateRange(22, 33, 0.5)
         break
       case "Women's":
-        if (sizeLabel === "US") generateRange(4, 12, 0.5)
+        if (sizeLabel === "US") generateRange(4, 13, 0.5)
         else if (sizeLabel === "UK") generateRange(2, 10, 0.5)
         else if (sizeLabel === "EU") generateRange(34, 44, 0.5)
         else if (sizeLabel === "CM") generateRange(21, 29, 0.5)
