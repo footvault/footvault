@@ -224,6 +224,24 @@ export function CheckoutClientWrapper({
     }
   }
 
+  const handleAddVariantsToCart = (variants: TransformedVariant[]) => {
+    // Filter out duplicates that are already in cart
+    const newVariants = variants.filter(variant => 
+      !selectedVariants.some(selected => selected.id === variant.id)
+    );
+    
+    if (newVariants.length > 0) {
+      setSelectedVariants(prev => [...prev, ...newVariants]);
+      
+      // Show success toast
+      toast({
+        title: "QR Items Added to Cart",
+        description: `${newVariants.length} item${newVariants.length > 1 ? 's' : ''} added to cart from QR scan.`,
+        duration: 3000,
+      });
+    }
+  }
+
 
 
   // Payment type state (API-driven)
@@ -1068,6 +1086,7 @@ export function CheckoutClientWrapper({
             <CheckoutCart 
               selectedVariants={selectedVariants} 
               onRemove={handleRemoveVariantFromCart} 
+              onAddVariants={handleAddVariantsToCart}
               commissionFrom={commissionFrom}
             />
 

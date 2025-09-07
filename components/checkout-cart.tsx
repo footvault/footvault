@@ -3,12 +3,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ShoppingCart, Trash2, ChevronDown, ChevronUp, Grid, List, DollarSign } from "lucide-react"
+import { ShoppingCart, Trash2, ChevronDown, ChevronUp, Grid, List, DollarSign, QrCode } from "lucide-react"
 import Image from "next/image"
 import { formatCurrency } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
 import { useState } from "react"
 import { calculateSaleSplit } from "@/lib/utils/consignment"
+import { QRCheckoutScanner } from "@/components/qr-checkout-scanner"
 
 interface TransformedVariant {
   id: string;
@@ -39,13 +40,15 @@ interface TransformedVariant {
 interface CheckoutCartProps {
   selectedVariants: TransformedVariant[];
   onRemove: (variantId: string) => void;
+  onAddVariants: (variants: TransformedVariant[]) => void;
   commissionFrom?: 'total' | 'profit';
 }
 
-export function CheckoutCart({ selectedVariants, onRemove, commissionFrom = 'total' }: CheckoutCartProps) {
+export function CheckoutCart({ selectedVariants, onRemove, onAddVariants, commissionFrom = 'total' }: CheckoutCartProps) {
   const { currency } = useCurrency();
   const [showAll, setShowAll] = useState(false);
   const [isCompactView, setIsCompactView] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
 
   // Constants for display logic
   const ITEMS_TO_SHOW = 5;
@@ -54,6 +57,17 @@ export function CheckoutCart({ selectedVariants, onRemove, commissionFrom = 'tot
 
   // Calculate total
   const total = selectedVariants.reduce((sum, v) => sum + v.productSalePrice, 0);
+
+  // Handle QR scan batch completion
+  const handleQRBatchComplete = (scannedVariants: any[]) => {
+    // Convert ScannedVariant to TransformedVariant format
+    const transformedVariants: TransformedVariant[] = scannedVariants.map(variant => ({
+      ...variant,
+      productOriginalPrice: variant.productSalePrice, // Default to sale price if original price not available
+    }));
+    onAddVariants(transformedVariants);
+    setShowQRScanner(false);
+  };
 
   return (
     <Card>
@@ -76,6 +90,16 @@ export function CheckoutCart({ selectedVariants, onRemove, commissionFrom = 'tot
               </Button>
             </div>
           )}
+          {/* QR Scanner Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowQRScanner(true)}
+            className="flex items-center gap-2"
+          >
+            <QrCode className="h-4 w-4" />
+            Scan QR
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -213,6 +237,15 @@ export function CheckoutCart({ selectedVariants, onRemove, commissionFrom = 'tot
             <span>{formatCurrency(total, currency)}</span>
           </div>
         </div>
+
+        {/* QR Scanner Modal */}
+        {showQRScanner && (
+          <QRCheckoutScanner
+            onBatchComplete={handleQRBatchComplete}
+            onClose={() => setShowQRScanner(false)}
+            existingCartItems={selectedVariants.map(v => v.id)}
+          />
+        )}
       </CardContent>
     </Card>
   )
