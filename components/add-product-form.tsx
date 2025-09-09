@@ -1016,6 +1016,7 @@ export function AddProductForm({
           isArchived: false,
           owner_type: newVariant.owner_type,
           consignor_id: newVariant.owner_type === 'consignor' ? newVariant.consignor_id : null,
+          type: 'In Stock', // Regular inventory items are 'In Stock'
         }));
 
         // 4. Insert all variants

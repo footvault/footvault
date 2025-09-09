@@ -113,30 +113,46 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                 <span>Total Items:</span>
                 <span className="font-medium">{items.length}</span>
               </div>
-              {sale.payment_type && (
-                <div className="flex justify-between text-sm">
-                  <span>Payment Type:</span>
-                  <span className="font-medium">
-                    {typeof sale.payment_type === 'object' && sale.payment_type.name
-                      ? sale.payment_type.name
-                      : typeof sale.payment_type === 'string'
-                        ? sale.payment_type.charAt(0).toUpperCase() + sale.payment_type.slice(1)
-                        : 'N/A'}
-                    {typeof sale.payment_type === 'object' && sale.payment_type.feeType && typeof sale.payment_type.feeValue === 'number' && sale.payment_type.feeValue > 0 && (
-                      <>
-                        <span className="text-xs text-gray-500 ml-2">
-                          ({sale.payment_type.feeType === 'percent' ? `${sale.payment_type.feeValue}%` : `₱${sale.payment_type.feeValue}`} fee)
-                        </span>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Fee Amount: {sale.payment_type.feeType === 'percent'
-                            ? `${((sale.payment_type.feeValue / 100) * sale.total_amount).toLocaleString(undefined, { style: 'currency', currency: currency })}`
-                            : `${formatCurrency(sale.payment_type.feeValue, currency)}`}
-                        </div>
-                      </>
-                    )}
-                  </span>
-                </div>
-              )}
+              <div className="flex justify-between text-sm">
+                <span>Payment Type:</span>
+                <span className="font-medium">
+                  {(() => {
+                    if (!sale.payment_type) return 'N/A';
+                    
+                    if (typeof sale.payment_type === 'object' && sale.payment_type !== null) {
+                      // Handle new JSONB format { "type": "uuid" }
+                      if (sale.payment_type.type) {
+                        // This would need to be looked up from payment types, but for now show fallback
+                        return 'Cash'; // TODO: Implement payment type lookup by ID
+                      }
+                      // Handle legacy format with name property
+                      if (sale.payment_type.name) {
+                        return sale.payment_type.name;
+                      }
+                      return 'Cash';
+                    }
+                    
+                    // Handle string format
+                    if (typeof sale.payment_type === 'string') {
+                      return sale.payment_type.charAt(0).toUpperCase() + sale.payment_type.slice(1);
+                    }
+                    
+                    return 'N/A';
+                  })()}
+                  {typeof sale.payment_type === 'object' && sale.payment_type?.feeType && typeof sale.payment_type?.feeValue === 'number' && sale.payment_type?.feeValue > 0 && (
+                    <>
+                      <span className="text-xs text-gray-500 ml-2">
+                        ({sale.payment_type.feeType === 'percent' ? `${sale.payment_type.feeValue}%` : `₱${sale.payment_type.feeValue}`} fee)
+                      </span>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Fee Amount: {sale.payment_type.feeType === 'percent'
+                          ? `${((sale.payment_type.feeValue / 100) * sale.total_amount).toLocaleString(undefined, { style: 'currency', currency: currency })}`
+                          : `${formatCurrency(sale.payment_type.feeValue, currency)}`}
+                      </div>
+                    </>
+                  )}
+                </span>
+              </div>
               <div className="flex justify-between text-sm">
                 <span>Subtotal:</span>
                 <span className="font-medium">{formatCurrency((sale.total_amount + sale.total_discount), currency)}</span>

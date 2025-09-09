@@ -117,8 +117,15 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
     const types = new Set<string>();
     sales.forEach(sale => {
       let paymentType = "";
-      if (sale.payment_type && typeof sale.payment_type === "object" && sale.payment_type.name) {
-        paymentType = sale.payment_type.name;
+      if (sale.payment_type && typeof sale.payment_type === "object") {
+        if (sale.payment_type.name) {
+          paymentType = sale.payment_type.name;
+        } else if (sale.payment_type.type) {
+          // Handle new format from pre-order cancellation: {"type": "uuid"}
+          paymentType = "Cash"; // Default fallback for new format
+        } else {
+          paymentType = "Cash"; // Default fallback
+        }
       } else if (typeof sale.payment_type === "string" && sale.payment_type.toLowerCase() === "cash") {
         paymentType = "Cash";
       } else if (sale.payment_type_name) {
@@ -126,7 +133,8 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
       } else if (!sale.payment_type) {
         paymentType = "Cash";
       } else {
-        paymentType = sale.payment_type;
+        // Last resort: convert to string safely
+        paymentType = typeof sale.payment_type === "string" ? sale.payment_type : "Cash";
       }
       if (paymentType) types.add(paymentType);
     });
@@ -186,8 +194,15 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
     if (paymentTypeFilter !== "all") {
       filtered = filtered.filter((sale) => {
         let paymentType = "";
-        if (sale.payment_type && typeof sale.payment_type === "object" && sale.payment_type.name) {
-          paymentType = sale.payment_type.name;
+        if (sale.payment_type && typeof sale.payment_type === "object") {
+          if (sale.payment_type.name) {
+            paymentType = sale.payment_type.name;
+          } else if (sale.payment_type.type) {
+            // Handle new format from pre-order cancellation: {"type": "uuid"}
+            paymentType = "Cash"; // Default fallback for new format
+          } else {
+            paymentType = "Cash"; // Default fallback
+          }
         } else if (typeof sale.payment_type === "string" && sale.payment_type.toLowerCase() === "cash") {
           paymentType = "Cash";
         } else if (sale.payment_type_name) {
@@ -195,7 +210,8 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
         } else if (!sale.payment_type) {
           paymentType = "Cash";
         } else {
-          paymentType = sale.payment_type;
+          // Last resort: convert to string safely
+          paymentType = typeof sale.payment_type === "string" ? sale.payment_type : "Cash";
         }
         return paymentType === paymentTypeFilter;
       });
@@ -444,11 +460,11 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                 )}
               </TableHead>
               <TableHead>Customer</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Items</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Payment Type</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="hidden sm:table-cell">Phone</TableHead>
+              <TableHead className="hidden md:table-cell">Items</TableHead>
+              <TableHead className="hidden lg:table-cell">Type</TableHead>
+              <TableHead className="hidden lg:table-cell">Payment Type</TableHead>
+              <TableHead className="hidden md:table-cell">Status</TableHead>
               <TableHead className="text-right cursor-pointer select-none" onClick={() => {
                 if (sortBy === 'total') setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
                 else { setSortBy('total'); setSortDir('desc'); }
@@ -483,8 +499,16 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                 const customId = formatSalesNo(sale.sales_no);
                 // Payment type name fallback logic
                 let paymentTypeName = "";
-                if (sale.payment_type && typeof sale.payment_type === "object" && sale.payment_type.name) {
-                  paymentTypeName = sale.payment_type.name;
+                if (sale.payment_type && typeof sale.payment_type === "object") {
+                  if (sale.payment_type.name) {
+                    paymentTypeName = sale.payment_type.name;
+                  } else if (sale.payment_type.type) {
+                    // Handle new format from pre-order cancellation: {"type": "uuid"}
+                    // We need to look up the payment type name, but for now use a fallback
+                    paymentTypeName = "Cash"; // Default fallback for new format
+                  } else {
+                    paymentTypeName = "Cash"; // Default fallback
+                  }
                 } else if (typeof sale.payment_type === "string" && sale.payment_type.toLowerCase() === "cash") {
                   paymentTypeName = "Cash";
                 } else if (sale.payment_type_name) {
@@ -492,15 +516,16 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                 } else if (!sale.payment_type) {
                   paymentTypeName = "Cash";
                 } else {
-                  paymentTypeName = sale.payment_type;
+                  // Last resort: convert to string safely
+                  paymentTypeName = typeof sale.payment_type === "string" ? sale.payment_type : "Cash";
                 }
                 return (
                   <TableRow key={sale.id}>
                     <TableCell className="font-mono text-sm">{customId}</TableCell>
                     <TableCell>{new Date(sale.sale_date).toLocaleDateString()}</TableCell>
                     <TableCell>{sale.customer_name || <span className="text-gray-400 italic">No name</span>}</TableCell>
-                    <TableCell>{sale.customer_phone || <span className="text-gray-400 italic">No phone</span>}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">{sale.customer_phone || <span className="text-gray-400 italic">No phone</span>}</TableCell>
+                    <TableCell className="hidden md:table-cell">
                       {sale.items && sale.items.length > 0 ? (
                         <ul className="text-sm">
                           {sale.items.slice(0, 2).map((item: any) => (
@@ -518,40 +543,47 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                         <span className="text-gray-400 italic">No items</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       {(() => {
-                        // Determine if this sale is from a pre-order
-                        const isFromPreOrder = sale.status === 'downpayment' || 
-                          (sale.items && sale.items.some((item: any) => 
-                            item.variant && item.variant.notes && 
-                            item.variant.notes.includes('pre-order')
-                          ));
+                        // Check multiple ways to determine if this is a pre-order sale:
+                        // 1. Check if status is 'downpayment' (pre-order down payment)
+                        // 2. Check variant type field (preferred method)
+                        // 3. Fallback to checking variant notes for pre-order indicators
+                        const isDownPayment = sale.status === 'downpayment';
+                        const hasPreOrderType = sale.items && sale.items.some((item: any) => 
+                          item.variant && item.variant.type === 'Pre-order'
+                        );
+                        const hasPreOrderInNotes = sale.items && sale.items.some((item: any) => 
+                          item.variant && item.variant.notes && 
+                          (item.variant.notes.toLowerCase().includes('pre-order') || 
+                           item.variant.notes.toLowerCase().includes('cancelled pre-order') ||
+                           item.variant.notes.toLowerCase().includes('from pre-order'))
+                        );
                         
-                        if (isFromPreOrder) {
-                          if (sale.status === 'downpayment') {
-                            return (
-                              <span className="px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800">
-                                Pre-order Down Payment
-                              </span>
-                            );
-                          } else {
-                            return (
-                              <span className="px-2 py-1 rounded text-xs font-semibold bg-purple-100 text-purple-800">
-                                Pre-order
-                              </span>
-                            );
-                          }
+                        // Determine the appropriate label and styling
+                        if (isDownPayment) {
+                          return (
+                            <span className="px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800 whitespace-nowrap">
+                              Pre-order Down Payment
+                            </span>
+                          );
+                        } else if (hasPreOrderType || hasPreOrderInNotes) {
+                          return (
+                            <span className="px-2 py-1 rounded text-xs font-semibold bg-purple-100 text-purple-800 whitespace-nowrap">
+                              Pre-order
+                            </span>
+                          );
                         } else {
                           return (
-                            <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-700">
+                            <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-700 whitespace-nowrap">
                               In Stock
                             </span>
                           );
                         }
                       })()}
                     </TableCell>
-                    <TableCell>{paymentTypeName}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">{paymentTypeName}</TableCell>
+                    <TableCell className="hidden md:table-cell">
                       {sale.status ? (
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${
                           sale.status === 'completed' ? 'bg-green-100 text-green-800' :

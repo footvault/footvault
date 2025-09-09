@@ -44,6 +44,7 @@ interface Preorder {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  pre_order_no: number; // Add pre-order number field
   customer: {
     id: number;
     name: string;
@@ -626,6 +627,7 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
           user_id: user.id,
           date_added: new Date().toISOString().slice(0, 10), // YYYY-MM-DD format
           location: 'Store', // Default location for pre-order variants
+          type: 'Pre-order', // Mark as Pre-order type
           notes: `Created from pre-order #${preorder.id}`
         };
 
@@ -920,11 +922,14 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
     const supabase = createClient();
     
     try {
+      console.log('Starting processCancelToSale for preorder:', preorder.id);
+      
       // Get the current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
         throw new Error('Authentication required');
       }
+      console.log('User authenticated:', user.id);
 
       // Validate form inputs
       if (!cancelForm.paymentType) {
@@ -933,116 +938,119 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
       if (!cancelForm.profitTemplateId) {
         throw new Error('Profit distribution template is required');
       }
+      console.log('Form validation passed');
 
       // First, create a variant from the pre-order
       let variantId = preorder.variant_id;
+      console.log('Existing variant_id:', variantId);
 
       if (!variantId) {
-        // Get the highest serial_number for this user to continue numbering
-        const { data: maxSerialData, error: maxSerialError } = await supabase
-          .from("variants")
-          .select("serial_number")
-          .eq("user_id", user.id)
-          .order("serial_number", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        let nextSerial = 1;
-        if (!maxSerialError && maxSerialData && maxSerialData.serial_number) {
-          const last = parseInt(maxSerialData.serial_number, 10);
-          nextSerial = isNaN(last) ? 1 : last + 1;
-        }
-
-        // Generate a unique serial number with retry logic to handle race conditions
-        let serialNumber = nextSerial;
-        let attempts = 0;
-        const maxAttempts = 10;
+        // Use a simpler approach to generate serial numbers
+        let variantInsert: any;
+        let insertAttempts = 0;
+        const maxInsertAttempts = 5;
         
-        while (attempts < maxAttempts) {
-          const { data: existingVariant, error: checkError } = await supabase
-            .from("variants")
-            .select("id")
-            .eq("user_id", user.id)
-            .eq("serial_number", serialNumber)
-            .maybeSingle();
+        while (insertAttempts < maxInsertAttempts) {
+          try {
+            // Get the next available serial number
+            const { data: maxSerialData, error: maxSerialError } = await supabase
+              .from("variants")
+              .select("serial_number")
+              .eq("user_id", user.id)
+              .not("serial_number", "is", null)
+              .order("serial_number", { ascending: false })
+              .limit(1)
+              .maybeSingle();
 
-          if (checkError && checkError.code !== 'PGRST116') {
-            throw checkError;
-          }
+            let serialNumber = 1;
+            if (!maxSerialError && maxSerialData?.serial_number) {
+              serialNumber = maxSerialData.serial_number + 1;
+            }
 
-          if (!existingVariant) {
-            // Serial number is available
+            // Ensure serial number doesn't exceed smallint limit (32767)
+            if (serialNumber > 32767) {
+              throw new Error('Serial number limit exceeded. Please contact support.');
+            }
+
+            variantInsert = {
+              id: crypto.randomUUID(),
+              product_id: preorder.product_id,
+              size: preorder.size,
+              size_label: preorder.size_label,
+              serial_number: serialNumber,
+              variant_sku: `${preorder.product.sku}-${preorder.size || 'NOSIZE'}-${serialNumber}`,
+              cost_price: preorder.cost_price,
+              status: 'Sold', // Mark as sold immediately
+              user_id: user.id,
+              date_added: new Date().toISOString().slice(0, 10),
+              location: 'Store',
+              type: 'Pre-order', // Mark as Pre-order type
+              notes: `Created from cancelled pre-order #${preorder.id}`
+            };
+
+            const { data: variantData, error: variantError } = await supabase
+              .from('variants')
+              .insert([variantInsert])
+              .select('*')
+              .single();
+
+            if (variantError) {
+              // Check if it's a unique constraint violation on serial_number
+              if (variantError.code === '23505' && variantError.message.includes('unique_serial_per_user')) {
+                // Serial number conflict, try again with a different number
+                insertAttempts++;
+                console.log(`Serial number ${serialNumber} already exists, retrying... (attempt ${insertAttempts})`);
+                continue;
+              } else {
+                throw variantError;
+              }
+            }
+
+            // Success! Break out of the loop
+            variantId = variantData.id;
+            console.log('Variant created successfully with ID:', variantId);
             break;
+
+          } catch (error) {
+            console.log('Variant creation attempt failed:', error);
+            insertAttempts++;
+            if (insertAttempts >= maxInsertAttempts) {
+              throw new Error(`Failed to create variant after ${maxInsertAttempts} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+            // Wait a bit before retrying to avoid race conditions
+            await new Promise(resolve => setTimeout(resolve, 100));
           }
-
-          // Serial number is taken, try the next one
-          serialNumber++;
-          attempts++;
         }
-
-        if (attempts >= maxAttempts) {
-          throw new Error('Unable to generate unique serial number after multiple attempts');
-        }
-
-        const variantInsert = {
-          id: crypto.randomUUID(),
-          product_id: preorder.product_id,
-          size: preorder.size,
-          size_label: preorder.size_label,
-          serial_number: serialNumber,
-          variant_sku: `${preorder.product.sku}-${preorder.size || 'NOSIZE'}-${serialNumber}`,
-          cost_price: preorder.cost_price,
-          status: 'Sold', // Mark as sold immediately
-          user_id: user.id,
-          date_added: new Date().toISOString().slice(0, 10),
-          location: 'Store',
-          notes: `Created from cancelled pre-order #${preorder.id}`
-        };
-
-        const { data: variantData, error: variantError } = await supabase
-          .from('variants')
-          .insert([variantInsert])
-          .select('*')
-          .single();
-
-        if (variantError) throw variantError;
-        variantId = variantData.id;
       }
 
-      // Get the highest sales_no for the user
-      const { data: maxSalesData, error: maxSalesError } = await supabase
-        .from("sales")
-        .select("sales_no")
-        .eq("user_id", user.id)
-        .order("sales_no", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      console.log('About to create sale record (letting database auto-assign sales_no)');
 
-      let nextSalesNo = 1;
-      if (!maxSalesError && maxSalesData && maxSalesData.sales_no) {
-        nextSalesNo = maxSalesData.sales_no + 1;
-      }
-
-      // Create a sale record for the down payment
-      const netProfit = (preorder.down_payment || 0) - preorder.cost_price;
+      // Create a sale record for the pre-order cancellation
+      // For pre-order cancellation: we record the full sale price but only collect down payment
       const saleData = {
         id: crypto.randomUUID(),
         sale_date: new Date().toISOString().slice(0, 10),
-        total_amount: preorder.down_payment || 0,
+        total_amount: preorder.total_amount, // Full sale price (₱7,000)
         total_discount: 0,
-        net_profit: Math.max(0, netProfit),
+        net_profit: preorder.down_payment || 0, // Profit is the down payment amount we collect
         customer_name: preorder.customer.name,
         customer_phone: preorder.customer.phone,
         customer_id: preorder.customer_id,
         user_id: user.id,
-        sales_no: nextSalesNo,
+        // sales_no: null, // Let the database trigger assign this automatically
         status: 'completed',
-        payment_received: preorder.down_payment || 0,
+        payment_received: preorder.down_payment || 0, // Only down payment was collected
         change_amount: 0,
         additional_charge: 0,
         payment_type: { type: cancelForm.paymentType },
-        custom_sales_id: `SALE-${nextSalesNo.toString().padStart(6, '0')}`
+        // custom_sales_id will be set after we get the sales_no from the database
       };
+      
+      console.log('Sale data to insert (without sales_no and custom_sales_id):', {
+        ...saleData,
+        customer_name_length: saleData.customer_name?.length,
+        customer_phone_length: saleData.customer_phone?.length
+      });
 
       const { data: saleResult, error: saleError } = await supabase
         .from('sales')
@@ -1050,14 +1058,35 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
         .select('*')
         .single();
 
-      if (saleError) throw saleError;
+      if (saleError) {
+        console.error('Sale creation error:', saleError);
+        throw saleError;
+      }
+      console.log('Sale created successfully. Sales no:', saleResult.sales_no, 'ID:', saleResult.id);
+
+      // Now update the sale with the custom_sales_id based on the auto-assigned sales_no
+      const customSalesId = `S${saleResult.sales_no.toString().padStart(7, '0')}`; // Format: S0000001 (8 chars)
+      console.log('Generated custom_sales_id:', customSalesId, 'Length:', customSalesId.length);
+
+      const { error: updateError } = await supabase
+        .from('sales')
+        .update({ custom_sales_id: customSalesId })
+        .eq('id', saleResult.id);
+
+      if (updateError) {
+        console.error('Error updating custom_sales_id:', updateError);
+        throw updateError;
+      }
+
+      // Update the saleResult object for use in subsequent operations
+      saleResult.custom_sales_id = customSalesId;
 
       // Create sale item
       const saleItemData = {
         id: crypto.randomUUID(),
         sale_id: saleResult.id,
         variant_id: variantId,
-        sold_price: preorder.down_payment || 0,
+        sold_price: preorder.total_amount, // Full sale price
         cost_price: preorder.cost_price,
         quantity: 1,
         custom_sales_id: saleResult.custom_sales_id
@@ -1244,7 +1273,18 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
       setSelectedPreorder(null);
       setCancelForm({ paymentType: 'cash', profitTemplateId: '', notes: '' });
     } catch (error) {
-      console.error('Error cancelling pre-order:', error);
+      console.error('Error cancelling pre-order:');
+      console.error('Error details:', error);
+      console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      
+      // If it's a Supabase error, log additional details
+      if (error && typeof error === 'object' && 'code' in error) {
+        console.error('Supabase error code:', (error as any).code);
+        console.error('Supabase error details:', (error as any).details);
+        console.error('Supabase error hint:', (error as any).hint);
+      }
+      
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to cancel pre-order and process sale. Please try again.",
@@ -1907,9 +1947,12 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                         aria-label="Select all"
                       />
                     </TableHead>
+                    <TableHead>Pre-order #</TableHead>
                     <TableHead>Image</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Brand</TableHead>
+                    <TableHead>Size</TableHead>
+                    <TableHead>Size Label</TableHead>
                     <TableHead>Cost</TableHead>
                     <TableHead>Sale Price</TableHead>
                     <TableHead>Down Payment</TableHead>
@@ -1930,6 +1973,9 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                           aria-label={`Select preorder ${preorder.id}`}
                         />
                       </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        #{preorder.pre_order_no ? preorder.pre_order_no.toString().padStart(3, '0') : '---'}
+                      </TableCell>
                       <TableCell>
                         {preorder.product.image ? (
                           <Image
@@ -1946,14 +1992,15 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                         )}
                       </TableCell>
                       <TableCell>
-                        <div>
-                          <div className="font-medium">{preorder.product.name}</div>
-                          {preorder.size && (
-                            <div className="text-sm text-gray-500">Size: {preorder.size}</div>
-                          )}
-                        </div>
+                        <div className="font-medium">{preorder.product.name}</div>
                       </TableCell>
                       <TableCell>{preorder.product.brand}</TableCell>
+                      <TableCell>
+                        {preorder.size ? preorder.size : "—"}
+                      </TableCell>
+                      <TableCell>
+                        {preorder.size_label ? preorder.size_label : "—"}
+                      </TableCell>
                       <TableCell>{formatCurrency(preorder.cost_price, currency)}</TableCell>
                       <TableCell>{formatCurrency(preorder.total_amount, currency)}</TableCell>
                       <TableCell>

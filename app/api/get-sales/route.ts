@@ -18,6 +18,8 @@ interface DatabaseVariant {
   serial_number: string;
   size_label: string;
   variant_sku: string;
+  type: string;
+  notes: string | null;
   product: DatabaseProduct | null;
 }
 
@@ -118,6 +120,8 @@ export async function GET(request: Request) {
             serial_number,
             size_label,
             variant_sku,
+            type,
+            notes,
             product:products (
               id,
               name,
@@ -140,7 +144,6 @@ export async function GET(request: Request) {
       .eq('user_id', user.id)
       .order('sale_date', { ascending: false });
 
-  
     if (salesError) {
       console.error("Error fetching sales:", salesError);
       return NextResponse.json({ 
@@ -177,6 +180,8 @@ export async function GET(request: Request) {
             size: variant.size,
             sizeLabel: variant.size_label || '',
             variantSku: variant.variant_sku,
+            type: variant.type || 'In Stock',
+            notes: variant.notes || null,
             costPrice: item.cost_price,
             productName: product?.name || '',
             productBrand: product?.brand || '',

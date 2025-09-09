@@ -271,6 +271,7 @@ function AddVariantsModal({
             variant_sku: `${product.sku || 'SKU'}-${size}-${nextSerial - 1}`, // Generate variant SKU
             cost_price: product.original_price || 0.00, // Set cost_price from product's original_price
             size_label: sizeLabel, // Add size_label field
+            type: 'In Stock', // Regular inventory items are 'In Stock'
           };
           variantsToCreate.push(variant);
         }

@@ -152,7 +152,6 @@ export function SalesClientWrapper({
       });
       const result = await response.json();
       if (result.success && result.data) {
-      
         setSales(result.data);
         // Recalculate avatar profits with the updated sales data
         const updatedAvatarProfits = calculateAvatarProfits(result.data, avatars);
@@ -264,11 +263,15 @@ export function SalesClientWrapper({
           sale.sale_date.includes(lowerCaseSearchTerm) ||
           sale.customer_name?.toLowerCase().includes(lowerCaseSearchTerm) || // Search by customer name
           sale.customer_phone?.toLowerCase().includes(lowerCaseSearchTerm) || // Search by customer phone
+          sale.items &&
           sale.items.some(
-            (item: { variant: { productName: string; productBrand: string; serialNumber: string } }) =>
-              item.variant.productName.toLowerCase().includes(lowerCaseSearchTerm) ||
-              item.variant.productBrand.toLowerCase().includes(lowerCaseSearchTerm) ||
-              item.variant.serialNumber.toLowerCase().includes(lowerCaseSearchTerm),
+            (item) =>
+              item.variant &&
+              (
+                item.variant.productName.toLowerCase().includes(lowerCaseSearchTerm) ||
+                item.variant.productBrand.toLowerCase().includes(lowerCaseSearchTerm) ||
+                item.variant.serialNumber.toLowerCase().includes(lowerCaseSearchTerm)
+              )
           ),
       )
     }
@@ -367,7 +370,26 @@ export function SalesClientWrapper({
         <SaleDetailModal
           open={showDetailModal}
           onOpenChange={setShowDetailModal}
-          sale={{ ...selectedSale, items: selectedSale.items ?? [] }}
+          sale={{
+            ...selectedSale,
+            items: (selectedSale.items ?? []).map((item) => ({
+              ...item,
+              variant: item.variant
+                ? {
+                    id: item.variant.id,
+                    serialNumber: item.variant.serialNumber,
+                    size: item.variant.size,
+                    sizeLabel: (item.variant as any).sizeLabel ?? "",
+                    variantSku: (item.variant as any).variantSku ?? "",
+                    costPrice: item.variant.costPrice,
+                    productName: item.variant.productName,
+                    productBrand: item.variant.productBrand,
+                    productSku: (item.variant as any).productSku ?? "",
+                    productImage: (item.variant as any).productImage ?? "",
+                  }
+                : undefined,
+            })),
+          }}
         />
       )}
 
