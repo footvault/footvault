@@ -5,12 +5,13 @@ import { Separator } from "@/components/ui/separator"
 
 interface CheckoutPageClientProps {
   allVariants: any[]
+  allPreorders: any[]
   avatars: any[]
   profitTemplates: any[]
   error?: string
 }
 
-export function CheckoutPageClient({ allVariants, avatars, profitTemplates, error }: CheckoutPageClientProps) {
+export function CheckoutPageClient({ allVariants, allPreorders, avatars, profitTemplates, error }: CheckoutPageClientProps) {
   if (error) {
     return (
       <SidebarInset>
@@ -40,6 +41,7 @@ export function CheckoutPageClient({ allVariants, avatars, profitTemplates, erro
       <div className="flex flex-1 flex-col gap-4 p-4">
         <CheckoutClientWrapper
           initialVariants={allVariants}
+          initialPreorders={allPreorders}
           initialAvatars={avatars}
           initialProfitTemplates={profitTemplates.map(template => ({
             ...template,

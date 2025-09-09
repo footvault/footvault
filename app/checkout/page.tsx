@@ -56,6 +56,70 @@ interface TransformedVariant {
 }
 
 
+async function getAvailablePreorders(userId: string) {
+  try {
+    const cookieStore = await cookies();
+    const supabase = await createClient(cookieStore);
+
+    // Fetch available pre-orders (pending, confirmed) with customer and product info
+    const { data: preorders, error } = await supabase
+      .from('pre_orders')
+      .select(`
+        id,
+        pre_order_no,
+        customer_id,
+        product_id,
+        variant_id,
+        size,
+        size_label,
+        status,
+        cost_price,
+        total_amount,
+        down_payment,
+        remaining_balance,
+        expected_delivery_date,
+        completed_date,
+        notes,
+        created_at,
+        updated_at,
+        customer:customers (
+          id,
+          name,
+          email,
+          phone,
+          address,
+          city,
+          state,
+          zip_code,
+          country
+        ),
+        product:products (
+          id,
+          name,
+          brand,
+          sku,
+          image,
+          category,
+          size_category,
+          sale_price
+        )
+      `)
+      .eq('user_id', userId)
+      .in('status', ['pending', 'confirmed']) // Only available pre-orders
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error("Error fetching pre-orders:", error);
+      return { data: null, error: error.message };
+    }
+
+    return { data: preorders || [], error: null };
+  } catch (error: any) {
+    console.error("Error in getAvailablePreorders:", error);
+    return { data: null, error };
+  }
+}
+
 async function getAvailableVariants(userId: string) {
   try {
     const cookieStore = cookies();
@@ -184,8 +248,9 @@ export default async function CheckoutPage() {
     redirect("/");
   }
 
-  // Fetch variants as before
+  // Fetch variants and pre-orders
   const { data: allVariants, error: variantsError } = await getAvailableVariants(user.id);
+  const { data: allPreorders, error: preordersError } = await getAvailablePreorders(user.id);
 
   // Fetch avatars and profit templates from API routes
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "";
@@ -203,7 +268,7 @@ export default async function CheckoutPage() {
 
   const avatars = avatarsJson.success ? avatarsJson.data : [];
   const profitTemplates = templatesJson.success ? templatesJson.data : [];
-  const error = variantsError || avatarsJson.error || templatesJson.error;
+  const error = variantsError || preordersError || avatarsJson.error || templatesJson.error;
 
   if (error) {
     console.error("Failed to load initial data for checkout:", error);
@@ -212,6 +277,7 @@ export default async function CheckoutPage() {
   return (
     <CheckoutPageClient
       allVariants={allVariants || []}
+      allPreorders={allPreorders || []}
       avatars={avatars || []}
       profitTemplates={profitTemplates || []}
       error={error}

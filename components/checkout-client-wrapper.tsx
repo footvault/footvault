@@ -51,10 +51,50 @@ interface TransformedVariant {
   consignorPayoutMethod?: 'cost_price' | 'cost_plus_fixed' | 'cost_plus_percentage' | 'percentage_split'
   consignorFixedMarkup?: number
   consignorMarkupPercentage?: number
+  isPreorder?: boolean
+  preorderData?: Preorder
+}
+
+interface Preorder {
+  id: number;
+  pre_order_no: number;
+  customer_id: number;
+  product_id: number;
+  variant_id: number | null;
+  size: string | null;
+  size_label: string | null;
+  status: string;
+  cost_price: number;
+  total_amount: number;
+  down_payment: number | null;
+  remaining_balance: number;
+  expected_delivery_date: string | null;
+  completed_date: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  customer: {
+    id: number;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    zip_code: string | null;
+    country: string | null;
+  };
+  product: {
+    name: string;
+    brand: string;
+    sku: string;
+    image: string | null;
+  };
 }
 
 interface CheckoutClientWrapperProps {
   initialVariants: TransformedVariant[]
+  initialPreorders: Preorder[]
   initialAvatars: Avatar[]
   initialProfitTemplates: ProfitDistributionTemplateDetail[] // Use imported type
 }
@@ -62,6 +102,7 @@ interface CheckoutClientWrapperProps {
 export function CheckoutClientWrapper({
   // THIS IS THE CORRECT NAMED EXPORT
   initialVariants,
+  initialPreorders,
   initialAvatars,
   initialProfitTemplates,
 }: CheckoutClientWrapperProps) {
@@ -69,6 +110,7 @@ export function CheckoutClientWrapper({
   const [variantPage, setVariantPage] = useState(1);
   const variantsPerPage = 12;
   const [allVariants, setAllVariants] = useState<TransformedVariant[]>(initialVariants)
+  const [allPreorders, setAllPreorders] = useState(initialPreorders)
   const [searchTerm, setSearchTerm] = useState("")
   const [brandFilter, setBrandFilter] = useState<string>("all")
   const [sizeCategoryFilter, setSizeCategoryFilter] = useState<string>("all")
@@ -76,6 +118,7 @@ export function CheckoutClientWrapper({
   const [sizeFilter, setSizeFilter] = useState<string[]>([]) // array of selected sizes
   const [sizeSearch, setSizeSearch] = useState("")
   const [selectedVariants, setSelectedVariants] = useState<TransformedVariant[]>([])
+  const [selectedPreorders, setSelectedPreorders] = useState<Preorder[]>([])
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("fixed")
   const [discountValue, setDiscountValue] = useState<number>(0)
   const [customerName, setCustomerName] = useState<string>("")
@@ -105,8 +148,39 @@ export function CheckoutClientWrapper({
 
   const availableVariants = useMemo(() => {
     const selectedIds = new Set(selectedVariants.map((v) => v.id))
-    return allVariants.filter((variant) => !selectedIds.has(variant.id))
-  }, [allVariants, selectedVariants])
+    const selectedPreorderIds = new Set(selectedPreorders.map((p) => p.id))
+    
+    // Convert pre-orders to pseudo-variants
+    const preorderAsVariants: TransformedVariant[] = allPreorders
+      .filter(preorder => !selectedPreorderIds.has(preorder.id))
+      .map(preorder => ({
+        id: `preorder-${preorder.id}`,
+        variantSku: `PO-${preorder.pre_order_no}`,
+        size: preorder.size || '',
+        sizeLabel: preorder.size_label || 'US',
+        location: null,
+        status: 'preorder',
+        serialNumber: `PO${preorder.pre_order_no}`,
+        costPrice: preorder.cost_price,
+        productName: preorder.product.name,
+        productBrand: preorder.product.brand,
+        productSku: preorder.product.sku,
+        productImage: preorder.product.image,
+        productOriginalPrice: preorder.total_amount,
+        productSalePrice: preorder.total_amount, // Use total_amount instead of remaining_balance
+        productCategory: null,
+        productSizeCategory: 'US', // Default for pre-orders
+        ownerType: 'store' as const,
+        isPreorder: true,
+        preorderData: preorder
+      }))
+    
+    // Combine regular variants with pre-order pseudo-variants
+    return [
+      ...allVariants.filter((variant) => !selectedIds.has(variant.id)),
+      ...preorderAsVariants
+    ]
+  }, [allVariants, selectedVariants, allPreorders, selectedPreorders])
 
   // Get unique filter options
   const brandOptions = useMemo(() => {
@@ -192,17 +266,33 @@ export function CheckoutClientWrapper({
     : filteredVariants
 
   const handleAddVariantToCart = (variant: TransformedVariant) => {
-    setSelectedVariants((prev) => [...prev, variant])
-    setSearchTerm("") // Clear search after adding
-    
-    console.log('🛒 Adding variant to cart:', variant.productName, variant.size);
-    
-    // Show success toast
-    toast({
-      title: "Item Added to Cart",
-      description: `${variant.productName} (Size ${variant.size}) added to cart.`,
-      duration: 3000, // 3 seconds
-    })
+    if (variant.isPreorder && variant.preorderData) {
+      // Handle pre-order selection
+      setSelectedPreorders((prev) => [...prev, variant.preorderData!])
+      setSearchTerm("") // Clear search after adding
+      
+      console.log('🛒 Adding pre-order to cart:', variant.productName, variant.size);
+      
+      // Show success toast
+      toast({
+        title: "Pre-order Added to Cart",
+        description: `Pre-order #${variant.preorderData.pre_order_no} - ${variant.productName} (Size ${variant.size}) added to cart.`,
+        duration: 3000, // 3 seconds
+      })
+    } else {
+      // Handle regular variant selection
+      setSelectedVariants((prev) => [...prev, variant])
+      setSearchTerm("") // Clear search after adding
+      
+      console.log('🛒 Adding variant to cart:', variant.productName, variant.size);
+      
+      // Show success toast
+      toast({
+        title: "Item Added to Cart",
+        description: `${variant.productName} (Size ${variant.size}) added to cart.`,
+        duration: 3000, // 3 seconds
+      })
+    }
     
     console.log('📱 Toast called for add to cart');
   }
@@ -377,8 +467,10 @@ export function CheckoutClientWrapper({
   };
 
   const subtotal = useMemo(() => {
-    return selectedVariants.reduce((sum, variant) => sum + variant.productSalePrice, 0)
-  }, [selectedVariants])
+    const variantsTotal = selectedVariants.reduce((sum, variant) => sum + variant.productSalePrice, 0);
+    const preordersTotal = selectedPreorders.reduce((sum, preorder) => sum + preorder.total_amount, 0); // Use total_amount instead of remaining_balance
+    return variantsTotal + preordersTotal;
+  }, [selectedVariants, selectedPreorders])
 
   // Payment fee calculation
   let paymentFee = 0;
@@ -415,12 +507,14 @@ export function CheckoutClientWrapper({
 
   // Cost and profit calculations, payment fee can apply to cost or profit
   const totalCost = useMemo(() => {
-    let baseCost = selectedVariants.reduce((sum, variant) => sum + variant.productOriginalPrice, 0);
+    let baseCost = selectedVariants.reduce((sum, variant) => sum + variant.costPrice, 0); // Use costPrice instead of productOriginalPrice
+    const preordersCost = selectedPreorders.reduce((sum, preorder) => sum + preorder.cost_price, 0); // Add preorders cost
+    baseCost += preordersCost;
     if (paymentFeeAppliesTo === "cost") {
       baseCost += paymentFee;
     }
     return baseCost;
-  }, [selectedVariants, paymentFee, paymentFeeAppliesTo]);
+  }, [selectedVariants, selectedPreorders, paymentFee, paymentFeeAppliesTo]);
 
   // Calculate true store profit (only commission from consigned items + full profit from store items)
   const storeProfit = useMemo(() => {
@@ -428,7 +522,7 @@ export function CheckoutClientWrapper({
     
     selectedVariants.forEach(variant => {
       const salePrice = variant.productSalePrice;
-      const costPrice = variant.productOriginalPrice;
+      const costPrice = variant.costPrice; // Use costPrice instead of productOriginalPrice
       
       if (variant.ownerType === 'consignor' && variant.consignorCommissionRate) {
         // For consigned items: use actual input value if available, otherwise calculate
@@ -449,6 +543,12 @@ export function CheckoutClientWrapper({
       }
     });
     
+    // Add pre-orders profit (total_amount - cost_price for each pre-order)
+    selectedPreorders.forEach(preorder => {
+      const preorderProfit = preorder.total_amount - preorder.cost_price;
+      totalStoreProfit += preorderProfit;
+    });
+    
     // Subtract discount and fees from store profit
     totalStoreProfit -= calculatedDiscount;
     if (paymentFeeAppliesTo === "profit") {
@@ -456,7 +556,7 @@ export function CheckoutClientWrapper({
     }
     
     return totalStoreProfit;
-  }, [selectedVariants, paymentFee, paymentFeeAppliesTo, calculatedDiscount, customCommissionRates, customStoreAmounts]);
+  }, [selectedVariants, selectedPreorders, paymentFee, paymentFeeAppliesTo, calculatedDiscount, customCommissionRates, customStoreAmounts]);
 
   // Calculate total consignor payouts for display
   const totalConsignorPayout = useMemo(() => {
@@ -515,12 +615,58 @@ export function CheckoutClientWrapper({
     startConfirmSaleTransition(async () => {
       const saleDate = new Date().toISOString().split("T")[0] // Current date in YYYY-MM-DD format
 
-      const items = selectedVariants.map((variant) => ({
-        variantId: variant.id,
-        soldPrice: variant.productSalePrice, // Assuming sale price is the sold price
-        costPrice: variant.costPrice,
-        quantity: 1,
-      }))
+      // Handle pre-orders: convert them to variants first
+      const preorderVariantItems: any[] = [];
+      for (const preorder of selectedPreorders) {
+        try {
+          // Create variant for the pre-order
+          const { createClient } = await import("@/lib/supabase/client")
+          const supabase = createClient()
+          const { data: { session } } = await supabase.auth.getSession()
+          
+          const response = await fetch("/api/create-variant-from-preorder", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session?.access_token || ""}`,
+            },
+            body: JSON.stringify({
+              preorderId: preorder.id,
+              status: 'Sold' // Mark as Sold immediately since it's being converted (capital S)
+            }),
+          });
+          
+          const result = await response.json();
+          if (result.success) {
+            preorderVariantItems.push({
+              variantId: result.variantId,
+              soldPrice: preorder.total_amount, // Use total_amount as the sale price, not remaining_balance
+              costPrice: preorder.cost_price,
+              quantity: 1,
+            });
+          } else {
+            throw new Error(`Failed to create variant for pre-order ${preorder.id}: ${result.error}`);
+          }
+        } catch (error) {
+          console.error(`Error creating variant for pre-order ${preorder.id}:`, error);
+          toast({
+            title: "Error Processing Pre-order",
+            description: `Failed to process pre-order for ${preorder.product.name}`,
+            variant: "destructive",
+          });
+          return; // Stop processing if pre-order conversion fails
+        }
+      }
+
+      const items = [
+        ...selectedVariants.map((variant) => ({
+          variantId: variant.id,
+          soldPrice: variant.productSalePrice, // Assuming sale price is the sold price
+          costPrice: variant.costPrice,
+          quantity: 1,
+        })),
+        ...preorderVariantItems
+      ];
 
       // --- ADDED CONSOLE LOG HERE ---
       console.log("Items being sent to recordSale:", items)
@@ -621,6 +767,7 @@ export function CheckoutClientWrapper({
           })
           setCompletedSaleId(result.saleId) // Store the sale ID
           setSelectedVariants([]) // Clear cart
+          setSelectedPreorders([]) // Clear pre-orders
           setDiscountValue(0) // Reset discount
           setSearchTerm("") // Clear search
           setCustomerName("") // Reset customer name
@@ -636,27 +783,38 @@ export function CheckoutClientWrapper({
               const { createClient } = await import("@/lib/supabase/client")
               const supabase = createClient()
               const { data: { session } } = await supabase.auth.getSession()
-              const response = await fetch("/api/get-available-variants-client", {
+              
+              // Refresh variants
+              const variantsResponse = await fetch("/api/get-available-variants-client", {
                 headers: {
                   Authorization: `Bearer ${session?.access_token || ''}`
                 }
               })
-              const result = await response.json()
-              if (result.success && result.data) {
-                setAllVariants(result.data)
+              const variantsResult = await variantsResponse.json()
+              if (variantsResult.success && variantsResult.data) {
+                setAllVariants(variantsResult.data)
               } else {
-                console.error("Failed to refresh variants after sale:", result.error)
-                toast({
-                  title: "Data Refresh Warning",
-                  description: "Failed to refresh available shoes. Please refresh the page manually.",
-                  variant: "destructive",
-                })
+                console.error("Failed to refresh variants after sale:", variantsResult.error)
               }
+
+              // Refresh pre-orders
+              const preordersResponse = await fetch("/api/get-available-preorders", {
+                headers: {
+                  Authorization: `Bearer ${session?.access_token || ''}`
+                }
+              })
+              const preordersResult = await preordersResponse.json()
+              if (preordersResult.success && preordersResult.data) {
+                setAllPreorders(preordersResult.data)
+              } else {
+                console.error("Failed to refresh pre-orders after sale:", preordersResult.error)
+              }
+              
             } catch (refreshError) {
-              console.error("Failed to refresh variants after sale:", refreshError)
+              console.error("Failed to refresh data after sale:", refreshError)
               toast({
                 title: "Data Refresh Warning",
-                description: "Failed to refresh available shoes. Please refresh the page manually.",
+                description: "Failed to refresh available items. Please refresh the page manually.",
                 variant: "destructive",
               })
             }
@@ -685,10 +843,10 @@ export function CheckoutClientWrapper({
     const totalDistributedPercentage = profitDistribution.reduce((sum, item) => sum + item.percentage, 0)
     const currentDistribution = profitDistribution
 
-    if (selectedVariants.length === 0) {
+    if (selectedVariants.length === 0 && selectedPreorders.length === 0) {
       toast({
         title: "No Items Selected",
-        description: "Please add at least one individual shoe to the cart to complete a sale.",
+        description: "Please add at least one shoe or pre-order to the cart to complete a sale.",
         variant: "destructive",
       })
       return
@@ -814,7 +972,7 @@ export function CheckoutClientWrapper({
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Search className="h-5 w-5" /> Add Individual Shoes to Sale
+                <Search className="h-5 w-5" /> Add Items to Sale
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -978,7 +1136,11 @@ export function CheckoutClientWrapper({
                               height={80}
                               className="rounded-md object-cover mx-auto mb-2"
                             />
-                            {variant.ownerType === 'consignor' && (
+                            {variant.isPreorder ? (
+                              <div className="absolute top-1 right-1 bg-yellow-400 text-yellow-900 text-xs px-2 py-1 rounded-md shadow-sm font-medium">
+                                PRE-ORDER
+                              </div>
+                            ) : variant.ownerType === 'consignor' && (
                               <div className="absolute top-1 right-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs px-2 py-1 rounded-md shadow-sm">
                                 Consigned
                               </div>
@@ -987,14 +1149,63 @@ export function CheckoutClientWrapper({
                           <h3 className="font-semibold text-sm line-clamp-2">{variant.productName}</h3>
                           <p className="text-xs text-gray-600">{variant.productBrand}</p>
                           <p className="text-xs font-mono text-gray-500">SKU: {variant.productSku}</p>
-                          <p className="text-xs font-mono text-gray-500">Serial: {variant.serialNumber}</p>
+                          {variant.isPreorder && variant.preorderData ? (
+                            <>
+                              <p className="text-xs font-mono text-yellow-700">Pre Order: #{variant.preorderData.pre_order_no}</p>
+                              <p className="text-xs text-blue-600">Customer: {variant.preorderData.customer.name}</p>
+                              
+                              {/* Cost and Pricing Information */}
+                              <div className="mt-2 p-2 bg-gray-50 rounded-md border">
+                                <div className="grid grid-cols-2 gap-1 text-xs">
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">Cost:</span>
+                                    <span className="font-medium">{formatCurrency(variant.preorderData.cost_price, currency)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">Total:</span>
+                                    <span className="font-medium">{formatCurrency(variant.preorderData.total_amount, currency)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">Paid:</span>
+                                    <span className="font-medium text-green-600">
+                                      {formatCurrency(variant.preorderData.down_payment || 0, currency)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">Balance:</span>
+                                    <span className="font-medium text-orange-600">
+                                      {formatCurrency(variant.preorderData.remaining_balance, currency)}
+                                    </span>
+                                  </div>
+                                </div>
+                                
+                                {/* Profit Calculation */}
+                                <div className="mt-2 pt-2 border-t border-gray-200">
+                                  <div className="flex justify-between text-xs">
+                                    <span className="text-gray-600">Profit:</span>
+                                    <span className={`font-bold ${
+                                      (variant.preorderData.total_amount - variant.preorderData.cost_price) >= 0 
+                                        ? 'text-green-600' 
+                                        : 'text-red-600'
+                                    }`}>
+                                      {formatCurrency(variant.preorderData.total_amount - variant.preorderData.cost_price, currency)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <p className="text-xs font-mono text-gray-500">Serial: {variant.serialNumber}</p>
+                          )}
                           <p className="text-xs text-gray-500">
                             Size: {variant.size} ({variant.sizeLabel})
                           </p>
-                          <p className="text-xs text-gray-500">
-                            Location: {variant.location || 'Not specified'}
-                          </p>
-                          {variant.ownerType === 'consignor' && variant.consignorName && (
+                          {!variant.isPreorder && (
+                            <p className="text-xs text-gray-500">
+                              Location: {variant.location || 'Not specified'}
+                            </p>
+                          )}
+                          {variant.ownerType === 'consignor' && variant.consignorName && !variant.isPreorder && (
                             <p className="text-xs text-blue-600 font-medium mt-1">
                               Owner: {variant.consignorName}
                             </p>
@@ -1008,7 +1219,8 @@ export function CheckoutClientWrapper({
                             className="w-full"
                             onClick={() => handleAddVariantToCart(variant)}
                           >
-                            <Plus className="h-4 w-4 mr-1" /> Add to Cart
+                            <Plus className="h-4 w-4 mr-1" /> 
+                            {variant.isPreorder ? 'Add Pre-order' : 'Add to Cart'}
                           </Button>
                         </div>
                       </Card>
@@ -1060,32 +1272,78 @@ export function CheckoutClientWrapper({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="customer-name">Customer Name</Label>
-                  <Input
-                    id="customer-name"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Enter customer name"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="customer-phone">Phone Number (Optional)</Label>
-                  <Input
-                    id="customer-phone"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="Enter phone number"
-                    type="tel"
-                  />
-                </div>
+                {/* Show pre-order customer info if pre-orders are in cart */}
+                {selectedPreorders.length > 0 && (
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="font-medium text-blue-800 mb-2">Pre-order Customer(s):</h4>
+                    <div className="space-y-2">
+                      {selectedPreorders.map(preorder => (
+                        <div key={preorder.id} className="text-sm">
+                          <span className="font-medium">{preorder.customer.name}</span>
+                          {preorder.customer.phone && (
+                            <span className="text-gray-600 ml-2">• {preorder.customer.phone}</span>
+                          )}
+                          <span className="text-blue-600 ml-2">• Pre-order #{preorder.pre_order_no}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {selectedVariants.length > 0 && (
+                      <p className="text-xs text-blue-600 mt-2">
+                        Additional customer info needed for regular items below ↓
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Regular customer input for non-preorder items or when no preorders */}
+                {(selectedVariants.length > 0 || selectedPreorders.length === 0) && (
+                  <>
+                    <div>
+                      <Label htmlFor="customer-name">
+                        {selectedPreorders.length > 0 ? "Customer Name (for regular items)" : "Customer Name"}
+                      </Label>
+                      <Input
+                        id="customer-name"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder="Enter customer name"
+                        required={selectedVariants.length > 0}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="customer-phone">
+                        Phone Number (Optional)
+                      </Label>
+                      <Input
+                        id="customer-phone"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        placeholder="Enter phone number"
+                        type="tel"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* When only pre-orders are in cart */}
+                {selectedPreorders.length > 0 && selectedVariants.length === 0 && (
+                  <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                    <span className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      Customer information is already available from pre-order(s).
+                    </span>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             <CheckoutCart 
               selectedVariants={selectedVariants} 
+              selectedPreorders={selectedPreorders}
               onRemove={handleRemoveVariantFromCart} 
+              onRemovePreorder={(preorderId) => {
+                setSelectedPreorders(prev => prev.filter(p => p.id !== preorderId))
+              }}
               onAddVariants={handleAddVariantsToCart}
               commissionFrom={commissionFrom}
             />
@@ -1251,7 +1509,7 @@ export function CheckoutClientWrapper({
                 </div>
 
                 <div className="flex justify-between text-sm">
-                  <span>Subtotal ({selectedVariants.length} items)</span>
+                  <span>Subtotal ({selectedVariants.length + selectedPreorders.length} items)</span>
                   <span>{formatCurrency(subtotal, currency)}</span>
                 </div>
 

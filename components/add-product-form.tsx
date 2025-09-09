@@ -265,6 +265,32 @@ export function AddProductForm({
     name: string;
     commission_rate: number;
   }>>([])
+  
+  // Pre-order state
+  const [isPreOrder, setIsPreOrder] = useState(false)
+  const [customers, setCustomers] = useState<Array<{
+    id: number
+    name: string
+    email: string
+    phone?: string
+  }>>([])
+  const [preOrderForm, setPreOrderForm] = useState({
+    customer_id: "",
+    down_payment: "",
+    expected_delivery_date: "",
+    notes: ""
+  })
+  
+  // New customer form state
+  const [showNewCustomerForm, setShowNewCustomerForm] = useState(false)
+  const [newCustomerForm, setNewCustomerForm] = useState({
+    name: "",
+    phone: "",
+    address: "",
+    email: ""
+  })
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false)
+  
   // Removed editingVariantId and editingVariantValues; only single variant input is used
   // Serial number state removed (auto-assigned)
 
@@ -298,6 +324,32 @@ export function AddProductForm({
       }
     } catch (error) {
       console.error("Failed to fetch consignors:", error);
+    }
+  };
+
+  // Function to fetch customers
+  const fetchCustomers = async () => {
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log("No user found when fetching customers");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('customers')
+        .select('id, name, email, phone')
+        .eq('user_id', user.id)
+        .order('name');
+
+      if (error) {
+        console.error("Failed to fetch customers:", error);
+      } else {
+        setCustomers(data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch customers:", error);
     }
   };
 
@@ -343,6 +395,7 @@ export function AddProductForm({
 
     fetchVariantLimits();
     fetchConsignors();
+    fetchCustomers();
   }, [open])
 
   useEffect(() => {
@@ -430,6 +483,21 @@ export function AddProductForm({
     // Removed: setEditingVariantId and setEditingVariantValues
   }, [productDataFromApi, existingProductDetails, open, inferredSizeCategory]) // Depend on inferredSizeCategory
 
+  // Reset pre-order form when modal opens/closes
+  useEffect(() => {
+    if (!open) {
+      setIsPreOrder(false);
+      setPreOrderForm({
+        customer_id: "",
+        down_payment: "",
+        expected_delivery_date: "",
+        notes: ""
+      });
+      setShowNewCustomerForm(false);
+      setNewCustomerForm({ name: "", phone: "", address: "", email: "" });
+    }
+  }, [open]);
+
   // Sync display prices when productForm prices change
   useEffect(() => {
     const originalPriceNum = typeof productForm.originalPrice === "number" ? productForm.originalPrice : parseFloat(productForm.originalPrice) || 0
@@ -509,6 +577,107 @@ export function AddProductForm({
         : value 
     }));
   }
+
+  // Pre-order form handlers
+  const handlePreOrderFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { id, value } = e.target;
+    setPreOrderForm(prev => ({
+      ...prev,
+      [id]: value
+    }));
+  };
+
+  // New customer form handlers
+  const handleNewCustomerFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setNewCustomerForm(prev => ({
+      ...prev,
+      [id]: value
+    }));
+  };
+
+  const handleCreateNewCustomer = async () => {
+    if (!newCustomerForm.name.trim()) {
+      toast({
+        title: "Missing Customer Name",
+        description: "Please enter a customer name.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if at least email or phone is provided (database constraint requirement)
+    if (!newCustomerForm.email.trim() && !newCustomerForm.phone.trim()) {
+      toast({
+        title: "Missing Contact Information",
+        description: "Please provide at least an email address or phone number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingCustomer(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("No user found");
+      }
+
+      // Only include email and phone if they have actual values to avoid unique constraint issues
+      const customerData: any = {
+        name: newCustomerForm.name.trim(),
+        user_id: user.id,
+      };
+
+      // Only add email if provided, otherwise let it be NULL
+      if (newCustomerForm.email.trim()) {
+        customerData.email = newCustomerForm.email.trim();
+      }
+
+      // Only add phone if provided, otherwise let it be NULL  
+      if (newCustomerForm.phone.trim()) {
+        customerData.phone = newCustomerForm.phone.trim();
+      }
+
+      // Only add address if provided
+      if (newCustomerForm.address.trim()) {
+        customerData.address = newCustomerForm.address.trim();
+      }
+
+      const { data, error } = await supabase
+        .from('customers')
+        .insert([customerData])
+        .select('id, name, email, phone')
+        .single();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Add the new customer to the list and select it
+      setCustomers(prev => [...prev, data]);
+      setPreOrderForm(prev => ({ ...prev, customer_id: data.id.toString() }));
+      
+      // Reset and close the form
+      setNewCustomerForm({ name: "", phone: "", address: "", email: "" });
+      setShowNewCustomerForm(false);
+      
+      toast({
+        title: "Customer Added",
+        description: `Customer "${data.name}" has been added and selected for the pre-order.`,
+      });
+    } catch (error: any) {
+      console.error("Failed to create customer:", error);
+      toast({
+        title: "Failed to Create Customer",
+        description: error.message || "An error occurred while creating the customer.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingCustomer(false);
+    }
+  };
 
   const handleAddCustomLocation = async () => {
     if (!newCustomLocationName.trim()) {
@@ -655,6 +824,17 @@ export function AddProductForm({
         return;
       }
 
+      // Validate pre-order fields if pre-order is enabled
+      if (isPreOrder && !preOrderForm.customer_id) {
+        toast({
+          title: "Missing Customer",
+          description: "Please select a customer for the pre-order.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       // 1. Check for existing product (if not adding to existing)
       let productId = existingProductDetails?.id;
       if (!productId) {
@@ -697,50 +877,160 @@ export function AddProductForm({
         }
       }
 
-      // 2. Get max serial_number for this user
-      const { data: maxSerialData, error: maxSerialError } = await supabase
-        .from('variants')
-        .select('serial_number')
-        .eq('user_id', session.user.id)
-        .order('serial_number', { ascending: false })
-        .limit(1);
-      let maxSerial = 0;
-      if (maxSerialData && maxSerialData.length > 0 && maxSerialData[0].serial_number) {
-        const parsed = parseInt(maxSerialData[0].serial_number, 10);
-        if (!isNaN(parsed)) maxSerial = parsed;
+      // Check if this is a pre-order vs regular inventory addition
+      if (isPreOrder && preOrderForm.customer_id) {
+        // For pre-orders, don't create variants - just create the pre-order record
+        console.log('Creating pre-order with data:', {
+          customer_id: preOrderForm.customer_id,
+          product_id: productId,
+          size: newVariant.size,
+          quantity: quantityNum,
+          cost_price: productForm.originalPrice,
+          sale_price: productForm.salePrice,
+          down_payment: preOrderForm.down_payment
+        });
+
+        // Create a single pre-order record for testing
+        const preOrderData = {
+          customer_id: parseInt(preOrderForm.customer_id),
+          product_id: productId,
+          variant_id: null, // UUID field, keeping as null
+          size: newVariant.size,
+          size_label: newVariant.sizeLabel,
+          cost_price: typeof productForm.originalPrice === 'number' ? productForm.originalPrice : parseFloat(productForm.originalPrice) || 0,
+          total_amount: typeof productForm.salePrice === 'number' ? productForm.salePrice : parseFloat(productForm.salePrice) || 0,
+          down_payment: preOrderForm.down_payment ? parseNumberFromCommaSeparated(preOrderForm.down_payment) : 0,
+          // remaining_balance is a generated column - don't insert it
+          status: 'pending',
+          pre_order_date: new Date().toISOString().split('T')[0], // Add required pre_order_date field
+          expected_delivery_date: preOrderForm.expected_delivery_date || null,
+          notes: preOrderForm.notes || null,
+          user_id: session.user.id,
+        };
+
+        console.log('About to insert single pre-order record:', preOrderData);
+
+        // First, let's test if the table exists by doing a simple select
+        const { data: testData, error: testError } = await supabase
+          .from('pre_orders')
+          .select('*')
+          .limit(1);
+        
+        if (testError) {
+          console.error('Pre_orders table test failed:', testError);
+          console.error('Table may not exist. Error details:', JSON.stringify(testError, null, 2));
+          toast({
+            title: "Database Error",
+            description: "Pre-orders table does not exist. Please contact support.",
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          return;
+        } else {
+          console.log('Pre_orders table exists, test query successful:', testData);
+        }
+
+        const { data: preOrderResult, error: preOrderError } = await supabase
+          .from('pre_orders')
+          .insert([preOrderData]);
+        
+        if (preOrderError) {
+          console.error('Failed to create pre-order:', preOrderError);
+          console.error('Error details:', JSON.stringify(preOrderError, null, 2));
+          console.error('Pre-order data that failed:', preOrderData);
+          toast({
+            title: "Failed to Create Pre-order",
+            description: `Pre-order creation failed: ${preOrderError.message || preOrderError.details || 'Unknown error occurred'}`,
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+
+        console.log('Pre-order created successfully:', preOrderResult);
+
+        // If quantity > 1, create additional records
+        if (quantityNum > 1) {
+          const additionalRecords = Array.from({ length: quantityNum - 1 }, (_, i) => ({
+            customer_id: parseInt(preOrderForm.customer_id),
+            product_id: productId,
+            variant_id: null,
+            size: newVariant.size,
+            size_label: newVariant.sizeLabel,
+            cost_price: typeof productForm.originalPrice === 'number' ? productForm.originalPrice : parseFloat(productForm.originalPrice) || 0,
+            total_amount: typeof productForm.salePrice === 'number' ? productForm.salePrice : parseFloat(productForm.salePrice) || 0,
+            down_payment: preOrderForm.down_payment ? parseNumberFromCommaSeparated(preOrderForm.down_payment) : 0,
+            // remaining_balance is a generated column - don't insert it
+            status: 'pending',
+            pre_order_date: new Date().toISOString().split('T')[0],
+            expected_delivery_date: preOrderForm.expected_delivery_date || null,
+            notes: preOrderForm.notes || null,
+            user_id: session.user.id,
+          }));
+
+          console.log('Creating additional pre-order records:', additionalRecords);
+          
+          const { error: additionalError } = await supabase
+            .from('pre_orders')
+            .insert(additionalRecords);
+          
+          if (additionalError) {
+            console.error('Failed to create additional pre-order records:', additionalError);
+            // Don't fail the entire operation, just log the error
+          }
+        }
+
+        toast({
+          title: "Pre-order Created Successfully! 🎉",
+          description: `Pre-order for ${quantityNum} ${quantityNum === 1 ? 'item' : 'items'} of "${productForm.name || productDataFromApi?.title || existingProductDetails?.name}" has been created for ${customers.find(c => c.id.toString() === preOrderForm.customer_id)?.name}.`,
+        });
+      } else {
+        // For regular inventory, create variants as usual
+        // 2. Get max serial_number for this user
+        const { data: maxSerialData, error: maxSerialError } = await supabase
+          .from('variants')
+          .select('serial_number')
+          .eq('user_id', session.user.id)
+          .order('serial_number', { ascending: false })
+          .limit(1);
+        let maxSerial = 0;
+        if (maxSerialData && maxSerialData.length > 0 && maxSerialData[0].serial_number) {
+          const parsed = parseInt(maxSerialData[0].serial_number, 10);
+          if (!isNaN(parsed)) maxSerial = parsed;
+        }
+
+        // 3. Prepare N variants with incremented serials
+        const variants = Array.from({ length: quantityNum }, (_, i) => ({
+          id: uuidv4(),
+          product_id: productId,
+          size: newVariant.size,
+          variant_sku: productForm.sku,
+          location: newVariant.location,
+          status: newVariant.status,
+          date_added: newVariant.dateAdded,
+          condition: newVariant.condition,
+          serial_number: maxSerial + i + 1,
+          size_label: newVariant.sizeLabel,
+          cost_price: 0.00,
+          user_id: session.user.id,
+          isArchived: false,
+          owner_type: newVariant.owner_type,
+          consignor_id: newVariant.owner_type === 'consignor' ? newVariant.consignor_id : null,
+        }));
+
+        // 4. Insert all variants
+        const { error: variantError } = await supabase
+          .from('variants')
+          .insert(variants);
+        if (variantError) {
+          throw new Error(variantError.message || 'Failed to add variants');
+        }
+
+        toast({
+          title: "Product Added Successfully! 🎉",
+          description: `Added ${quantityNum} ${quantityNum === 1 ? 'variant' : 'variants'} of "${productForm.name || productDataFromApi?.title || existingProductDetails?.name}" to your inventory.`,
+        });
       }
-
-      // 3. Prepare N variants with incremented serials
-      const variants = Array.from({ length: quantityNum }, (_, i) => ({
-        id: uuidv4(),
-        product_id: productId,
-        size: newVariant.size,
-        variant_sku: productForm.sku,
-        location: newVariant.location,
-        status: newVariant.status,
-        date_added: newVariant.dateAdded,
-        condition: newVariant.condition,
-        serial_number: maxSerial + i + 1,
-        size_label: newVariant.sizeLabel,
-        cost_price: 0.00,
-        user_id: session.user.id,
-        isArchived: false,
-        owner_type: newVariant.owner_type,
-        consignor_id: newVariant.owner_type === 'consignor' ? newVariant.consignor_id : null,
-      }));
-
-      // 4. Insert all variants
-      const { error: variantError } = await supabase
-        .from('variants')
-        .insert(variants);
-      if (variantError) {
-        throw new Error(variantError.message || 'Failed to add variants');
-      }
-
-      toast({
-        title: "Product Added Successfully! 🎉",
-        description: `Added ${quantityNum} ${quantityNum === 1 ? 'variant' : 'variants'} of "${productForm.name || productDataFromApi?.title || existingProductDetails?.name}" to your inventory.`,
-      });
       onOpenChange(false);
       onProductAdded();
     } catch (error: any) {
@@ -928,15 +1218,236 @@ export function AddProductForm({
                 disabled={isAddingToExistingProduct}
               />
             </div>
+
+            {/* Pre-order Section */}
+            <div className="space-y-4 border-t pt-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="isPreOrder"
+                  checked={isPreOrder}
+                  onChange={(e) => setIsPreOrder(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="isPreOrder" className="text-sm font-medium">
+                  This is a pre-order
+                </Label>
+              </div>
+
+              {isPreOrder && (
+                <div className="space-y-3 bg-blue-50 p-4 rounded-md border border-blue-200">
+                  <h4 className="font-medium text-sm text-blue-900">Pre-order Details</h4>
+                  
+                  <div>
+                    <Label htmlFor="customer_id" className="text-xs">
+                      Customer
+                    </Label>
+                    {!showNewCustomerForm ? (
+                      <div className="space-y-2">
+                        <Select
+                          value={preOrderForm.customer_id}
+                          onValueChange={(value) => {
+                            if (value === "add-new-customer") {
+                              setShowNewCustomerForm(true);
+                            } else {
+                              setPreOrderForm(prev => ({ ...prev, customer_id: value }));
+                            }
+                          }}
+                        >
+                          <SelectTrigger id="customer_id" className="w-full text-xs">
+                            <SelectValue placeholder="Select customer" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {customers.map((customer) => (
+                              <SelectItem key={customer.id} value={customer.id.toString()}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{customer.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {customer.email}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="add-new-customer">
+                              <div className="flex items-center gap-2 text-blue-600">
+                                <Plus className="w-3 h-3" />
+                                <span className="font-medium">Add New Customer</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {customers.length === 0 && (
+                          <p className="text-xs text-gray-500">
+                            No customers found. Add a new customer to create a pre-order.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-3 border border-gray-300 rounded-md p-3 bg-white">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-xs font-medium text-gray-700">Add New Customer</h5>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setShowNewCustomerForm(false);
+                              setNewCustomerForm({ name: "", phone: "", address: "", email: "" });
+                            }}
+                            className="h-6 w-6 p-0"
+                          >
+                            <XCircle className="w-3 h-3" />
+                          </Button>
+                        </div>
+                        
+                        <p className="text-xs text-gray-500">
+                          Add basic customer info. At least email or phone is required. You can update details later in the Customers page.
+                        </p>
+                        
+                        <div>
+                          <Label htmlFor="new-customer-name" className="text-xs">
+                            Name *
+                          </Label>
+                          <Input
+                            id="name"
+                            value={newCustomerForm.name}
+                            onChange={handleNewCustomerFormChange}
+                            placeholder="Customer name"
+                            className="text-xs h-8"
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="new-customer-phone" className="text-xs">
+                            Phone (Required if no email)
+                          </Label>
+                          <Input
+                            id="phone"
+                            value={newCustomerForm.phone}
+                            onChange={handleNewCustomerFormChange}
+                            placeholder="Phone number"
+                            className="text-xs h-8"
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="new-customer-email" className="text-xs">
+                            Email (Required if no phone)
+                          </Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={newCustomerForm.email}
+                            onChange={handleNewCustomerFormChange}
+                            placeholder="customer@email.com"
+                            className="text-xs h-8"
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="new-customer-address" className="text-xs">
+                            Address
+                          </Label>
+                          <Input
+                            id="address"
+                            value={newCustomerForm.address}
+                            onChange={handleNewCustomerFormChange}
+                            placeholder="Customer address"
+                            className="text-xs h-8"
+                          />
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            onClick={handleCreateNewCustomer}
+                            disabled={isCreatingCustomer || !newCustomerForm.name.trim()}
+                            className="text-xs h-7 px-3 flex-1"
+                          >
+                            {isCreatingCustomer ? (
+                              <>
+                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                Creating...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Add Customer
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              setShowNewCustomerForm(false);
+                              setNewCustomerForm({ name: "", phone: "", address: "", email: "" });
+                            }}
+                            className="text-xs h-7 px-3"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="down_payment" className="text-xs">
+                      Down Payment ({currencySymbol})
+                    </Label>
+                    <Input
+                      id="down_payment"
+                      type="text"
+                      value={preOrderForm.down_payment}
+                      onChange={handlePreOrderFormChange}
+                      placeholder="0"
+                      className="text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="expected_delivery_date" className="text-xs">
+                      Expected Delivery Date
+                    </Label>
+                    <Input
+                      id="expected_delivery_date"
+                      type="date"
+                      value={preOrderForm.expected_delivery_date}
+                      onChange={handlePreOrderFormChange}
+                      className="text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="notes" className="text-xs">
+                      Notes
+                    </Label>
+                    <textarea
+                      id="notes"
+                      value={preOrderForm.notes}
+                      onChange={handlePreOrderFormChange}
+                      className="w-full text-xs p-2 border border-gray-300 rounded-md resize-none"
+                      rows={2}
+                      placeholder="Optional notes about the pre-order..."
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Variants Column */}
           <div className="md:col-span-1 space-y-4">
-            <h3 className="text-lg font-semibold">Individual Shoes (Variants)</h3>
+            <h3 className="text-lg font-semibold">
+              {isPreOrder ? "Pre-order Details" : "Individual Shoes (Variants)"}
+            </h3>
 
             {/* Add New Variant Form */}
             <div className="border p-4 rounded-md space-y-3 bg-gray-50">
-              <h4 className="font-medium text-sm">Variant Details</h4>
+              <h4 className="font-medium text-sm">
+                {isPreOrder ? "Item Specifications" : "Variant Details"}
+              </h4>
               <div>
                 <Label htmlFor="sizeLabel" className="text-xs">
                   Size Label
@@ -989,58 +1500,60 @@ export function AddProductForm({
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="location" className="text-xs">
-                  Location
-                </Label>
-                <Select
-                  value={newVariant.location}
-                  onValueChange={(value) => {
-                    if (value === "add-custom-location") {
-                      setShowCustomLocationInput(true)
-                      setNewVariant((prev) => ({ ...prev, location: undefined })) // Clear current selection
-                    } else {
-                      setShowCustomLocationInput(false)
-                      setNewVariant((prev) => ({ ...prev, location: value }))
-                    }
-                  }}
-                >
-                  <SelectTrigger id="location" className="w-full text-xs">
-                    <SelectValue placeholder="Select location or add new" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Warehouse A">Warehouse A</SelectItem>
-                    <SelectItem value="Warehouse B">Warehouse B</SelectItem>
-                    {customLocations.map((loc) => (
-                      <SelectItem key={loc} value={loc}>
-                        {loc}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="add-custom-location">Add Custom Location...</SelectItem>
-                  </SelectContent>
-                </Select>
-                {showCustomLocationInput && (
-                  <div className="flex gap-2 mt-2">
-                    <Input
-                      id="newCustomLocationName"
-                      placeholder="Enter new location name"
-                      value={newCustomLocationName}
-                      onChange={(e) => setNewCustomLocationName(e.target.value)}
-                      className="text-xs flex-1"
-                      disabled={isPending}
-                    />
-                    <Button
-                      type="button"
-                      onClick={handleAddCustomLocation}
-                      size="sm"
-                      className="h-8"
-                      disabled={isPending}
-                    >
-                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                )}
-              </div>
+              {!isPreOrder && (
+                <div>
+                  <Label htmlFor="location" className="text-xs">
+                    Location
+                  </Label>
+                  <Select
+                    value={newVariant.location}
+                    onValueChange={(value) => {
+                      if (value === "add-custom-location") {
+                        setShowCustomLocationInput(true)
+                        setNewVariant((prev) => ({ ...prev, location: undefined })) // Clear current selection
+                      } else {
+                        setShowCustomLocationInput(false)
+                        setNewVariant((prev) => ({ ...prev, location: value }))
+                      }
+                    }}
+                  >
+                    <SelectTrigger id="location" className="w-full text-xs">
+                      <SelectValue placeholder="Select location or add new" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Warehouse A">Warehouse A</SelectItem>
+                      <SelectItem value="Warehouse B">Warehouse B</SelectItem>
+                      {customLocations.map((loc) => (
+                        <SelectItem key={loc} value={loc}>
+                          {loc}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="add-custom-location">Add Custom Location...</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {showCustomLocationInput && (
+                    <div className="flex gap-2 mt-2">
+                      <Input
+                        id="newCustomLocationName"
+                        placeholder="Enter new location name"
+                        value={newCustomLocationName}
+                        onChange={(e) => setNewCustomLocationName(e.target.value)}
+                        className="text-xs flex-1"
+                        disabled={isPending}
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleAddCustomLocation}
+                        size="sm"
+                        className="h-8"
+                        disabled={isPending}
+                      >
+                        {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
               {/* Status is always 'Available' for new variants, so no UI needed */}
               <div>
                 <Label htmlFor="condition" className="text-xs">
@@ -1060,18 +1573,21 @@ export function AddProductForm({
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="dateAdded" className="text-xs">
-                  Date Added
-                </Label>
-                <Input
-                  id="dateAdded"
-                  type="date"
-                  value={newVariant.dateAdded}
-                  onChange={handleNewVariantChange}
-                  className="text-xs"
-                />
-              </div>
+              {!isPreOrder && (
+                <div>
+                  <Label htmlFor="dateAdded" className="text-xs">
+                    Date Added
+                  </Label>
+                  <Input
+                    id="dateAdded"
+                    type="date"
+                    value={newVariant.dateAdded}
+                    onChange={handleNewVariantChange}
+                    className="text-xs"
+                  />
+                </div>
+              )}
+              
               <div>
                 <Label htmlFor="quantity" className="text-xs">
                   Quantity
@@ -1080,7 +1596,7 @@ export function AddProductForm({
                   id="quantity"
                   type="number"
                   min={1}
-                  max={variantLimits ? variantLimits.remaining : undefined}
+                  max={!isPreOrder && variantLimits ? variantLimits.remaining : undefined}
                   value={newVariant.quantity}
                   onChange={handleNewVariantChange}
                   onBlur={(e) => {
@@ -1090,12 +1606,12 @@ export function AddProductForm({
                   }}
                   className={cn(
                     "text-xs",
-                    variantLimits && (typeof newVariant.quantity === "string" ? parseInt(newVariant.quantity) || 0 : newVariant.quantity) > variantLimits.remaining
+                    !isPreOrder && variantLimits && (typeof newVariant.quantity === "string" ? parseInt(newVariant.quantity) || 0 : newVariant.quantity) > variantLimits.remaining
                       ? "border-red-300 focus:border-red-500"
                       : ""
                   )}
                 />
-                {variantLimits && (typeof newVariant.quantity === "string" ? parseInt(newVariant.quantity) || 0 : newVariant.quantity) > variantLimits.remaining && (
+                {!isPreOrder && variantLimits && (typeof newVariant.quantity === "string" ? parseInt(newVariant.quantity) || 0 : newVariant.quantity) > variantLimits.remaining && (
                   <p className="text-xs text-red-600 mt-1">
                     Cannot add {typeof newVariant.quantity === "string" ? parseInt(newVariant.quantity) || 0 : newVariant.quantity} variants. Only {variantLimits.remaining} available variant slots remaining on your {variantLimits.plan} plan. 
                     {variantLimits.remaining > 0 && (
@@ -1105,7 +1621,20 @@ export function AddProductForm({
                     )}
                   </p>
                 )}
+                {isPreOrder && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Pre-order quantity - these items will be added to inventory when received.
+                  </p>
+                )}
               </div>
+              
+              {isPreOrder && (
+                <div className="bg-blue-50 p-3 rounded-md border border-blue-200">
+                  <p className="text-xs text-blue-700">
+                    📦 Pre-order items are not added to inventory until they arrive and are marked as received.
+                  </p>
+                </div>
+              )}
               
               {/* Owner Type Selection */}
               <div>

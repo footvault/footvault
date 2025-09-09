@@ -446,6 +446,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
               <TableHead>Customer</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Items</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Payment Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right cursor-pointer select-none" onClick={() => {
@@ -472,7 +473,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
           <TableBody>
             {paginatedSales.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-10 text-gray-500">
+                <TableCell colSpan={9} className="text-center py-10 text-gray-500">
                   {hasActiveFilters ? "No sales match the current search or filters." : "No sales yet."}
                 </TableCell>
               </TableRow>
@@ -516,6 +517,38 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                       ) : (
                         <span className="text-gray-400 italic">No items</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        // Determine if this sale is from a pre-order
+                        const isFromPreOrder = sale.status === 'downpayment' || 
+                          (sale.items && sale.items.some((item: any) => 
+                            item.variant && item.variant.notes && 
+                            item.variant.notes.includes('pre-order')
+                          ));
+                        
+                        if (isFromPreOrder) {
+                          if (sale.status === 'downpayment') {
+                            return (
+                              <span className="px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800">
+                                Pre-order Down Payment
+                              </span>
+                            );
+                          } else {
+                            return (
+                              <span className="px-2 py-1 rounded text-xs font-semibold bg-purple-100 text-purple-800">
+                                Pre-order
+                              </span>
+                            );
+                          }
+                        } else {
+                          return (
+                            <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-700">
+                              In Stock
+                            </span>
+                          );
+                        }
+                      })()}
                     </TableCell>
                     <TableCell>{paymentTypeName}</TableCell>
                     <TableCell>

@@ -3,7 +3,7 @@
 import type * as React from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Home, Plus, ShoppingCart, BarChart, CreditCard, Settings, Archive, Boxes, MessageSquare, Users } from "lucide-react"
+import { Home, Plus, ShoppingCart, BarChart, CreditCard, Settings, Archive, Boxes, MessageSquare, Users, UserCheck, Package } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import {
@@ -54,6 +54,18 @@ const mainNavigation = [
     title: "Sales",
     url: "/sales",
     icon: BarChart,
+    protected: true,
+  },
+  {
+    title: "Customers",
+    url: "/customers",
+    icon: UserCheck,
+    protected: true,
+  },
+  {
+    title: "Pre-orders",
+    url: "/preorders",
+    icon: Package,
     protected: true,
   },
   {
