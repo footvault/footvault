@@ -71,6 +71,8 @@ export async function POST(request: Request) {
     const nextSequence = (existingVariants?.length || 0) + 1;
     const variantSku = `${baseProductSku}-${size}-${nextSequence.toString().padStart(3, '0')}`;
 
+    console.log('Creating variant without serial number for pre-order conversion');
+
     // Create the variant
     const variantData = {
       id: uuidv4(), // Generate UUID for the variant
@@ -81,12 +83,16 @@ export async function POST(request: Request) {
       size_label: preorder.size_label || 'US',
       status: status,
       cost_price: preorder.cost_price,
-      location: null, // Default location
-      serial_number: null, // No serial number for pre-order conversions
+      location: 'Store', // Default location
+      serial_number: null, // No serial number for pre-order variants
       owner_type: 'store', // Default to store owned
       date_added: new Date().toISOString().split('T')[0], // Add current date
       condition: 'New', // Default condition
       isArchived: false, // Not archived
+      type: 'Pre-order', // Set the correct type
+      notes: `Created from pre-order #${preorder.pre_order_no} for customer ${preorder.customer.name}`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
 
     console.log('Creating variant with data:', variantData);
@@ -126,7 +132,13 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       variantId: variant.id,
-      variantSku: variant.variant_sku
+      variantSku: variant.variant_sku,
+      serialNumber: variant.serial_number,
+      preorderInfo: {
+        customerName: preorder.customer.name,
+        customerPhone: preorder.customer.phone,
+        preorderNumber: preorder.pre_order_no
+      }
     });
 
   } catch (error) {

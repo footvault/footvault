@@ -117,6 +117,7 @@ export function CheckoutClientWrapper({
   const [locationFilter, setLocationFilter] = useState<string>("all")
   const [sizeFilter, setSizeFilter] = useState<string[]>([]) // array of selected sizes
   const [sizeSearch, setSizeSearch] = useState("")
+  const [typeFilter, setTypeFilter] = useState<string>("all") // Add type filter state
   const [selectedVariants, setSelectedVariants] = useState<TransformedVariant[]>([])
   const [selectedPreorders, setSelectedPreorders] = useState<Preorder[]>([])
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("fixed")
@@ -256,8 +257,17 @@ export function CheckoutClientWrapper({
       filtered = filtered.filter(variant => sizeFilter.includes(String(variant.size)))
     }
 
+    // Apply type filter
+    if (typeFilter !== "all") {
+      if (typeFilter === "preorder") {
+        filtered = filtered.filter(variant => variant.isPreorder === true)
+      } else if (typeFilter === "instock") {
+        filtered = filtered.filter(variant => variant.isPreorder !== true)
+      }
+    }
+
     return filtered
-  }, [searchTerm, availableVariants, brandFilter, sizeCategoryFilter, locationFilter, sizeFilter])
+  }, [searchTerm, availableVariants, brandFilter, sizeCategoryFilter, locationFilter, sizeFilter, typeFilter])
 
   // Pagination logic for variants
   const totalVariantPages = filteredVariants.length > 12 ? Math.ceil(filteredVariants.length / variantsPerPage) : 1
@@ -270,6 +280,12 @@ export function CheckoutClientWrapper({
       // Handle pre-order selection
       setSelectedPreorders((prev) => [...prev, variant.preorderData!])
       setSearchTerm("") // Clear search after adding
+      
+      // Auto-populate customer info from pre-order if cart is empty
+      if (selectedVariants.length === 0 && selectedPreorders.length === 0) {
+        setCustomerName(variant.preorderData.customer.name)
+        setCustomerPhone(variant.preorderData.customer.phone || "")
+      }
       
       console.log('🛒 Adding pre-order to cart:', variant.productName, variant.size);
       
@@ -567,12 +583,16 @@ export function CheckoutClientWrapper({
         const variant = {
           id: v.id,
           cost_price: v.costPrice,
+          costPrice: v.costPrice, // Add camelCase version
           owner_type: 'consignor' as const,
           // Add minimal required fields to satisfy Variant type
           date_added: '',
           variant_sku: v.variantSku,
           serial_number: v.serialNumber || '',
+          serialNumber: v.serialNumber || '', // Add camelCase version
           product_id: 0,
+          productName: v.productName, // Add required field
+          productBrand: v.productBrand, // Add required field
           size: v.size,
           color: '',
           quantity: 1,
@@ -615,8 +635,10 @@ export function CheckoutClientWrapper({
     startConfirmSaleTransition(async () => {
       const saleDate = new Date().toISOString().split("T")[0] // Current date in YYYY-MM-DD format
 
-      // Handle pre-orders: convert them to variants first
+      // Handle pre-orders: convert them to variants first and collect customer info
       const preorderVariantItems: any[] = [];
+      let preorderCustomerInfo: { name: string; phone: string | null } | null = null;
+      
       for (const preorder of selectedPreorders) {
         try {
           // Create variant for the pre-order
@@ -632,7 +654,7 @@ export function CheckoutClientWrapper({
             },
             body: JSON.stringify({
               preorderId: preorder.id,
-              status: 'Sold' // Mark as Sold immediately since it's being converted (capital S)
+              status: 'Sold' // Mark as Sold immediately since it's being converted
             }),
           });
           
@@ -640,10 +662,18 @@ export function CheckoutClientWrapper({
           if (result.success) {
             preorderVariantItems.push({
               variantId: result.variantId,
-              soldPrice: preorder.total_amount, // Use total_amount as the sale price, not remaining_balance
+              soldPrice: preorder.total_amount, // Use total_amount as the sale price
               costPrice: preorder.cost_price,
               quantity: 1,
             });
+
+            // Store customer info from first pre-order for the sale
+            if (!preorderCustomerInfo && result.preorderInfo) {
+              preorderCustomerInfo = {
+                name: result.preorderInfo.customerName,
+                phone: result.preorderInfo.customerPhone
+              };
+            }
           } else {
             throw new Error(`Failed to create variant for pre-order ${preorder.id}: ${result.error}`);
           }
@@ -672,6 +702,10 @@ export function CheckoutClientWrapper({
       console.log("Items being sent to recordSale:", items)
       // --- END CONSOLE LOG ---
 
+      // Use pre-order customer info if available, otherwise use manual input
+      const finalCustomerName = preorderCustomerInfo?.name || customerName;
+      const finalCustomerPhone = preorderCustomerInfo?.phone || customerPhone || null;
+
       // Compose payment type JSON for new sales.payment_type jsonb column
       const paymentTypeJson = {
         id: selectedPaymentType,
@@ -689,8 +723,8 @@ export function CheckoutClientWrapper({
         netProfit,
         items,
         profitDistribution,
-        customerName, // Add customer name
-        customerPhone, // Add customer phone
+        customerName: finalCustomerName, // Use pre-order customer name if available
+        customerPhone: finalCustomerPhone, // Use pre-order customer phone if available
         paymentType: paymentTypeJson, // Save as JSONB
         paymentReceived,
         changeAmount,
@@ -1025,6 +1059,17 @@ export function CheckoutClientWrapper({
                         {location === "all" ? "All Locations" : location}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="instock">In Stock</SelectItem>
+                    <SelectItem value="preorder">Pre-order</SelectItem>
                   </SelectContent>
                 </Select>
 

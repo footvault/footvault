@@ -528,11 +528,19 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                     <TableCell className="hidden md:table-cell">
                       {sale.items && sale.items.length > 0 ? (
                         <ul className="text-sm">
-                          {sale.items.slice(0, 2).map((item: any) => (
-                            <li key={item.id}>
-                              {item.variant.productName} <span className="text-xs text-muted-foreground">(SN: {item.variant.serialNumber})</span>
-                            </li>
-                          ))}
+                          {sale.items.slice(0, 2).map((item: any) => {
+                            // Check if this is a pre-order item
+                            const isPreorderItem = item.variant.type === 'Pre-order';
+                            const identifier = isPreorderItem 
+                              ? `PO-${item.variant.notes?.match(/pre-order #(\d+)/)?.[1] || 'N/A'}` 
+                              : `SN: ${item.variant.serialNumber || 'N/A'}`;
+                            
+                            return (
+                              <li key={item.id}>
+                                {item.variant.productName} <span className="text-xs text-muted-foreground">({identifier})</span>
+                              </li>
+                            );
+                          })}
                           {sale.items.length > 2 && (
                             <div className="text-xs text-muted-foreground">
                               +{sale.items.length - 2} more items

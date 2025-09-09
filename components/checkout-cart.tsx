@@ -35,6 +35,8 @@ interface TransformedVariant {
   consignorPayoutMethod?: 'cost_price' | 'cost_plus_fixed' | 'cost_plus_percentage' | 'percentage_split';
   consignorFixedMarkup?: number;
   consignorMarkupPercentage?: number;
+  isPreorder?: boolean;
+  preorderData?: any;
 }
 
 interface Preorder {
@@ -246,9 +248,11 @@ export function CheckoutCart({
                             <p className="text-sm font-medium truncate">{variant.productName}</p>
                             <div className="flex gap-2 text-xs text-gray-500">
                               <span>Size: {variant.size}</span>
-                              {variant.serialNumber && (
+                              {variant.isPreorder && variant.preorderData ? (
+                                <span>PO-{variant.preorderData.pre_order_no}</span>
+                              ) : variant.serialNumber ? (
                                 <span>Serial: #{variant.serialNumber}</span>
-                              )}
+                              ) : null}
                             </div>
                             {variant.ownerType === 'consignor' && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 mt-1">
@@ -374,9 +378,11 @@ export function CheckoutCart({
                         <div className="flex-grow">
                           <h4 className="font-medium line-clamp-1">{variant.productName}</h4>
                           <p className="text-sm text-gray-600">{variant.productBrand}</p>
-                          {variant.serialNumber && (
+                          {variant.isPreorder && variant.preorderData ? (
+                            <p className="text-xs text-gray-500 mt-0.5">PO-{variant.preorderData.pre_order_no}</p>
+                          ) : variant.serialNumber ? (
                             <p className="text-xs text-gray-500 mt-0.5">Serial: #{variant.serialNumber}</p>
-                          )}
+                          ) : null}
                           <div className="flex gap-2 mt-1 flex-wrap">
                             <Badge variant="outline" className="text-xs">
                               Size: {variant.size} {variant.sizeLabel}

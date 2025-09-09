@@ -42,6 +42,8 @@ interface ApiSale {
       productBrand: string
       productSku: string
       productImage: string
+      type?: string
+      notes?: string | null
     } | null
   }>
   profitDistribution?: Array<{
@@ -214,7 +216,18 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="font-mono text-xs py-2">{item.variant?.serialNumber || 'N/A'}</TableCell>
+                          <TableCell className="font-mono text-xs py-2">
+                            {(() => {
+                              // Check if this is a pre-order item
+                              const isPreorderItem = item.variant?.type === 'Pre-order';
+                              if (isPreorderItem) {
+                                const preorderNumber = item.variant?.notes?.match(/pre-order #(\d+)/)?.[1];
+                                return preorderNumber ? `PO-${preorderNumber}` : 'PO-N/A';
+                              } else {
+                                return item.variant?.serialNumber || 'N/A';
+                              }
+                            })()}
+                          </TableCell>
                           <TableCell className="text-xs py-2">
                             {item.variant?.size || 'N/A'} ({item.variant?.sizeLabel || 'N/A'})
                           </TableCell>
