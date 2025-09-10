@@ -23,18 +23,16 @@ export default async function HomePage() {
 
   return (
     <SidebarInset>
-      {" "}
-      {/* Wrap content with SidebarInset */}
       <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1 bg-white md:bg-transparent" /> {/* Show on mobile with white bg */}
-        <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" /> {/* Add separator */}
+        <SidebarTrigger className="-ml-1 bg-white md:bg-transparent" />
+        <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
         <h1 className="text-xl font-semibold">Variants</h1>
       </header>
-     <div className="max-w-7xl mx-auto px-2 py-8 w-full">
-      <div className="container mx-auto py-8">
-       <ShoesVariantsTable />
-       </div>
-     </div>
+      <div className="w-full px-2 py-8">
+        <div className="container mx-auto py-8 w-full">
+          <ShoesVariantsTable />
+        </div>
+      </div>
     </SidebarInset>
   )
 }

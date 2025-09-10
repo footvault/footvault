@@ -318,8 +318,8 @@ export default function ConsignorsPage() {
         <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
         <h1 className="text-xl font-semibold">Consignors</h1>
       </header>
-      <div className="max-w-7xl mx-auto px-2 py-8 w-full">
-        <div className="container mx-auto py-8">
+      <div className="w-full px-2 py-8">
+        <div className="container py-8 w-full">
           <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

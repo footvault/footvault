@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { redirect } from 'next/navigation';
 import { createClient } from "@/lib/supabase/server";
 import { PreordersPageClient } from "@/components/preorders-page-client";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 
 export const dynamic = 'force-dynamic'
 
@@ -86,10 +88,35 @@ export default async function PreordersPage() {
 
   try {
     const preorders = await getPreorders()
-    
-    return <PreordersPageClient initialPreorders={preorders} />
+    return (
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1 bg-white md:bg-transparent" />
+          <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
+          <h1 className="text-xl font-semibold">Pre-orders</h1>
+        </header>
+        <div className="w-full px-2 py-8">
+          <div className="container mx-auto py-8 w-full">
+            <PreordersPageClient initialPreorders={preorders} />
+          </div>
+        </div>
+      </SidebarInset>
+    )
   } catch (error) {
     console.error('Error in PreordersPage:', error)
-    return <PreordersPageClient initialPreorders={[]} error={error instanceof Error ? error.message : 'Unknown error'} />
+    return (
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1 bg-white md:bg-transparent" />
+          <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
+          <h1 className="text-xl font-semibold">Pre-orders</h1>
+        </header>
+        <div className="w-full px-2 py-8">
+          <div className="container mx-auto py-8 w-full">
+            <PreordersPageClient initialPreorders={[]} error={error instanceof Error ? error.message : 'Unknown error'} />
+          </div>
+        </div>
+      </SidebarInset>
+    )
   }
 }

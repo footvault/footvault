@@ -1738,34 +1738,20 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
 
   if (error) {
     return (
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1 bg-white md:bg-transparent" />
-          <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
-          <h1 className="text-xl font-semibold">Pre-orders</h1>
-        </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">
-          <div className="text-center text-red-500">
-            <h1 className="text-3xl font-bold mb-4">Error Loading Pre-orders</h1>
-            <p>There was an issue fetching pre-order data. Please try again later.</p>
-            <p className="text-sm text-gray-600">Details: {error}</p>
-          </div>
+      <div className="flex flex-1 flex-col gap-4 p-4">
+        <div className="text-center text-red-500">
+          <h1 className="text-3xl font-bold mb-4">Error Loading Pre-orders</h1>
+          <p>There was an issue fetching pre-order data. Please try again later.</p>
+          <p className="text-sm text-gray-600">Details: {error}</p>
         </div>
-      </SidebarInset>
+      </div>
     );
   }
 
   return (
-    <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1 bg-white md:bg-transparent" />
-        <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
-        <h1 className="text-xl font-semibold">Pre-orders</h1>
-      </header>
-      
-      <div className="flex flex-1 flex-col gap-4 p-4">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+    <div className="space-y-4">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center gap-2 mb-2">
@@ -2068,46 +2054,47 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                 )}
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">
-                      <Checkbox 
-                        checked={isAllSelected}
-                        onCheckedChange={handleSelectAll}
-                        aria-label="Select all"
-                      />
-                    </TableHead>
-                    <TableHead>Pre-order #</TableHead>
-                    <TableHead>Image</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Brand</TableHead>
-                    <TableHead>Size</TableHead>
-                    <TableHead>Size Label</TableHead>
-                    <TableHead>Cost</TableHead>
-                    <TableHead>Sale Price</TableHead>
-                    <TableHead>Down Payment</TableHead>
-                    <TableHead>Estimated Delivery</TableHead>
-                    <TableHead>Remaining Balance</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
+              <div className="overflow-x-auto rounded-md border">
+                <Table className="min-w-[1000px] w-full">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12 whitespace-nowrap">
+                        <Checkbox 
+                          checked={isAllSelected}
+                          onCheckedChange={handleSelectAll}
+                          aria-label="Select all"
+                        />
+                      </TableHead>
+                      <TableHead className="whitespace-nowrap">Pre-order #</TableHead>
+                      <TableHead className="whitespace-nowrap">Image</TableHead>
+                      <TableHead className="whitespace-nowrap">Name</TableHead>
+                      <TableHead className="whitespace-nowrap">Brand</TableHead>
+                      <TableHead className="whitespace-nowrap">Size</TableHead>
+                      <TableHead className="whitespace-nowrap">Size Label</TableHead>
+                      <TableHead className="whitespace-nowrap">Cost</TableHead>
+                      <TableHead className="whitespace-nowrap">Sale Price</TableHead>
+                      <TableHead className="whitespace-nowrap">Down Payment</TableHead>
+                      <TableHead className="whitespace-nowrap">Estimated Delivery</TableHead>
+                      <TableHead className="whitespace-nowrap">Remaining Balance</TableHead>
+                      <TableHead className="whitespace-nowrap">Customer</TableHead>
+                      <TableHead className="whitespace-nowrap">Status</TableHead>
+                      <TableHead className="whitespace-nowrap">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
                 <TableBody>
                   {filteredAndSortedPreorders.map((preorder) => (
                     <TableRow key={preorder.id}>
-                      <TableCell>
+                      <TableCell className="px-4 py-2 whitespace-nowrap">
                         <Checkbox 
                           checked={selectedItems.includes(preorder.id)}
                           onCheckedChange={(checked) => handleSelectItem(preorder.id, checked as boolean)}
                           aria-label={`Select preorder ${preorder.id}`}
                         />
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
+                      <TableCell className="font-mono text-sm px-4 py-2 whitespace-nowrap">
                         #{preorder.pre_order_no ? preorder.pre_order_no.toString().padStart(3, '0') : '---'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-2 whitespace-nowrap">
                         {preorder.product.image ? (
                           <Image
                             src={preorder.product.image}
@@ -2122,29 +2109,29 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-2 whitespace-nowrap">
                         <div className="font-medium">{preorder.product.name}</div>
                       </TableCell>
-                      <TableCell>{preorder.product.brand}</TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-2 whitespace-nowrap">{preorder.product.brand}</TableCell>
+                      <TableCell className="px-4 py-2 whitespace-nowrap">
                         {preorder.size ? preorder.size : "—"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-2 whitespace-nowrap">
                         {preorder.size_label ? preorder.size_label : "—"}
                       </TableCell>
-                      <TableCell>{formatCurrency(preorder.cost_price, currency)}</TableCell>
-                      <TableCell>{formatCurrency(preorder.total_amount, currency)}</TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-2 whitespace-nowrap">{formatCurrency(preorder.cost_price, currency)}</TableCell>
+                      <TableCell className="px-4 py-2 whitespace-nowrap">{formatCurrency(preorder.total_amount, currency)}</TableCell>
+                      <TableCell className="px-4 py-2 whitespace-nowrap">
                         {preorder.down_payment ? formatCurrency(preorder.down_payment, currency) : "—"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-2 whitespace-nowrap">
                         {preorder.expected_delivery_date 
                           ? format(new Date(preorder.expected_delivery_date), 'MMM dd, yyyy')
                           : "—"
                         }
                       </TableCell>
-                      <TableCell>{formatCurrency(preorder.remaining_balance, currency)}</TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-2 whitespace-nowrap">{formatCurrency(preorder.remaining_balance, currency)}</TableCell>
+                      <TableCell className="px-4 py-2 whitespace-nowrap">
                         <button
                           onClick={() => handleCustomerClick(preorder.customer)}
                           className="text-blue-600 hover:text-blue-800 hover:underline text-left"
@@ -2152,13 +2139,13 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                           {preorder.customer.name}
                         </button>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-2 whitespace-nowrap">
                         <Badge className={getStatusColor(preorder.status)}>
                           {getStatusIcon(preorder.status)}
                           <span className="ml-1">{preorder.status.toUpperCase()}</span>
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-2 whitespace-nowrap">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-8 w-8 p-0">
@@ -2224,10 +2211,10 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>
-      </div>
 
       {/* Customer Modal */}
       <Dialog open={showCustomerModal} onOpenChange={setShowCustomerModal}>
@@ -2931,6 +2918,6 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </SidebarInset>
+    </div>
   );
 }
