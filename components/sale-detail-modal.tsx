@@ -22,6 +22,7 @@ interface ApiSale {
   net_profit: number
   customer_name?: string | null
   customer_phone?: string | null
+  notes?: string | null
   created_at: string
   updated_at: string
   status?: string
@@ -192,8 +193,13 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                     <TableHeader>
                       <TableRow>
                         <TableHead>Item</TableHead>
-                        <TableHead>Serial</TableHead>
+                        <TableHead>
+                          {items.some(item => item.variant?.type === 'Pre-order' || item.variant?.type === 'downpayment') 
+                            ? 'Pre-order' 
+                            : 'Serial'}
+                        </TableHead>
                         <TableHead>Size</TableHead>
+                        <TableHead>Notes</TableHead>
                         <TableHead className="text-right">Sold Price</TableHead>
                         <TableHead className="text-right">Cost Price</TableHead>
                       </TableRow>
@@ -218,11 +224,14 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                           </TableCell>
                           <TableCell className="font-mono text-xs py-2">
                             {(() => {
-                              // Check if this is a pre-order item
+                              // Check if this is a pre-order or downpayment item
                               const isPreorderItem = item.variant?.type === 'Pre-order';
-                              if (isPreorderItem) {
-                                const preorderNumber = item.variant?.notes?.match(/pre-order #(\d+)/)?.[1];
-                                return preorderNumber ? `PO-${preorderNumber}` : 'PO-N/A';
+                              const isDownpaymentItem = item.variant?.type === 'downpayment';
+                              
+                              if (isPreorderItem || isDownpaymentItem) {
+                                const preorderMatch = item.variant?.notes?.match(/pre-order #(\d+)/);
+                                const preorderNumber = preorderMatch?.[1];
+                                return preorderNumber ? `#${preorderNumber}` : 'N/A';
                               } else {
                                 return item.variant?.serialNumber || 'N/A';
                               }
@@ -230,6 +239,15 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                           </TableCell>
                           <TableCell className="text-xs py-2">
                             {item.variant?.size || 'N/A'} ({item.variant?.sizeLabel || 'N/A'})
+                          </TableCell>
+                          <TableCell className="text-xs py-2 max-w-48">
+                            {item.variant?.notes ? (
+                              <div className="truncate" title={item.variant.notes}>
+                                {item.variant.notes}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 italic">No notes</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-right font-medium py-2">{formatCurrency(item.sold_price, currency)}</TableCell>
                           <TableCell className="text-right text-gray-600 py-2">{formatCurrency(item.cost_price, currency)}</TableCell>

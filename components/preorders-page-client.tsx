@@ -82,6 +82,7 @@ interface PaymentType {
 }
 
 interface Avatar {
+  image_url: string
   id: string;
   name: string;
   image?: string;
@@ -437,20 +438,138 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
     if (!selectedPreorder) return;
     
     setIsUpdating(true);
+    const supabase = createClient();
     
     try {
-      await updatePreOrderStatus(selectedPreorder.id, 'pending', 'Pre-order restored');
+      console.log('Starting restore for pre-order:', selectedPreorder.id);
+      
+      // Get the current user for authentication
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('Authentication required');
+      }
+
+      // Check if this is a cancelled pre-order that created a sale
+      if (selectedPreorder.status === 'canceled') {
+        console.log('Restoring cancelled pre-order - need to clean up sale and variant');
+        
+        // Find the sale created from this cancelled pre-order
+        // Look for sales that have variants with notes mentioning this pre-order number
+        const { data: salesWithVariants, error: salesError } = await supabase
+          .from('sales')
+          .select(`
+            id,
+            sale_items!inner (
+              id,
+              variant:variants!inner (
+                id,
+                type,
+                notes
+              )
+            )
+          `)
+          .eq('user_id', user.id);
+
+        if (salesError) {
+          console.error('Error finding sales:', salesError);
+          throw salesError;
+        }
+
+        // Find the sale that was created from this cancelled pre-order
+        const relatedSale = salesWithVariants?.find(sale =>
+          sale.sale_items.some((item: any) =>
+            item.variant.type === 'downpayment' &&
+            item.variant.notes?.includes(`pre-order #${selectedPreorder.pre_order_no}`)
+          )
+        );
+
+        if (relatedSale) {
+          console.log('Found related sale to delete:', relatedSale.id);
+          
+          // Get the variant ID from the sale item
+          const variantToDelete = relatedSale.sale_items.find((item: any) =>
+            item.variant.type === 'downpayment' &&
+            item.variant.notes?.includes(`pre-order #${selectedPreorder.pre_order_no}`)
+          )?.variant;
+
+          if (variantToDelete) {
+            // If variantToDelete is an array, get the first element
+            const variantId = Array.isArray(variantToDelete) ? variantToDelete[0]?.id : variantToDelete.id;
+            console.log('Found variant to delete:', variantId);
+            
+            // Delete in proper order to respect foreign key constraints:
+            // 1. Delete sale_items first (they reference variants)
+            console.log('Deleting sale_items...');
+            const { error: saleItemsDeleteError } = await supabase
+              .from('sale_items')
+              .delete()
+              .eq('sale_id', relatedSale.id);
+
+            if (saleItemsDeleteError) {
+              console.error('Error deleting sale_items:', saleItemsDeleteError);
+              throw saleItemsDeleteError;
+            }
+            console.log('Sale items deleted successfully');
+
+            // 2. Delete profit distributions
+            console.log('Deleting profit distributions...');
+            const { error: profitDistDeleteError } = await supabase
+              .from('sale_profit_distributions')
+              .delete()
+              .eq('sale_id', relatedSale.id);
+
+            if (profitDistDeleteError) {
+              console.error('Error deleting profit distributions:', profitDistDeleteError);
+              throw profitDistDeleteError;
+            }
+            console.log('Profit distributions deleted successfully');
+
+            // 3. Delete the sale
+            console.log('Deleting sale...');
+            const { error: saleDeleteError } = await supabase
+              .from('sales')
+              .delete()
+              .eq('id', relatedSale.id);
+
+            if (saleDeleteError) {
+              console.error('Error deleting sale:', saleDeleteError);
+              throw saleDeleteError;
+            }
+            console.log('Sale deleted successfully');
+
+            // 4. Finally delete the variant
+            console.log('Deleting variant...');
+            const { error: variantDeleteError } = await supabase
+              .from('variants')
+              .delete()
+              .eq('id', variantId);
+
+            if (variantDeleteError) {
+              console.error('Error deleting variant:', variantDeleteError);
+              throw variantDeleteError;
+            }
+            console.log('Variant deleted successfully');
+          }
+        } else {
+          console.log('No related sale found for this cancelled pre-order');
+        }
+      }
+
+      // Update pre-order status back to pending
+      await updatePreOrderStatus(selectedPreorder.id, 'pending', 'Pre-order restored from cancelled status');
       
       // Update local state
       setPreorders(prev => prev.map(p => 
         p.id === selectedPreorder.id 
-          ? { ...p, status: 'pending', notes: 'Pre-order restored' }
+          ? { ...p, status: 'pending', notes: 'Pre-order restored from cancelled status' }
           : p
       ));
 
       toast({
         title: "Pre-order Restored",
-        description: "Pre-order has been restored successfully.",
+        description: selectedPreorder.status === 'canceled' 
+          ? "Cancelled pre-order has been restored to pending status. Associated sale and variant have been cleaned up."
+          : "Pre-order has been restored to pending status.",
       });
 
       setShowRestoreModal(false);
@@ -474,7 +593,7 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
     const supabase = createClient();
     
     try {
-      // Calculate remaining balance
+      // Calculate remaining balance for local state only (DB will auto-calculate)
       const remaining_balance = editForm.total_amount - editForm.down_payment;
       
       const { error } = await supabase
@@ -482,7 +601,7 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
         .update({
           total_amount: editForm.total_amount,
           down_payment: editForm.down_payment,
-          remaining_balance: remaining_balance,
+          // Remove remaining_balance from update - it's a generated column
           expected_delivery_date: editForm.expected_delivery_date || null,
           notes: editForm.notes,
           updated_at: new Date().toISOString()
@@ -514,9 +633,12 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
       setSelectedPreorder(null);
     } catch (error) {
       console.error('Error updating pre-order:', error);
+      console.error('Full error details:', JSON.stringify(error, null, 2));
       toast({
         title: "Update Failed",
-        description: "Failed to update pre-order. Please try again.",
+        description: (typeof error === "object" && error !== null && "message" in error)
+          ? (error as any).message
+          : "Failed to update pre-order. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -912,7 +1034,7 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
     setCancelForm({
       paymentType: paymentTypes.length > 0 ? paymentTypes[0].id : '',
       profitTemplateId: 'main', // Default to main account
-      notes: `Down payment of ${formatCurrency(preorder.down_payment || 0, currency)} for cancelled pre-order #${preorder.id}`
+      notes: `Down payment of ${formatCurrency(preorder.down_payment || 0, currency)} for cancelled pre-order #${preorder.pre_order_no}`
     });
     setShowCancelModal(true);
   };
@@ -984,8 +1106,8 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
               user_id: user.id,
               date_added: new Date().toISOString().slice(0, 10),
               location: 'Store',
-              type: 'Pre-order', // Mark as Pre-order type
-              notes: `Created from cancelled pre-order #${preorder.id}`
+              type: 'downpayment', // Use the new valid enum value for cancelled pre-orders
+              notes: `Downpayment from cancelled pre-order #${preorder.pre_order_no}`
             };
 
             const { data: variantData, error: variantError } = await supabase
@@ -995,6 +1117,15 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
               .single();
 
             if (variantError) {
+              // Log complete error details for debugging
+              console.error('Variant insertion error:', {
+                code: variantError.code,
+                message: variantError.message,
+                details: variantError.details,
+                hint: variantError.hint,
+                variantData: variantInsert
+              });
+              
               // Check if it's a unique constraint violation on serial_number
               if (variantError.code === '23505' && variantError.message.includes('unique_serial_per_user')) {
                 // Serial number conflict, try again with a different number
@@ -1086,7 +1217,7 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
         id: crypto.randomUUID(),
         sale_id: saleResult.id,
         variant_id: variantId,
-        sold_price: preorder.total_amount, // Full sale price
+        sold_price: 0, // Cancellation sale has 0 total (only down payment profit)
         cost_price: preorder.cost_price,
         quantity: 1,
         custom_sales_id: saleResult.custom_sales_id
@@ -2165,9 +2296,11 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                   id="totalAmount"
                   type="number"
                   step="0.01"
-                  value={editForm.total_amount}
+                  value={editForm.total_amount === 0 ? '' : editForm.total_amount}
+                  placeholder="0.00"
                   onChange={(e) => {
-                    const totalAmount = parseFloat(e.target.value) || 0;
+                    const value = e.target.value;
+                    const totalAmount = value === '' ? 0 : parseFloat(value) || 0;
                     setEditForm(prev => ({ 
                       ...prev, 
                       total_amount: totalAmount,
@@ -2183,9 +2316,11 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                   id="downPayment"
                   type="number"
                   step="0.01"
-                  value={editForm.down_payment}
+                  value={editForm.down_payment === 0 ? '' : editForm.down_payment}
+                  placeholder="0.00"
                   onChange={(e) => {
-                    const downPayment = parseFloat(e.target.value) || 0;
+                    const value = e.target.value;
+                    const downPayment = value === '' ? 0 : parseFloat(value) || 0;
                     setEditForm(prev => ({ 
                       ...prev, 
                       down_payment: downPayment,
@@ -2201,7 +2336,7 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                   id="remainingBalance"
                   type="number"
                   step="0.01"
-                  value={editForm.remaining_balance}
+                  value={editForm.remaining_balance === 0 ? '0.00' : editForm.remaining_balance}
                   disabled
                   className="bg-gray-50"
                 />
@@ -2451,7 +2586,7 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                           return mainAvatar ? (
                             <>
                               <Avatar className="h-5 w-5">
-                                <AvatarImage src={mainAvatar.image_url || `/api/avatar?name=${mainAvatar.name}`} />
+                                <AvatarImage src={mainAvatar.image || `/api/avatar?name=${mainAvatar.name}`} />
                                 <AvatarFallback className="text-xs">{mainAvatar.name.charAt(0)}</AvatarFallback>
                               </Avatar>
                               <span>Main Account Only</span>

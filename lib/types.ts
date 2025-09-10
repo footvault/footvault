@@ -89,6 +89,7 @@ export type Sale = {
   customer_phone?: string | null // Added customer phone
   status?: string // Added status field
   payment_type?: any // Added payment type
+  notes?: string | null // Added notes field (variant notes are displayed in detail modal)
   items?: SaleItem[] // Added items for compatibility
   created_at: string
   updated_at: string

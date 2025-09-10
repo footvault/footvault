@@ -75,7 +75,7 @@ export function SalesClientWrapper({
       });
     });
 
-    // Filter out refunded sales
+    // Filter out refunded sales only (keep downpayment profits)
     const nonRefundedSales = salesData.filter(sale => sale.status !== 'refunded');
 
     nonRefundedSales.forEach(sale => {

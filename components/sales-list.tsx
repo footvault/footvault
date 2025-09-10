@@ -22,6 +22,7 @@ import { ReceiptGenerator } from "./receipt-generator"
 import { formatCurrency } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
 import type { DateRange } from "react-day-picker"
+import { useToast } from "@/hooks/use-toast"
 
 interface SalesListProps {
   sales: Sale[]
@@ -31,6 +32,7 @@ interface SalesListProps {
 
 const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) => {
   const { currency } = useCurrency()
+  const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
@@ -60,6 +62,22 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
     setIsRefundModalOpen(true)
   }
 
+  // Helper function to check if a sale is from a pre-order
+  const isPreOrderSale = (sale: Sale) => {
+    const isDownPaymentStatus = sale.status === 'downpayment';
+    const hasDownpaymentType = sale.items && sale.items.some((item: any) => 
+      item.variant && item.variant.type === 'downpayment'
+    );
+    const hasPreOrderType = sale.items && sale.items.some((item: any) => 
+      item.variant && item.variant.type === 'Pre-order'
+    );
+    return isDownPaymentStatus || hasDownpaymentType || hasPreOrderType;
+  }
+
+  // Get current sale being refunded for modal description
+  const currentSaleToRefund = sales.find(sale => sale.id === saleToRefund);
+  const isCurrentSalePreOrder = currentSaleToRefund ? isPreOrderSale(currentSaleToRefund) : false;
+
   const handleConfirmRefund = async () => {
     if (!saleToRefund) return;
     setIsRefunding(true);
@@ -81,6 +99,8 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
       const result = await res.json();
       console.log("[Refund Debug] API response:", result); // Debug log
       if (result.success) {
+        console.log("[Refund Debug] Regular sale refund completed");
+        
         // Optionally log the updated sale status if returned
         if (result.sale) {
           console.log("[Refund Debug] Updated sale:", result.sale);
@@ -293,19 +313,58 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) {
         console.error("No user session or access token")
+        toast({
+          title: "Authentication Error",
+          description: "No user session found. Please refresh and try again.",
+          variant: "destructive",
+        })
         return
       }
+      
+      console.log("Deleting sale:", saleToDelete)
       const res = await fetch("/api/delete-sale", {
         method: "DELETE",
         headers: { 
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`
         },
         body: JSON.stringify({ saleId: saleToDelete }),
       })
+      
+      console.log("Delete response status:", res.status)
       const result = await res.json()
+      console.log("Delete response:", result)
+      
       if (result.success) {
-        console.log("Deleted!")
+        console.log("Sale deleted successfully:", result.data)
+        
+        // Show success message based on deletion type
+        const deletionType = result.data?.cleanup_type || 'regular_sale_cleanup'
+        const isPreorderSale = deletionType === 'preorder_sale_cleanup'
+        const preordersReverted = result.data?.preorders_reverted || 0
+        const preordersRestored = result.data?.preorders_restored || 0
+        
+        let successMessage = "Sale deleted successfully."
+        
+        if (isPreorderSale) {
+          if (preordersReverted > 0 && preordersRestored > 0) {
+            // Both types restored
+            successMessage = `Sale deleted successfully. ${preordersReverted + preordersRestored} pre-orders restored to pending status.`
+          } else if (preordersReverted > 0) {
+            // Completed pre-orders reverted
+            const plural = preordersReverted > 1 ? 'pre-orders' : 'pre-order'
+            successMessage = `Sale deleted successfully. ${preordersReverted} completed ${plural} restored to pending status.`
+          } else if (preordersRestored > 0) {
+            // Cancelled pre-orders restored
+            const plural = preordersRestored > 1 ? 'pre-orders' : 'pre-order'
+            successMessage = `Sale deleted successfully. ${preordersRestored} cancelled ${plural} restored to pending status.`
+          }
+        }
+        
+        toast({
+          title: "Sale Deleted",
+          description: successMessage,
+        })
+        
         // Call parent to refresh sales and wait for it to complete
         if (onDeleted) {
           // Small delay to ensure database changes are propagated
@@ -313,10 +372,32 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
           await onDeleted() // Wait for the refresh to complete
         }
       } else {
-        console.error("Failed:", result.error)
+        console.error("Delete failed:", result.error)
+        
+        // Provide user-friendly error messages
+        let errorMessage = "Unable to delete sale. Please try again."
+        
+        if (result.error?.includes('not found')) {
+          errorMessage = "Sale not found. It may have already been deleted."
+        } else if (result.error?.includes('Authentication')) {
+          errorMessage = "Session expired. Please refresh the page and try again."
+        } else if (result.error?.includes('permission')) {
+          errorMessage = "You don't have permission to delete this sale."
+        }
+        
+        toast({
+          title: "Cannot Delete Sale",
+          description: errorMessage,
+          variant: "destructive",
+        })
       }
     } catch (err) {
       console.error("Error deleting:", err)
+      toast({
+        title: "Connection Error",
+        description: "Unable to connect to the server. Please check your internet connection and try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsDeleting(false)
       setIsConfirmModalOpen(false)
@@ -519,6 +600,11 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                   // Last resort: convert to string safely
                   paymentTypeName = typeof sale.payment_type === "string" ? sale.payment_type : "Cash";
                 }
+                // Check if this sale has downpayment variant types for strikethrough
+                const hasDownpaymentType = sale.items && sale.items.some((item: any) => 
+                  item.variant && item.variant.type === 'downpayment'
+                );
+                
                 return (
                   <TableRow key={sale.id}>
                     <TableCell className="font-mono text-sm">{customId}</TableCell>
@@ -529,11 +615,19 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                       {sale.items && sale.items.length > 0 ? (
                         <ul className="text-sm">
                           {sale.items.slice(0, 2).map((item: any) => {
-                            // Check if this is a pre-order item
+                            // Check if this is a pre-order or downpayment item
                             const isPreorderItem = item.variant.type === 'Pre-order';
-                            const identifier = isPreorderItem 
-                              ? `PO-${item.variant.notes?.match(/pre-order #(\d+)/)?.[1] || 'N/A'}` 
-                              : `SN: ${item.variant.serialNumber || 'N/A'}`;
+                            const isDownpaymentItem = item.variant.type === 'downpayment';
+                            
+                            let identifier;
+                            if (isPreorderItem || isDownpaymentItem) {
+                              // Extract pre-order number from notes
+                              const preOrderMatch = item.variant.notes?.match(/pre-order #(\d+)/);
+                              const preOrderNo = preOrderMatch?.[1] || 'N/A';
+                              identifier = `PO: #${preOrderNo}`;
+                            } else {
+                              identifier = `SN: ${item.variant.serialNumber || 'N/A'}`;
+                            }
                             
                             return (
                               <li key={item.id}>
@@ -553,32 +647,29 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
                       {(() => {
-                        // Check multiple ways to determine if this is a pre-order sale:
-                        // 1. Check if status is 'downpayment' (pre-order down payment)
-                        // 2. Check variant type field (preferred method)
-                        // 3. Fallback to checking variant notes for pre-order indicators
-                        const isDownPayment = sale.status === 'downpayment';
+                        // Check variant types to determine the appropriate badge:
+                        // - "downpayment" type = from cancelled pre-orders
+                        // - "Pre-order" type = from completed pre-orders  
+                        // - status "downpayment" = original downpayment sales
+                        const isDownPaymentStatus = sale.status === 'downpayment';
+                        const hasDownpaymentType = sale.items && sale.items.some((item: any) => 
+                          item.variant && item.variant.type === 'downpayment'
+                        );
                         const hasPreOrderType = sale.items && sale.items.some((item: any) => 
                           item.variant && item.variant.type === 'Pre-order'
                         );
-                        const hasPreOrderInNotes = sale.items && sale.items.some((item: any) => 
-                          item.variant && item.variant.notes && 
-                          (item.variant.notes.toLowerCase().includes('pre-order') || 
-                           item.variant.notes.toLowerCase().includes('cancelled pre-order') ||
-                           item.variant.notes.toLowerCase().includes('from pre-order'))
-                        );
                         
                         // Determine the appropriate label and styling
-                        if (isDownPayment) {
+                        if (isDownPaymentStatus || hasDownpaymentType) {
                           return (
                             <span className="px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800 whitespace-nowrap">
-                              Pre-order Down Payment
+                              Downpayment
                             </span>
                           );
-                        } else if (hasPreOrderType || hasPreOrderInNotes) {
+                        } else if (hasPreOrderType) {
                           return (
-                            <span className="px-2 py-1 rounded text-xs font-semibold bg-purple-100 text-purple-800 whitespace-nowrap">
-                              Pre-order
+                            <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800 whitespace-nowrap">
+                              Pre-order Completed
                             </span>
                           );
                         } else {
@@ -607,7 +698,9 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                       )}
                     </TableCell>
                     <TableCell className="text-right font-medium">
-                      {formatCurrency(sale.total_amount, currency)}
+                      <span className={hasDownpaymentType ? "line-through text-gray-500" : ""}>
+                        {formatCurrency(sale.total_amount, currency)}
+                      </span>
                     </TableCell>
                     <TableCell className={`text-right font-medium ${sale.net_profit < 0 ? "text-red-600" : "text-green-600"}`}>
                       {formatCurrency(sale.net_profit, currency)}
@@ -631,7 +724,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                             <Printer className="h-4 w-4 mr-2" />
                             {isGeneratingReceipt && receiptSaleId === sale.id ? "Generating..." : "Print Receipt"}
                           </DropdownMenuItem>
-                          {sale.status !== 'refunded' && (
+                          {sale.status !== 'refunded' && !isPreOrderSale(sale) && (
                             <DropdownMenuItem
                               onClick={() => handleRefundClick(sale.id)}
                               className="text-yellow-600"
@@ -699,7 +792,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
         open={isRefundModalOpen}
         onOpenChange={setIsRefundModalOpen}
         title="Confirm Refund"
-        description="Are you sure you want to refund this sale? This will mark the sale as refunded, return items to inventory, and remove profit distributions. This action cannot be undone."
+        description="Are you sure you want to refund this sale? This will mark the sale as refunded, return items to available inventory, and remove profit distributions. This action cannot be undone."
         onConfirm={handleConfirmRefund}
         isConfirming={isRefunding}
       />

@@ -41,10 +41,20 @@ export async function GET(request: Request) {
     const fromDate = searchParams.get('from');
     const toDate = searchParams.get('to');
 
-    // Build the query
+    // Build the query to include sale items and variants to check for downpayment types
     let query = authenticatedSupabase
       .from('sales')
-      .select('total_amount, net_profit, sale_date, status')
+      .select(`
+        total_amount, 
+        net_profit, 
+        sale_date, 
+        status,
+        sale_items!inner (
+          variant:variants!inner (
+            type
+          )
+        )
+      `)
       .eq('user_id', user.id)
       .neq('status', 'refunded'); // Exclude refunded sales
 
@@ -55,7 +65,7 @@ export async function GET(request: Request) {
       query = query.lte('sale_date', toDate.split('T')[0]);
     }
 
-    const { data: sales, error: salesError } = await query;
+    const { data: salesData, error: salesError } = await query;
 
     if (salesError) {
       console.error('Error fetching sales:', salesError);
@@ -65,12 +75,27 @@ export async function GET(request: Request) {
       }, { status: 500 });
     }
 
-    // Calculate stats
+    console.log('Sales data received:', JSON.stringify(salesData, null, 2));
+
+    // Separate filtering for sales amount vs profit calculation
+    const nonDownpaymentSales = salesData?.filter((sale: any) => {
+      // Check if any sale item has a variant with type 'downpayment'
+      const hasDownpaymentVariant = sale.sale_items?.some((item: any) => 
+        item.variant?.type === 'downpayment'
+      );
+      console.log(`Sale ${sale.id}: hasDownpaymentVariant = ${hasDownpaymentVariant}`);
+      return !hasDownpaymentVariant; // Exclude sales with downpayment variants
+    }) || [];
+
+    console.log('Non-downpayment sales:', nonDownpaymentSales.length);
+    console.log('All sales net profit:', (salesData || []).reduce((sum: number, sale: any) => sum + (sale.net_profit || 0), 0));
+
+    // Calculate stats: exclude downpayment sales from total amount, but include their profit
     const stats = {
       success: true,
-      totalSalesAmount: sales?.reduce((sum, sale) => sum + (sale.total_amount || 0), 0) || 0,
-      totalNetProfit: sales?.reduce((sum, sale) => sum + (sale.net_profit || 0), 0) || 0,
-      numberOfSales: sales?.length || 0
+      totalSalesAmount: nonDownpaymentSales.reduce((sum: number, sale: any) => sum + (sale.total_amount || 0), 0), // Only non-downpayment sales
+      totalNetProfit: (salesData || []).reduce((sum: number, sale: any) => sum + (sale.net_profit || 0), 0), // Include all sales (including downpayment profits)
+      numberOfSales: nonDownpaymentSales.length // Only count non-downpayment sales
     };
 
     return NextResponse.json(stats);

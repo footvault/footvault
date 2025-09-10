@@ -53,17 +53,29 @@ export async function POST(req: NextRequest) {
     const { data, error } = await authenticatedSupabase.rpc("refund_sale", { sale_to_refund: saleId })
 
     if (error) {
+      // Check if this is a pre-order refund error and provide a friendlier message
+      if (error.message.includes("Cannot refund sales containing pre-order items")) {
+        return NextResponse.json({ 
+          success: false, 
+          error: "Pre-order sales cannot be refunded. Pre-order sales are considered final to maintain business integrity and avoid inventory complications." 
+        }, { status: 400 })
+      }
       return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 
-    // Optionally fetch the updated sale to return in response
+    // Fetch the updated sale to return in response
     const { data: updatedSale } = await authenticatedSupabase
       .from('sales')
       .select('*')
       .eq('id', saleId)
       .single()
 
-    return NextResponse.json({ success: true, sale: updatedSale, data })
+    return NextResponse.json({ 
+      success: true, 
+      sale: updatedSale, 
+      refundDetails: data,
+      message: "Regular sale refunded successfully. Items have been returned to available inventory."
+    })
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e.message }, { status: 500 })
   }
