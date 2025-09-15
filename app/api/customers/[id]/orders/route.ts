@@ -34,7 +34,7 @@ export async function GET(
     }
 
     // Fetch sales for this customer
-    const { data: sales, error: salesError } = await supabase
+    const { data: salesData, error: salesError } = await supabase
       .from("sales")
       .select(`
         id,
@@ -44,16 +44,9 @@ export async function GET(
           id,
           quantity,
           unit_price,
-          variants (
-            id,
-            size,
-            size_label,
-            products (
-              id,
-              name,
-              brand
-            )
-          )
+          product_name,
+          size,
+          sale_price
         )
       `)
       .eq("customer_id", customerId)
@@ -61,33 +54,75 @@ export async function GET(
       .order("sale_date", { ascending: false })
 
     if (salesError) {
-      console.error("Error fetching customer orders:", salesError)
-      return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 })
+      console.error("Error fetching sales:", salesError)
     }
 
-    // Transform the data to a more frontend-friendly format
-    const orderHistory = sales?.map(sale => ({
+    // Fetch preorders (both completed and pending) for this customer
+    const { data: preordersData, error: preordersError } = await supabase
+      .from('pre_orders')
+      .select(`
+        id,
+        pre_order_no,
+        status,
+        total_amount,
+        down_payment,
+        remaining_balance,
+        completed_date,
+        created_at,
+        size,
+        size_label,
+        product:products (
+          name,
+          brand
+        )
+      `)
+      .eq('user_id', user.id)
+      .eq('customer_id', customerId)
+      .order('created_at', { ascending: false });
+
+    if (preordersError) {
+      console.error("Error fetching preorders:", preordersError);
+    }
+
+    // Transform sales data
+    const transformedSales = (salesData || []).map(sale => ({
       id: sale.id,
+      type: 'sale',
       saleDate: sale.sale_date,
       totalAmount: sale.total_amount,
-      items: sale.sale_items?.map(item => {
-        const variant = Array.isArray(item.variants) ? item.variants[0] : item.variants;
-        let product: any = null;
-        
-        if (variant?.products) {
-          product = Array.isArray(variant.products) ? variant.products[0] : variant.products;
-        }
-        
-        return {
-          productName: product ? `${product.brand || ''} ${product.name || 'Unknown Product'}`.trim() : 'Unknown Product',
-          size: variant?.size || '',
-          price: item.unit_price,
-          quantity: item.quantity
-        };
-      }) || []
-    })) || []
+      status: 'completed',
+      items: (sale.sale_items || []).map(item => ({
+        productName: item.product_name,
+        size: item.size,
+        price: item.sale_price,
+        quantity: item.quantity
+      }))
+    }));
 
-    return NextResponse.json(orderHistory)
+    // Transform preorders data
+    const transformedPreorders = (preordersData || []).map(preorder => ({
+      id: `preorder-${preorder.id}`,
+      type: 'preorder',
+      preorderNo: preorder.pre_order_no,
+      saleDate: preorder.completed_date || preorder.created_at,
+      totalAmount: preorder.total_amount,
+      downPayment: preorder.down_payment,
+      remainingBalance: preorder.remaining_balance,
+      status: preorder.status,
+      items: [{
+        productName: (preorder.product as any)?.name || 'Unknown Product',
+        size: preorder.size_label ? `${preorder.size} ${preorder.size_label}` : preorder.size,
+        price: preorder.total_amount,
+        quantity: 1
+      }]
+    }));
+
+    // Combine and sort all orders by date
+    const allOrders = [...transformedSales, ...transformedPreorders].sort((a, b) => 
+      new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime()
+    );
+
+    return NextResponse.json(allOrders)
   } catch (error) {
     console.error("Error in GET /api/customers/[id]/orders:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Search, Plus, X, DollarSign, Loader2, CheckCircle, User } from "lucide-react"
 import Image from "next/image"
 import { CheckoutCart } from "@/components/checkout-cart"
+import { CustomerSelection } from "@/components/customer-selection"
 import { processConsignmentSalesForCheckout, calculateSaleSplit } from "@/lib/utils/consignment"
 import { useEffect } from "react"
 import { ProfitDistributionCalculator } from "@/components/profit-distribution-calculator"
@@ -74,6 +75,7 @@ interface Preorder {
   created_at: string;
   updated_at: string;
   customer: {
+    customer_type: string
     id: number;
     name: string;
     email: string | null;
@@ -124,6 +126,10 @@ export function CheckoutClientWrapper({
   const [discountValue, setDiscountValue] = useState<number>(0)
   const [customerName, setCustomerName] = useState<string>("")
   const [customerPhone, setCustomerPhone] = useState<string>("")
+  const [customerEmail, setCustomerEmail] = useState<string>("")
+  const [customerType, setCustomerType] = useState<string>("regular")
+  const [customerDataForSaving, setCustomerDataForSaving] = useState<{ name: string; phone: string; email?: string; customer_type: string } | null>(null)
+  const [selectedCustomer, setSelectedCustomer] = useState<{ id: number; name: string; email: string | null; phone: string; customer_type: string } | null>(null)
   const [paymentReceived, setPaymentReceived] = useState<number>(0)
   const [additionalCharge, setAdditionalCharge] = useState<number>(0)
   const [commissionFrom, setCommissionFrom] = useState<'total' | 'profit'>('total')
@@ -285,6 +291,8 @@ export function CheckoutClientWrapper({
       if (selectedVariants.length === 0 && selectedPreorders.length === 0) {
         setCustomerName(variant.preorderData.customer.name)
         setCustomerPhone(variant.preorderData.customer.phone || "")
+        setCustomerEmail(variant.preorderData.customer.email || "")
+        setCustomerType(variant.preorderData.customer.customer_type || "regular")
       }
       
       console.log('🛒 Adding pre-order to cart:', variant.productName, variant.size);
@@ -702,9 +710,51 @@ export function CheckoutClientWrapper({
       console.log("Items being sent to recordSale:", items)
       // --- END CONSOLE LOG ---
 
-      // Use pre-order customer info if available, otherwise use manual input
-      const finalCustomerName = preorderCustomerInfo?.name || customerName;
-      const finalCustomerPhone = preorderCustomerInfo?.phone || customerPhone || null;
+      // Use pre-order customer info if available, otherwise use selected customer or manual input
+      const finalCustomerName = preorderCustomerInfo?.name || selectedCustomer?.name || customerName;
+      const finalCustomerPhone = preorderCustomerInfo?.phone || selectedCustomer?.phone || customerPhone || null;
+      let finalCustomerId = selectedCustomer?.id || null;
+
+      // If we don't have a selected customer but we have manual customer data prepared,
+      // create the customer first so we can link the sale to that customer.
+      if (!finalCustomerId && customerDataForSaving) {
+        try {
+          console.log('Creating customer before recording sale:', customerDataForSaving);
+          const { createClient } = await import("@/lib/supabase/client");
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+
+          const createRes = await fetch('/api/customers/list', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session?.access_token || ""}`,
+            },
+            body: JSON.stringify(customerDataForSaving),
+          });
+
+          if (createRes.ok) {
+            const created = await createRes.json();
+            // support different response shapes
+            finalCustomerId = created?.data?.id ?? created?.id ?? null;
+            console.log('Created customer before sale:', created);
+            // clear prepared data
+            setCustomerDataForSaving(null);
+            // update local fields
+            if (created?.data) {
+              setCustomerName(created.data.name || finalCustomerName || "");
+              setCustomerPhone(created.data.phone || finalCustomerPhone || "");
+              setCustomerEmail(created.data.email || "");
+              setCustomerType(created.data.customer_type || "regular");
+            }
+          } else {
+            const txt = await createRes.text();
+            console.error('Failed to create customer before sale:', txt);
+          }
+        } catch (err) {
+          console.error('Error creating customer before sale:', err);
+        }
+      }
 
       // Compose payment type JSON for new sales.payment_type jsonb column
       const paymentTypeJson = {
@@ -723,8 +773,9 @@ export function CheckoutClientWrapper({
         netProfit,
         items,
         profitDistribution,
-        customerName: finalCustomerName, // Use pre-order customer name if available
-        customerPhone: finalCustomerPhone, // Use pre-order customer phone if available
+  customerName: finalCustomerName, // Use pre-order customer name if available
+  customerPhone: finalCustomerPhone, // Use pre-order customer phone if available
+  customerId: finalCustomerId, // now created (if needed) before sale
         paymentType: paymentTypeJson, // Save as JSONB
         paymentReceived,
         changeAmount,
@@ -795,6 +846,40 @@ export function CheckoutClientWrapper({
             }
           }
 
+          // Save customer data if it was entered manually and not already saved
+          console.log('Customer saving check:', {
+            customerDataForSaving,
+            selectedCustomer,
+            shouldSave: customerDataForSaving && !selectedCustomer
+          });
+          
+          if (customerDataForSaving && !selectedCustomer) {
+            console.log('Attempting to save customer:', customerDataForSaving);
+            try {
+              const customerResponse = await fetch('/api/customers/list', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${session?.access_token || ""}`,
+                },
+                body: JSON.stringify(customerDataForSaving),
+              });
+
+              if (customerResponse.ok) {
+                const newCustomer = await customerResponse.json();
+                console.log('Customer saved successfully:', newCustomer);
+                // Clear the customer data for saving since it's been saved
+                setCustomerDataForSaving(null);
+              } else {
+                const errorText = await customerResponse.text();
+                console.error('Failed to save customer:', errorText);
+              }
+            } catch (customerError) {
+              console.error('Error saving customer:', customerError);
+              // Don't show error to user since sale was successful
+            }
+          }
+
           toast({
             title: "Sale Recorded Successfully!",
             description: `Sale of $${totalAmount.toFixed(2)} completed.`,
@@ -806,6 +891,9 @@ export function CheckoutClientWrapper({
           setSearchTerm("") // Clear search
           setCustomerName("") // Reset customer name
           setCustomerPhone("") // Reset customer phone
+          setCustomerEmail("") // Reset customer email
+          setCustomerType("regular") // Reset customer type
+          setCustomerDataForSaving(null) // Clear customer data for saving
           setPaymentReceived(0) // Reset payment received
           setAdditionalCharge(0) // Reset additional charge
           setShowConfirmSaleModal(false) // Close confirmation modal
@@ -1340,34 +1428,36 @@ export function CheckoutClientWrapper({
                   </div>
                 )}
 
-                {/* Regular customer input for non-preorder items or when no preorders */}
+                {/* Customer selection for non-preorder items or when no preorders */}
                 {(selectedVariants.length > 0 || selectedPreorders.length === 0) && (
-                  <>
-                    <div>
-                      <Label htmlFor="customer-name">
-                        {selectedPreorders.length > 0 ? "Customer Name (for regular items)" : "Customer Name"}
-                      </Label>
-                      <Input
-                        id="customer-name"
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        placeholder="Enter customer name"
-                        required={selectedVariants.length > 0}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="customer-phone">
-                        Phone Number (Optional)
-                      </Label>
-                      <Input
-                        id="customer-phone"
-                        value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
-                        placeholder="Enter phone number"
-                        type="tel"
-                      />
-                    </div>
-                  </>
+                  <CustomerSelection
+                    selectedCustomerId={selectedCustomer?.id}
+                    onCustomerSelect={(customer) => {
+                      setSelectedCustomer(customer);
+                      if (customer) {
+                        setCustomerName(customer.name);
+                        setCustomerPhone(customer.phone);
+                        setCustomerEmail(customer.email || "");
+                        setCustomerType(customer.customer_type);
+                      }
+                    }}
+                    manualCustomerName={customerName}
+                    manualCustomerPhone={customerPhone}
+                    manualCustomerEmail={customerEmail}
+                    manualCustomerType={customerType}
+                    onManualCustomerChange={(name, phone, email, type) => {
+                      setCustomerName(name);
+                      setCustomerPhone(phone);
+                      setCustomerEmail(email || "");
+                      setCustomerType(type || "regular");
+                      setSelectedCustomer(null);
+                    }}
+                    onSaveCustomer={(customerData) => {
+                      console.log('onSaveCustomer called with:', customerData);
+                      setCustomerDataForSaving(customerData);
+                    }}
+                    showManualEntry={!selectedCustomer}
+                  />
                 )}
 
                 {/* When only pre-orders are in cart */}

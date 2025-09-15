@@ -65,26 +65,94 @@ async function getCustomers(userId: string) {
       return { data: [], error: null };
     }
 
-    // Transform the database response to our expected format
-    const transformedCustomers: TransformedCustomer[] = customersData.map(customer => ({
-      id: customer.id,
-      name: customer.name,
-      email: customer.email,
-      phone: customer.phone,
-      address: customer.address,
-      city: customer.city,
-      state: customer.state,
-      zipCode: customer.zip_code,
-      country: customer.country,
-      customerType: customer.customer_type,
-      notes: customer.notes,
-      createdAt: customer.created_at,
-      updatedAt: customer.updated_at,
-      isArchived: customer.is_archived,
-      totalOrders: customer.total_orders,
-      totalSpent: customer.total_spent,
-      lastOrderDate: customer.last_order_date,
-    }));
+    // For each customer, calculate real-time statistics from sales data
+    const transformedCustomers: TransformedCustomer[] = await Promise.all(
+      customersData.map(async (customer) => {
+        // Fetch sales data for this customer, excluding downpayments
+        const { data: salesData } = await supabase
+          .from('sales')
+          .select(`
+            id,
+            total_amount,
+            sale_date,
+            status,
+            sale_items (
+              id,
+              quantity,
+              sold_price,
+              variants (
+                id,
+                type,
+                size,
+                products (
+                  id,
+                  name,
+                  brand
+                )
+              )
+            )
+          `)
+          .eq('customer_id', customer.id)
+          .eq('user_id', userId)
+          .eq('status', 'completed');
+
+        // Calculate statistics excluding downpayments
+        let totalSpent = 0;
+        let totalOrders = 0;
+        let lastOrderDate: string | null = null;
+
+        if (salesData) {
+          // Filter out downpayments and calculate totals
+          const validSales = salesData.filter(sale => {
+            // Check if this sale contains any non-downpayment items
+            const hasNonDownpaymentItems = sale.sale_items?.some(item => {
+              // Handle variant data properly (could be array or single object)
+              let variant = null;
+              if (item.variants) {
+                if (Array.isArray(item.variants)) {
+                  variant = item.variants[0] || null;
+                } else {
+                  variant = item.variants;
+                }
+              }
+              // Only count non-downpayment items
+              return variant?.type !== 'downpayment';
+            });
+            return hasNonDownpaymentItems;
+          });
+
+          totalOrders = validSales.length;
+          totalSpent = validSales.reduce((sum, sale) => sum + (sale.total_amount || 0), 0);
+          
+          // Find the most recent order date
+          if (validSales.length > 0) {
+            lastOrderDate = validSales
+              .map(sale => sale.sale_date)
+              .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+          }
+        }
+
+        return {
+          id: customer.id,
+          name: customer.name,
+          email: customer.email,
+          phone: customer.phone,
+          address: customer.address,
+          city: customer.city,
+          state: customer.state,
+          zipCode: customer.zip_code,
+          country: customer.country,
+          customerType: customer.customer_type,
+          notes: customer.notes,
+          createdAt: customer.created_at,
+          updatedAt: customer.updated_at,
+          isArchived: customer.is_archived,
+          totalOrders: totalOrders,
+          totalSpent: totalSpent,
+          lastOrderDate: lastOrderDate,
+        };
+      })
+    );
 
     return { data: transformedCustomers, error: null };
   } catch (error: any) {

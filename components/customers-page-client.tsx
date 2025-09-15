@@ -8,10 +8,14 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Plus, Phone, Mail, MapPin, User, Calendar, DollarSign, Eye, Edit, Archive } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Search, Plus, Phone, Mail, MapPin, User, Calendar, DollarSign, Eye, Edit, Archive, ArrowUpDown, ArrowUp, ArrowDown, MoreHorizontal, Trash2 } from "lucide-react"
 import { AddCustomerModal } from "./add-customer-modal" 
 import { EditCustomerModal } from "./edit-customer-modal" 
 import { CustomerDetailModal } from "./customer-detail-modal" 
+import { CustomerDeleteModal } from "./customer-delete-modal"
+import { CustomerStatsCard } from "./customer-stats-card"
 import { formatCurrency } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
 import { format } from "date-fns"
@@ -53,6 +57,7 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   // Filter and sort customers
@@ -127,12 +132,40 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
     setShowEditModal(true);
   };
 
+  const handleDeleteCustomer = async (customerId: number) => {
+    // Remove customer from local state
+    setCustomers(customers.filter(c => c.id !== customerId));
+    setShowDeleteModal(false);
+    setSelectedCustomer(null);
+  };
+
+  const handleDeleteClick = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setShowDeleteModal(true);
+  };
+
   const getCustomerTypeColor = (type: string) => {
     switch (type) {
-      case "vip": return "bg-purple-100 text-purple-800 border-purple-200";
-      case "wholesale": return "bg-blue-100 text-blue-800 border-blue-200";
-      default: return "bg-gray-100 text-gray-800 border-gray-200";
+      case "vip": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "wholesale": return "bg-purple-100 text-purple-800 border-purple-200";
+      default: return "bg-blue-100 text-blue-800 border-blue-200"; // regular
     }
+  };
+
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(column);
+      setSortOrder("asc");
+    }
+  };
+
+  const getSortIcon = (column: string) => {
+    if (sortBy !== column) {
+      return <ArrowUpDown className="h-4 w-4" />;
+    }
+    return sortOrder === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
   };
 
   if (error) {
@@ -163,27 +196,16 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
       </header>
       
       <div className="flex flex-1 flex-col gap-4 p-4">
-        {/* Header with stats and add button */}
+        {/* Stats Cards */}
+        <CustomerStatsCard
+          totalCustomers={customers.length}
+          vipCustomers={customers.filter(c => c.customerType === 'vip').length}
+          wholesaleCustomers={customers.filter(c => c.customerType === 'wholesale').length}
+        />
+
+        {/* Header with add button */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold">{customers.length}</div>
-              <div className="text-sm text-gray-600">Total Customers</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold">
-                {customers.filter(c => c.customerType === 'vip').length}
-              </div>
-              <div className="text-sm text-gray-600">VIP Customers</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold">
-                {formatCurrency(customers.reduce((sum, c) => sum + c.totalSpent, 0), currency)}
-              </div>
-              <div className="text-sm text-gray-600">Total Revenue</div>
-            </div>
-          </div>
-          
+          <h2 className="text-2xl font-bold">Customer Management</h2>
           <Button onClick={() => setShowAddModal(true)} className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
             Add Customer
@@ -226,6 +248,7 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
                   <SelectItem value="totalOrders">Total Orders</SelectItem>
                   <SelectItem value="lastOrderDate">Last Order</SelectItem>
                   <SelectItem value="createdAt">Date Added</SelectItem>
+                  <SelectItem value="customerType">Customer Type</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -240,11 +263,11 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
           </CardContent>
         </Card>
 
-        {/* Customer list */}
-        <div className="grid gap-4">
-          {filteredAndSortedCustomers.length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center">
+        {/* Customer table */}
+        <div className="overflow-x-auto rounded-md border">
+          <div className="min-w-[800px]">
+            {filteredAndSortedCustomers.length === 0 ? (
+              <div className="p-8 text-center">
                 <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No customers found</h3>
                 <p className="text-gray-600 mb-4">
@@ -259,68 +282,138 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
                     Add Customer
                   </Button>
                 )}
-              </CardContent>
-            </Card>
-          ) : (
-            filteredAndSortedCustomers.map((customer) => (
-              <Card key={customer.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold">{customer.name}</h3>
+              </div>
+            ) : (
+              <Table className="w-full">
+                <TableHeader className="bg-muted sticky top-0 z-10">
+                  <TableRow>
+                    <TableHead 
+                      className="cursor-pointer select-none whitespace-nowrap"
+                      onClick={() => handleSort("name")}
+                    >
+                      <div className="flex items-center gap-2">
+                        Customer
+                        {getSortIcon("name")}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none whitespace-nowrap"
+                      onClick={() => handleSort("customerType")}
+                    >
+                      <div className="flex items-center gap-2">
+                        Type
+                        {getSortIcon("customerType")}
+                      </div>
+                    </TableHead>
+                    <TableHead className="whitespace-nowrap">Phone</TableHead>
+                    <TableHead className="whitespace-nowrap">Email</TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none text-right whitespace-nowrap"
+                      onClick={() => handleSort("totalOrders")}
+                    >
+                      <div className="flex items-center justify-end gap-2">
+                        Orders
+                        {getSortIcon("totalOrders")}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none text-right whitespace-nowrap"
+                      onClick={() => handleSort("totalSpent")}
+                    >
+                      <div className="flex items-center justify-end gap-2">
+                        Total Spent
+                        {getSortIcon("totalSpent")}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none whitespace-nowrap"
+                      onClick={() => handleSort("lastOrderDate")}
+                    >
+                      <div className="flex items-center gap-2">
+                        Last Order
+                        {getSortIcon("lastOrderDate")}
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAndSortedCustomers.map((customer) => (
+                    <TableRow key={customer.id} className="hover:bg-gray-50">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <div className="font-medium">{customer.name}</div>
+                            {customer.notes && (
+                              <div className="text-sm text-gray-500 truncate max-w-[200px]">
+                                {customer.notes}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <Badge className={getCustomerTypeColor(customer.customerType)}>
                           {customer.customerType.toUpperCase()}
                         </Badge>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-gray-600">
-                        {customer.email && (
-                          <div className="flex items-center gap-2">
-                            <Mail className="h-4 w-4" />
-                            <span className="truncate">{customer.email}</span>
-                          </div>
+                      </TableCell>
+                      <TableCell>
+                        {customer.phone || <span className="text-gray-400 italic">No phone</span>}
+                      </TableCell>
+                      <TableCell>
+                        {customer.email ? (
+                          <span className="truncate max-w-[150px]">{customer.email}</span>
+                        ) : (
+                          <span className="text-gray-400 italic">No email</span>
                         )}
-                        {customer.phone && (
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4" />
-                            <span>{customer.phone}</span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="font-medium">{customer.totalOrders}</div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="font-medium">{formatCurrency(customer.totalSpent, currency)}</div>
+                      </TableCell>
+                      <TableCell>
+                        {customer.lastOrderDate ? (
+                          <div className="text-sm">
+                            {format(new Date(customer.lastOrderDate), 'MMM d, yyyy')}
                           </div>
+                        ) : (
+                          <div className="text-sm text-gray-400">No orders</div>
                         )}
-                        <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4" />
-                          <span>{formatCurrency(customer.totalSpent, currency)} ({customer.totalOrders} orders)</span>
-                        </div>
-                        {customer.lastOrderDate && (
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4" />
-                            <span>Last order: {format(new Date(customer.lastOrderDate), 'MMM d, yyyy')}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleViewCustomer(customer)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleEditClick(customer)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost" className="visible">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleViewCustomer(customer)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Purchase History
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditClick(customer)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteClick(customer)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
         </div>
 
         {/* Modals */}
@@ -355,6 +448,16 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
             }}
           />
         )}
+
+        <CustomerDeleteModal
+          customer={selectedCustomer}
+          isOpen={showDeleteModal}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setSelectedCustomer(null);
+          }}
+          onDelete={handleDeleteCustomer}
+        />
       </div>
     </SidebarInset>
   );

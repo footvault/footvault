@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     console.log('Request body:', body);
-    const { saleDate, totalAmount, totalDiscount, netProfit, customerName, customerPhone, items, profitDistribution, paymentType, paymentReceived, changeAmount, additionalCharge } = body;
+    const { saleDate, totalAmount, totalDiscount, netProfit, customerName, customerPhone, customerId, items, profitDistribution, paymentType, paymentReceived, changeAmount, additionalCharge } = body;
 
     // Get user from token for RLS
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -67,6 +67,7 @@ export async function POST(request: Request) {
       net_profit: netProfit,
       customer_name: customerName,
       customer_phone: customerPhone,
+      customer_id: customerId,
       user_id: user.id,
       payment_type: paymentType || null,
       sales_no: nextSalesNo,

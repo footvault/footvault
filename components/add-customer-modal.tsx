@@ -57,8 +57,8 @@ export function AddCustomerModal({ onClose, onAdd }: AddCustomerModalProps) {
       return;
     }
 
-    if (!formData.email.trim() && !formData.phone.trim()) {
-      toast.error("Either email or phone number is required");
+    if (!formData.phone.trim()) {
+      toast.error("Phone number is required");
       return;
     }
 
@@ -109,7 +109,7 @@ export function AddCustomerModal({ onClose, onAdd }: AddCustomerModalProps) {
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto m-4 sm:m-6">
         <DialogHeader>
           <DialogTitle>Add New Customer</DialogTitle>
         </DialogHeader>
@@ -130,7 +130,7 @@ export function AddCustomerModal({ onClose, onAdd }: AddCustomerModalProps) {
 
             {/* Email */}
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email (Optional)</Label>
               <Input
                 id="email"
                 type="email"
@@ -142,13 +142,14 @@ export function AddCustomerModal({ onClose, onAdd }: AddCustomerModalProps) {
 
             {/* Phone */}
             <div>
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">Phone *</Label>
               <Input
                 id="phone"
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => handleInputChange('phone', e.target.value)}
                 placeholder="+63 xxx xxx xxxx"
+                required
               />
             </div>
 

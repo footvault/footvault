@@ -4,7 +4,7 @@ import { cookies } from "next/headers"
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const cookieStore = cookies()
@@ -16,7 +16,8 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const customerId = parseInt(params.id)
+    const { id } = await params
+    const customerId = parseInt(id)
     if (isNaN(customerId)) {
       return NextResponse.json({ error: "Invalid customer ID" }, { status: 400 })
     }
@@ -56,7 +57,7 @@ export async function PUT(
       return NextResponse.json({ error: "Customer not found" }, { status: 404 })
     }
 
-    // Check for duplicate email or phone (excluding current customer)
+    // Check for duplicate email (excluding current customer)
     if (email?.trim()) {
       const { data: duplicateEmail } = await supabase
         .from("customers")
@@ -69,22 +70,6 @@ export async function PUT(
       if (duplicateEmail && duplicateEmail.length > 0) {
         return NextResponse.json({ 
           error: "Another customer with this email already exists" 
-        }, { status: 400 })
-      }
-    }
-
-    if (phone?.trim()) {
-      const { data: duplicatePhone } = await supabase
-        .from("customers")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("phone", phone.trim())
-        .neq("id", customerId)
-        .eq("is_archived", false)
-
-      if (duplicatePhone && duplicatePhone.length > 0) {
-        return NextResponse.json({ 
-          error: "Another customer with this phone number already exists" 
         }, { status: 400 })
       }
     }
@@ -143,7 +128,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const cookieStore = cookies()
@@ -155,7 +140,8 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const customerId = parseInt(params.id)
+    const { id } = await params
+    const customerId = parseInt(id)
     if (isNaN(customerId)) {
       return NextResponse.json({ error: "Invalid customer ID" }, { status: 400 })
     }

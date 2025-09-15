@@ -110,7 +110,7 @@ export function EditCustomerModal({ customer, onClose, onSave }: EditCustomerMod
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto m-4 sm:m-6">
         <DialogHeader>
           <DialogTitle>Edit Customer</DialogTitle>
         </DialogHeader>

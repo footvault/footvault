@@ -5,11 +5,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Mail, Phone, MapPin, Calendar, DollarSign, Package, Edit, Loader2 } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { ArrowUpDown, ArrowUp, ArrowDown, Search, Package, X, User } from "lucide-react"
 import { formatCurrency } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
 import { format } from "date-fns"
+import { PurchaseHistoryStats } from "./purchase-history-stats"
 
 interface Customer {
   id: number;
@@ -37,61 +40,176 @@ interface CustomerDetailModalProps {
   onEdit: () => void;
 }
 
-interface OrderHistory {
+interface PurchaseItem {
   id: string;
+  productName: string;
+  size: string;
+  price: number;
+  quantity?: number;
+  discountAmount?: number;
   saleDate: string;
-  totalAmount: number;
-  items: Array<{
-    productName: string;
-    size: string;
-    price: number;
-  }>;
+  soldBy: string;
+  type: string; // Changed to allow any string
+  preorderNo?: string;
+  saleNo?: string;
+  image?: string;
+  serialNumber?: string;
+  isTemplate?: boolean;
 }
 
 export function CustomerDetailModal({ customer, onClose, onEdit }: CustomerDetailModalProps) {
   const { currency } = useCurrency();
-  const [orderHistory, setOrderHistory] = useState<OrderHistory[]>([]);
-  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+  const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("saleDate");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  
+  // Calculate stats from purchase items (excluding downpayments)
+  const [calculatedStats, setCalculatedStats] = useState({
+    totalOrders: 0,
+    totalSpent: 0,
+    totalItems: 0,
+    averageOrder: 0
+  });
 
   useEffect(() => {
-    const fetchOrderHistory = async () => {
+    const fetchPurchaseHistory = async () => {
       try {
-        const response = await fetch(`/api/customers/${customer.id}/orders`);
+        const response = await fetch(`/api/customers/${customer.id}/purchase-history`);
         if (response.ok) {
-          const orders = await response.json();
-          setOrderHistory(orders);
+          const items = await response.json();
+          setPurchaseItems(items);
         }
       } catch (error) {
-        console.error('Failed to fetch order history:', error);
+        console.error('Failed to fetch purchase history:', error);
       } finally {
-        setIsLoadingOrders(false);
+        setIsLoading(false);
       }
     };
 
-    fetchOrderHistory();
+    fetchPurchaseHistory();
   }, [customer.id]);
 
-  const getCustomerTypeColor = (type: string) => {
-    switch (type) {
-      case "vip": return "bg-purple-100 text-purple-800 border-purple-200";
-      case "wholesale": return "bg-blue-100 text-blue-800 border-blue-200";
-      default: return "bg-gray-100 text-gray-800 border-gray-200";
+  // Calculate stats from purchase items (excluding downpayments)
+  useEffect(() => {
+    const nonDownpaymentItems = purchaseItems.filter(item => item.type !== 'Downpayment');
+    
+    // Group items by sale to count orders
+    const salesMap = new Map();
+    let totalSpent = 0;
+    let totalItems = 0;
+    
+    nonDownpaymentItems.forEach(item => {
+      // Use saleNo or date as a way to group items from the same sale
+      const saleKey = `${item.saleDate}-${item.saleNo || 'unknown'}`;
+      if (!salesMap.has(saleKey)) {
+        salesMap.set(saleKey, true);
+      }
+      totalSpent += item.price || 0;
+      totalItems += item.quantity || 1;
+    });
+    
+    const totalOrders = salesMap.size;
+    const averageOrder = totalOrders > 0 ? totalSpent / totalOrders : 0;
+    
+    setCalculatedStats({
+      totalOrders,
+      totalSpent,
+      totalItems,
+      averageOrder
+    });
+  }, [purchaseItems]);
+
+  const filteredAndSortedItems = purchaseItems.filter(item => {
+    const matchesSearch = searchTerm === "" || 
+      item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.size.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.serialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.preorderNo?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesType = typeFilter === "all" || item.type === typeFilter;
+    
+    return matchesSearch && matchesType;
+  }).sort((a, b) => {
+    let aValue: any, bValue: any;
+    
+    switch (sortBy) {
+      case "productName":
+        aValue = a.productName.toLowerCase();
+        bValue = b.productName.toLowerCase();
+        break;
+      case "price":
+        aValue = a.price;
+        bValue = b.price;
+        break;
+      case "saleDate":
+        aValue = new Date(a.saleDate);
+        bValue = new Date(b.saleDate);
+        break;
+      case "type":
+        aValue = a.type;
+        bValue = b.type;
+        break;
+      default:
+        aValue = new Date(a.saleDate);
+        bValue = new Date(b.saleDate);
+    }
+
+    if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
+    if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(column);
+      setSortOrder("asc");
     }
   };
 
-  const formatAddress = () => {
-    const parts = [customer.address, customer.city, customer.state, customer.zipCode, customer.country]
-      .filter(Boolean);
-    return parts.length > 0 ? parts.join(', ') : null;
+  const getSortIcon = (column: string) => {
+    if (sortBy !== column) {
+      return <ArrowUpDown className="h-4 w-4" />;
+    }
+    return sortOrder === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+  };
+
+  const getCustomerTypeColor = (type: string) => {
+    switch (type) {
+      case "vip": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "wholesale": return "bg-purple-100 text-purple-800 border-purple-200";
+      default: return "bg-blue-100 text-blue-800 border-blue-200"; // regular
+    }
+  };
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case "preorder": 
+      case "Pre-order": 
+        return "bg-blue-100 text-blue-800";
+      case "downpayment":
+      case "Downpayment":
+        return "bg-orange-100 text-orange-800";
+      case "in-stock": 
+      case "In Stock":
+        return "bg-green-100 text-green-800";
+      default: 
+        return "bg-gray-100 text-gray-800";
+    }
   };
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[1200px] max-h-[90vh] overflow-y-auto m-4 sm:m-6">
         <DialogHeader>
           <div className="flex justify-between items-start">
             <div>
               <DialogTitle className="flex items-center gap-3">
+                <User className="h-5 w-5" />
                 {customer.name}
                 <Badge className={getCustomerTypeColor(customer.customerType)}>
                   {customer.customerType.toUpperCase()}
@@ -101,153 +219,187 @@ export function CustomerDetailModal({ customer, onClose, onEdit }: CustomerDetai
                 Customer since {format(new Date(customer.createdAt), 'MMM d, yyyy')}
               </p>
             </div>
-            <Button variant="outline" size="sm" onClick={onEdit}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
+            <Button variant="outline" onClick={onClose}>
+              <X className="h-4 w-4" />
             </Button>
           </div>
         </DialogHeader>
 
-        <Tabs defaultValue="details" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="details">Customer Details</TabsTrigger>
-            <TabsTrigger value="orders">Order History ({customer.totalOrders})</TabsTrigger>
-          </TabsList>
+        <div className="space-y-6">
+          {/* Purchase History Stats */}
+          <PurchaseHistoryStats
+            totalOrders={calculatedStats.totalOrders}
+            totalSpent={calculatedStats.totalSpent}
+            totalItems={calculatedStats.totalItems}
+            averageOrderValue={calculatedStats.averageOrder}
+            loading={isLoading}
+          />
 
-          <TabsContent value="details" className="space-y-4">
-            {/* Contact Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Contact Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {customer.email && (
-                  <div className="flex items-center gap-3">
-                    <Mail className="h-4 w-4 text-gray-500" />
-                    <span>{customer.email}</span>
-                  </div>
-                )}
-                {customer.phone && (
-                  <div className="flex items-center gap-3">
-                    <Phone className="h-4 w-4 text-gray-500" />
-                    <span>{customer.phone}</span>
-                  </div>
-                )}
-                {formatAddress() && (
-                  <div className="flex items-start gap-3">
-                    <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
-                    <span>{formatAddress()}</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Purchase Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Purchase Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">{customer.totalOrders}</div>
-                    <div className="text-sm text-gray-600">Total Orders</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">
-                      {formatCurrency(customer.totalSpent, currency)}
-                    </div>
-                    <div className="text-sm text-gray-600">Total Spent</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-600">
-                      {customer.totalOrders > 0 
-                        ? formatCurrency(customer.totalSpent / customer.totalOrders, currency)
-                        : formatCurrency(0, currency)
-                      }
-                    </div>
-                    <div className="text-sm text-gray-600">Average Order</div>
-                  </div>
+          {/* Search and Filters */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Search items by name, size, serial number..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
-                {customer.lastOrderDate && (
-                  <div className="mt-4 pt-4 border-t">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Calendar className="h-4 w-4" />
-                      Last order: {format(new Date(customer.lastOrderDate), 'MMM d, yyyy')}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-full sm:w-48">
+                    <SelectValue placeholder="Filter by type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="in-stock">In Stock</SelectItem>
+                    <SelectItem value="preorder">Pre-order</SelectItem>
+                  </SelectContent>
+                </Select>
 
-            {/* Notes */}
-            {customer.notes && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Notes</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-700 whitespace-pre-wrap">{customer.notes}</p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="orders" className="space-y-4">
-            {isLoadingOrders ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                <span className="ml-2 text-gray-600">Loading order history...</span>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                  className="w-full sm:w-auto"
+                >
+                  {sortOrder === "asc" ? "↑" : "↓"} Sort
+                </Button>
               </div>
-            ) : orderHistory.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
+            </CardContent>
+          </Card>
+
+          {/* Purchase History Table */}
+          <div className="overflow-x-auto rounded-md border">
+            <div className="min-w-[800px]">
+              {isLoading ? (
+                <div className="p-8 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                  <p className="mt-2 text-gray-600">Loading purchase history...</p>
+                </div>
+              ) : filteredAndSortedItems.length === 0 ? (
+                <div className="p-8 text-center">
                   <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Orders Yet</h3>
-                  <p className="text-gray-600">This customer hasn't placed any orders.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {orderHistory.map((order) => (
-                  <Card key={order.id}>
-                    <CardContent className="p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h4 className="font-semibold">Order #{order.id}</h4>
-                          <p className="text-sm text-gray-600">
-                            {format(new Date(order.saleDate), 'MMM d, yyyy')}
-                          </p>
+                  <h3 className="text-lg font-semibold mb-2">No Items Found</h3>
+                  <p className="text-gray-600">
+                    {searchTerm || typeFilter !== "all" 
+                      ? "Try adjusting your search or filters"
+                      : "This customer hasn't purchased any items yet"
+                    }
+                  </p>
+                </div>
+              ) : (
+                <Table className="w-full">
+                  <TableHeader className="bg-muted sticky top-0 z-10">
+                    <TableRow>
+                      <TableHead className="whitespace-nowrap">Image</TableHead>
+                      <TableHead 
+                        className="cursor-pointer select-none whitespace-nowrap"
+                        onClick={() => handleSort("productName")}
+                      >
+                        <div className="flex items-center gap-2">
+                          Product Name
+                          {getSortIcon("productName")}
                         </div>
-                        <div className="text-right">
-                          <div className="font-semibold text-lg">
-                            {formatCurrency(order.totalAmount, currency)}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {order.items.length} item{order.items.length !== 1 ? 's' : ''}
-                          </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer select-none whitespace-nowrap"
+                        onClick={() => handleSort("type")}
+                      >
+                        <div className="flex items-center gap-2">
+                          Type
+                          {getSortIcon("type")}
                         </div>
-                      </div>
-                      <div className="space-y-2">
-                        {order.items.map((item, index) => (
-                          <div key={index} className="flex justify-between items-center text-sm border-t pt-2">
-                            <span>{item.productName} - Size {item.size}</span>
-                            <span className="font-medium">{formatCurrency(item.price, currency)}</span>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer select-none text-right whitespace-nowrap"
+                        onClick={() => handleSort("price")}
+                      >
+                        <div className="flex items-center justify-end gap-2">
+                          Sale Price
+                          {getSortIcon("price")}
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Discount</TableHead>
+                      <TableHead 
+                        className="cursor-pointer select-none whitespace-nowrap"
+                        onClick={() => handleSort("saleDate")}
+                      >
+                        <div className="flex items-center gap-2">
+                          Date Sold
+                          {getSortIcon("saleDate")}
+                        </div>
+                      </TableHead>
+                      <TableHead className="whitespace-nowrap">Sold By</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredAndSortedItems.map((item) => (
+                      <TableRow key={item.id} className="hover:bg-gray-50">
+                        <TableCell>
+                          <div className="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center">
+                            {item.image ? (
+                              <img 
+                                src={item.image} 
+                                alt={item.productName}
+                                className="w-12 h-12 object-cover rounded-md"
+                              />
+                            ) : (
+                              <Package className="h-6 w-6 text-gray-400" />
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-
-        <div className="flex justify-end pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{item.productName}</div>
+                            <div className="text-sm text-gray-500">Size: {item.size}</div>
+                            {item.serialNumber && (
+                              <div className="text-xs text-gray-400">SN: {item.serialNumber}</div>
+                            )}
+                            {item.preorderNo && (
+                              <div className="text-xs text-gray-400">PO: #{item.preorderNo}</div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getTypeColor(item.type)}>
+                            {item.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrency(item.price, currency)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {item.discountAmount ? (
+                            <span className="text-red-600">
+                              -{formatCurrency(item.discountAmount, currency)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {format(new Date(item.saleDate), 'MMM d, yyyy')}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {item.soldBy}
+                            {item.isTemplate && (
+                              <div className="text-xs text-gray-400">Template</div>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

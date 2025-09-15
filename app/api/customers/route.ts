@@ -66,36 +66,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Either email or phone is required" }, { status: 400 })
     }
 
-    // Check for existing customer with same email or phone
-    let existingCustomerQuery = supabase
-      .from("customers")
-      .select("id, name, email, phone")
-      .eq("user_id", user.id)
-      .eq("is_archived", false)
-
+    // Check for existing customer with same email
     if (email?.trim()) {
-      existingCustomerQuery = existingCustomerQuery.eq("email", email.trim())
-    }
-
-    const { data: existingCustomers } = await existingCustomerQuery
-
-    if (existingCustomers && existingCustomers.length > 0) {
-      return NextResponse.json({ 
-        error: "A customer with this email already exists" 
-      }, { status: 400 })
-    }
-
-    if (phone?.trim()) {
-      const { data: existingPhoneCustomers } = await supabase
+      const { data: existingCustomers } = await supabase
         .from("customers")
-        .select("id, name, phone")
+        .select("id, name, email")
         .eq("user_id", user.id)
-        .eq("phone", phone.trim())
+        .eq("email", email.trim())
         .eq("is_archived", false)
 
-      if (existingPhoneCustomers && existingPhoneCustomers.length > 0) {
+      if (existingCustomers && existingCustomers.length > 0) {
         return NextResponse.json({ 
-          error: "A customer with this phone number already exists" 
+          error: "A customer with this email already exists" 
         }, { status: 400 })
       }
     }
