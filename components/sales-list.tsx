@@ -21,17 +21,19 @@ import { ConfirmationModal } from "./confirmation-modal"
 import { ReceiptGenerator } from "./receipt-generator"
 import { formatCurrency } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
+import { useTimezone } from "@/context/TimezoneContext"
 import type { DateRange } from "react-day-picker"
 import { useToast } from "@/hooks/use-toast"
 
 interface SalesListProps {
   sales: Sale[]
-  onRefunded?: () => void // Optional callback to refresh sales after refund
-  onDeleted?: () => void // Optional callback to refresh sales after deletion
+  onRefunded?: () => void
+  onDeleted?: () => void
 }
 
 const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) => {
   const { currency } = useCurrency()
+  const { formatDateInTimezone } = useTimezone()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
@@ -516,8 +518,223 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
         </div>
       </div>
 
-      {/* Responsive Table Container */}
-      <div className="rounded-md border overflow-hidden">
+      {/* Mobile Card Layout - visible only on very small screens */}
+      <div className="block sm:hidden space-y-3">
+        {paginatedSales.length === 0 ? (
+          <div className="text-center py-10 text-gray-500 border rounded-md">
+            {hasActiveFilters ? "No sales match the current search or filters." : "No sales yet."}
+          </div>
+        ) : (
+          paginatedSales.map((sale) => {
+            // Get payment type name (using same logic as existing code)
+            let paymentTypeName = "";
+            if (sale.payment_type && typeof sale.payment_type === "object") {
+              if (sale.payment_type.name) {
+                paymentTypeName = sale.payment_type.name;
+              } else if (sale.payment_type.type) {
+                paymentTypeName = "Cash"; // Default fallback for new format
+              } else {
+                paymentTypeName = "Cash"; // Default fallback
+              }
+            } else if (typeof sale.payment_type === "string" && sale.payment_type.toLowerCase() === "cash") {
+              paymentTypeName = "Cash";
+            } else if (sale.payment_type_name) {
+              paymentTypeName = sale.payment_type_name;
+            } else if (!sale.payment_type) {
+              paymentTypeName = "Cash";
+            } else {
+              paymentTypeName = typeof sale.payment_type === "string" ? sale.payment_type : "Cash";
+            }
+            
+            return (
+              <div key={sale.id} className="border rounded-lg p-4 bg-card space-y-3">
+                {/* Header with Sale # and Actions Menu */}
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="font-semibold text-base">Sale {formatSalesNo(sale.sales_no)}</div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      {formatDateInTimezone(sale.sale_date || sale.date)}
+                    </div>
+                  </div>
+                  
+                  {/* Three dots menu */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => handleViewDetails(sale)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handlePrintReceipt(sale.id)}>
+                        <Printer className="mr-2 h-4 w-4" />
+                        Print Receipt
+                      </DropdownMenuItem>
+                      {sale.status !== 'refunded' && sale.status !== 'archived' && (
+                        <DropdownMenuItem
+                          onClick={() => handleRefundClick(sale.id)}
+                          className="text-orange-600"
+                        >
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          Refund
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        onClick={() => handleDeleteClick(sale.id)}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                
+                {/* Customer info */}
+                <div className="space-y-1">
+                  <div className="text-sm">
+                    <span className="font-medium text-gray-600">Customer:</span>{" "}
+                    {sale.customer_name || <span className="text-gray-400 italic">No name</span>}
+                  </div>
+                  {sale.customer_phone && (
+                    <div className="text-sm text-muted-foreground">{sale.customer_phone}</div>
+                  )}
+                </div>
+                
+                {/* Items with expandable view */}
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-gray-600">Items:</div>
+                  {sale.items && sale.items.length > 0 ? (
+                    <div className="text-sm space-y-1">
+                      {/* Show first item always */}
+                      <div className="p-2 bg-gray-50 rounded">
+                        {(() => {
+                          const item = sale.items[0];
+                          if (!item?.variant) return <span className="text-gray-400 italic">Invalid item</span>;
+                          
+                          const isPreorderItem = (item.variant as any).type === 'Pre-order';
+                          const isDownpaymentItem = (item.variant as any).type === 'downpayment';
+                          
+                          let identifier;
+                          if (isPreorderItem || isDownpaymentItem) {
+                            const preOrderMatch = (item.variant as any).notes?.match(/pre-order #(\d+)/);
+                            const preOrderNo = preOrderMatch?.[1] || 'N/A';
+                            identifier = `PO: #${preOrderNo}`;
+                          } else {
+                            identifier = `SN: ${item.variant.serialNumber || 'N/A'}`;
+                          }
+                          
+                          return (
+                            <div>
+                              <div className="font-medium">{item.variant.productName}</div>
+                              <div className="text-xs text-muted-foreground">{identifier}</div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                      
+                      {/* Show item count and expandable details */}
+                      {sale.items.length > 1 && (
+                        <details className="text-sm">
+                          <summary className="cursor-pointer hover:text-blue-600 text-blue-600 font-medium">
+                            Show {sale.items.length - 1} more items
+                          </summary>
+                          <div className="mt-2 space-y-1">
+                            {sale.items.slice(1).map((item: any) => {
+                              if (!item?.variant) return null;
+                              
+                              const isPreorderItem = (item.variant as any).type === 'Pre-order';
+                              const isDownpaymentItem = (item.variant as any).type === 'downpayment';
+                              
+                              let identifier;
+                              if (isPreorderItem || isDownpaymentItem) {
+                                const preOrderMatch = (item.variant as any).notes?.match(/pre-order #(\d+)/);
+                                const preOrderNo = preOrderMatch?.[1] || 'N/A';
+                                identifier = `PO: #${preOrderNo}`;
+                              } else {
+                                identifier = `SN: ${item.variant.serialNumber || 'N/A'}`;
+                              }
+                              
+                              return (
+                                <div key={item.id} className="p-2 bg-gray-50 rounded">
+                                  <div className="font-medium text-sm">{item.variant.productName}</div>
+                                  <div className="text-xs text-muted-foreground">{identifier}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 italic text-sm">No items</span>
+                  )}
+                </div>
+                
+                {/* Status and payment info */}
+                <div className="space-y-1">
+                  <div className="text-sm">
+                    <span className="font-medium text-gray-600">Type:</span>{" "}
+                    {(() => {
+                      const isDownPaymentStatus = sale.status === 'downpayment';
+                      const hasDownpaymentType = sale.items && sale.items.some((item: any) => 
+                        item?.variant && (item.variant as any).type === 'downpayment'
+                      );
+                      const hasPreOrderType = sale.items && sale.items.some((item: any) => 
+                        item?.variant && (item.variant as any).type === 'Pre-order'
+                      );
+                      
+                      if (isDownPaymentStatus || hasDownpaymentType) {
+                        return "Downpayment";
+                      } else if (hasPreOrderType) {
+                        return "Pre-order";
+                      }
+                      return "In Stock";
+                    })()}
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium text-gray-600">Payment:</span> {paymentTypeName}
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium text-gray-600">Status:</span>{" "}
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      sale.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      sale.status === 'downpayment' ? 'bg-yellow-100 text-yellow-800' :
+                      sale.status === 'refunded' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {sale.status ? sale.status.charAt(0).toUpperCase() + sale.status.slice(1) : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Total and Profit at bottom */}
+                <div className="pt-2 border-t border-gray-200">
+                  <div className="flex justify-between items-center">
+                    <div className="text-left">
+                      <div className="text-sm text-muted-foreground">Total</div>
+                      <div className="text-lg font-bold">
+                        {formatCurrency((sale.total_amount || sale.total || 0), currency)}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm text-muted-foreground">Profit</div>
+                      <div className="text-lg font-semibold text-green-600">
+                        {formatCurrency((sale.net_profit || sale.profit || 0), currency)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+      {/* Desktop Table Layout - hidden on very small screens */}
+      <div className="hidden sm:block rounded-md border overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
           <TableHeader>
@@ -531,7 +748,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                   <span className="ml-1" style={{ fontWeight: 'bold' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>
                 )}
               </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => {
+              <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => {
                 if (sortBy === 'date') setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
                 else { setSortBy('date'); setSortDir('desc'); }
               }}>
@@ -541,11 +758,11 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                 )}
               </TableHead>
               <TableHead>Customer</TableHead>
-              <TableHead className="hidden sm:table-cell">Phone</TableHead>
-              <TableHead className="hidden md:table-cell">Items</TableHead>
-              <TableHead className="hidden lg:table-cell">Type</TableHead>
-              <TableHead className="hidden lg:table-cell">Payment Type</TableHead>
-              <TableHead className="hidden md:table-cell">Status</TableHead>
+              <TableHead className="hidden md:table-cell">Phone</TableHead>
+              <TableHead>Items</TableHead>
+              <TableHead className="hidden xl:table-cell">Type</TableHead>
+              <TableHead className="hidden lg:table-cell">Payment</TableHead>
+              <TableHead className="hidden lg:table-cell">Status</TableHead>
               <TableHead className="text-right cursor-pointer select-none" onClick={() => {
                 if (sortBy === 'total') setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
                 else { setSortBy('total'); setSortDir('desc'); }
@@ -608,44 +825,103 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                 return (
                   <TableRow key={sale.id}>
                     <TableCell className="font-mono text-sm">{customId}</TableCell>
-                    <TableCell>{new Date(sale.sale_date).toLocaleDateString()}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDateInTimezone(sale.sale_date || sale.date)}</TableCell>
                     <TableCell>{sale.customer_name || <span className="text-gray-400 italic">No name</span>}</TableCell>
-                    <TableCell className="hidden sm:table-cell">{sale.customer_phone || <span className="text-gray-400 italic">No phone</span>}</TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell className="hidden md:table-cell">{sale.customer_phone || <span className="text-gray-400 italic">No phone</span>}</TableCell>
+                    <TableCell>
                       {sale.items && sale.items.length > 0 ? (
-                        <ul className="text-sm">
-                          {sale.items.slice(0, 2).map((item: any) => {
-                            // Check if this is a pre-order or downpayment item
-                            const isPreorderItem = item.variant.type === 'Pre-order';
-                            const isDownpaymentItem = item.variant.type === 'downpayment';
-                            
-                            let identifier;
-                            if (isPreorderItem || isDownpaymentItem) {
-                              // Extract pre-order number from notes
-                              const preOrderMatch = item.variant.notes?.match(/pre-order #(\d+)/);
-                              const preOrderNo = preOrderMatch?.[1] || 'N/A';
-                              identifier = `PO: #${preOrderNo}`;
-                            } else {
-                              identifier = `SN: ${item.variant.serialNumber || 'N/A'}`;
-                            }
-                            
-                            return (
-                              <li key={item.id}>
-                                {item.variant.productName} <span className="text-xs text-muted-foreground">({identifier})</span>
-                              </li>
-                            );
-                          })}
-                          {sale.items.length > 2 && (
-                            <div className="text-xs text-muted-foreground">
-                              +{sale.items.length - 2} more items
-                            </div>
+                        <div className="text-sm">
+                          {/* Show first item always */}
+                          <div className="mb-1">
+                            {(() => {
+                              const item = sale.items[0];
+                              if (!item?.variant) return <span className="text-gray-400 italic">Invalid item</span>;
+                              
+                              const isPreorderItem = (item.variant as any).type === 'Pre-order';
+                              const isDownpaymentItem = (item.variant as any).type === 'downpayment';
+                              
+                              let identifier;
+                              if (isPreorderItem || isDownpaymentItem) {
+                                const preOrderMatch = (item.variant as any).notes?.match(/pre-order #(\d+)/);
+                                const preOrderNo = preOrderMatch?.[1] || 'N/A';
+                                identifier = `PO: #${preOrderNo}`;
+                              } else {
+                                identifier = `SN: ${item.variant.serialNumber || 'N/A'}`;
+                              }
+                              
+                              return (
+                                <div className="truncate max-w-[200px]" title={`${item.variant.productName} (${identifier})`}>
+                                  {item.variant.productName} <span className="text-xs text-muted-foreground">({identifier})</span>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          
+                          {/* Show item count and expandable details */}
+                          {sale.items.length > 1 && (
+                            <details className="text-xs text-muted-foreground">
+                              <summary className="cursor-pointer hover:text-blue-600">
+                                +{sale.items.length - 1} more items
+                              </summary>
+                              <div className="mt-2 space-y-1 ml-2 border-l-2 border-gray-100 pl-2">
+                                {sale.items.slice(1).map((item: any) => {
+                                  if (!item?.variant) return null;
+                                  
+                                  const isPreorderItem = (item.variant as any).type === 'Pre-order';
+                                  const isDownpaymentItem = (item.variant as any).type === 'downpayment';
+                                  
+                                  let identifier;
+                                  if (isPreorderItem || isDownpaymentItem) {
+                                    const preOrderMatch = (item.variant as any).notes?.match(/pre-order #(\d+)/);
+                                    const preOrderNo = preOrderMatch?.[1] || 'N/A';
+                                    identifier = `PO: #${preOrderNo}`;
+                                  } else {
+                                    identifier = `SN: ${item.variant.serialNumber || 'N/A'}`;
+                                  }
+                                  
+                                  return (
+                                    <div key={item.id} className="text-xs">
+                                      {item.variant.productName} <span className="text-muted-foreground">({identifier})</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </details>
                           )}
-                        </ul>
+                          
+                          {/* Mobile: Show important info inline on small screens */}
+                          <div className="sm:hidden mt-1 space-y-1">
+                            <div className="text-xs text-muted-foreground">
+                              {(() => {
+                                const isDownPaymentStatus = sale.status === 'downpayment';
+                                const hasDownpaymentType = sale.items && sale.items.some((item: any) => 
+                                  item?.variant && (item.variant as any).type === 'downpayment'
+                                );
+                                const hasPreOrderType = sale.items && sale.items.some((item: any) => 
+                                  item?.variant && (item.variant as any).type === 'Pre-order'
+                                );
+                                
+                                let typeLabel = "In Stock";
+                                if (isDownPaymentStatus || hasDownpaymentType) {
+                                  typeLabel = "Downpayment";
+                                } else if (hasPreOrderType) {
+                                  typeLabel = "Pre-order";
+                                }
+                                
+                                const statusText = sale.status ? 
+                                  sale.status.charAt(0).toUpperCase() + sale.status.slice(1) : 
+                                  'N/A';
+                                
+                                return `${typeLabel} • ${paymentTypeName} • ${statusText}`;
+                              })()}
+                            </div>
+                          </div>
+                        </div>
                       ) : (
                         <span className="text-gray-400 italic">No items</span>
                       )}
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">
+                    <TableCell className="hidden xl:table-cell">
                       {(() => {
                         // Check variant types to determine the appropriate badge:
                         // - "downpayment" type = from cancelled pre-orders
@@ -682,7 +958,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                       })()}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">{paymentTypeName}</TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell className="hidden lg:table-cell">
                       {sale.status ? (
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${
                           sale.status === 'completed' ? 'bg-green-100 text-green-800' :
@@ -699,11 +975,11 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       <span className={hasDownpaymentType ? "line-through text-gray-500" : ""}>
-                        {formatCurrency(sale.total_amount, currency)}
+                        {formatCurrency(sale.total_amount || sale.total || 0, currency)}
                       </span>
                     </TableCell>
                     <TableCell className={`text-right font-medium ${sale.net_profit < 0 ? "text-red-600" : "text-green-600"}`}>
-                      {formatCurrency(sale.net_profit, currency)}
+                      {formatCurrency(sale.net_profit || sale.profit || 0, currency)}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -792,10 +1068,15 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
         open={isRefundModalOpen}
         onOpenChange={setIsRefundModalOpen}
         title="Confirm Refund"
-        description="Are you sure you want to refund this sale? This will mark the sale as refunded, return items to available inventory, and remove profit distributions. This action cannot be undone."
+        description={`Are you sure you want to refund this sale? ${
+          isCurrentSalePreOrder 
+            ? "This will convert the refunded item(s) back to their original state and may affect inventory." 
+            : "This action will reverse the sale and may affect inventory."
+        }`}
         onConfirm={handleConfirmRefund}
         isConfirming={isRefunding}
       />
+
       <ConfirmationModal
         open={isConfirmModalOpen}
         onOpenChange={setIsConfirmModalOpen}
@@ -808,7 +1089,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
       {/* Receipt Generator */}
       {receiptSaleId && (
         <ReceiptGenerator
-          saleId={receiptSaleId}
+          saleId={receiptSaleId || undefined}
           onComplete={handleReceiptComplete}
           onError={handleReceiptError}
         />

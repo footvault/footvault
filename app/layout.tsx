@@ -4,6 +4,7 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { CurrencyProvider } from "@/context/CurrencyContext"
+import { TimezoneProvider } from "@/context/TimezoneContext"
 import { getUserSettings } from "./settings/settingActions"
 import ClientLayout from "@/components/ClientLayout"
 
@@ -208,7 +209,9 @@ export default async function RootLayout({
       </head>
       <body>
         <CurrencyProvider currency={userSettings?.currency || "USD"}>
-          <ClientLayout user={user}>{children}</ClientLayout>
+          <TimezoneProvider timezone={userSettings?.timezone || "America/New_York"}>
+            <ClientLayout user={user}>{children}</ClientLayout>
+          </TimezoneProvider>
         </CurrencyProvider>
       </body>
     </html>

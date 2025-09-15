@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DollarSign, Package, Users, Calendar } from "lucide-react" // Added User and Phone icons
 import Image from "next/image"
 import { useCurrency } from "@/context/CurrencyContext"
+import { useTimezone } from "@/context/TimezoneContext"
 import { formatCurrency } from "@/lib/utils/currency"
 
 // IMPORTANT: If sale.items is empty in the modal, the issue is likely in the data fetching function
@@ -67,6 +68,7 @@ interface SaleDetailModalProps {
 export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalProps) {
   if (!sale) return null
   const { currency } = useCurrency()
+  const { formatDateInTimezone } = useTimezone()
   console.log("Sale prop received in SaleDetailModal:", sale) // Add this line
   console.log("Sale items in modal:", sale.items)
   console.log("Sale profitDistribution in modal:", sale.profitDistribution)
@@ -80,14 +82,14 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-8">
-        <DialogHeader>
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-6">
+        <DialogHeader className="mb-6">
           <DialogTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" /> Sale Details - {saleNumber}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 gap-8">
+        <div className="grid grid-cols-1 gap-6">
           {/* Sale Summary */}
           <Card>
             <CardHeader>
@@ -98,7 +100,7 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
             <CardContent className="space-y-4">
               <div className="flex justify-between text-sm">
                 <span>Sale Date:</span>
-                <span className="font-medium">{new Date(sale.sale_date).toLocaleDateString()}</span>
+                <span className="font-medium">{formatDateInTimezone(sale.sale_date)}</span>
               </div>
               {sale.customer_name && (
                 <div className="flex justify-between text-sm">
@@ -184,45 +186,45 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                 <Package className="h-5 w-5" /> Sold Items
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="max-h-60 overflow-y-auto pr-4">
+            <CardContent className="p-4">
+              <div className="max-h-64 overflow-y-auto">
                 {items.length === 0 ? (
-                  <p className="text-center text-gray-500 py-4">No items recorded for this sale.</p>
+                  <p className="text-center text-gray-500 py-6">No items recorded for this sale.</p>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Item</TableHead>
-                        <TableHead>
+                        <TableHead className="min-w-[200px]">Item</TableHead>
+                        <TableHead className="w-[100px]">
                           {items.some(item => item.variant?.type === 'Pre-order' || item.variant?.type === 'downpayment') 
                             ? 'Pre-order' 
                             : 'Serial'}
                         </TableHead>
-                        <TableHead>Size</TableHead>
-                        <TableHead>Notes</TableHead>
-                        <TableHead className="text-right">Sold Price</TableHead>
-                        <TableHead className="text-right">Cost Price</TableHead>
+                        <TableHead className="w-[80px]">Size</TableHead>
+                        <TableHead className="w-[120px]">Notes</TableHead>
+                        <TableHead className="text-right w-[100px]">Sold Price</TableHead>
+                        <TableHead className="text-right w-[100px]">Cost Price</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {items.map((item) => (
                         <TableRow key={item.id}>
-                          <TableCell className="py-2">
+                          <TableCell className="py-3 min-w-[200px]">
                             <div className="flex items-center gap-3">
                               <Image
                                 src={item.variant?.productImage || "/placeholder.svg?height=40&width=40"}
                                 alt={item.variant?.productName || "Product"}
                                 width={40}
                                 height={40}
-                                className="rounded-md object-cover"
+                                className="rounded-md object-cover flex-shrink-0"
                               />
-                              <div>
-                                <p className="font-medium text-sm">{item.variant?.productName || 'Unknown Product'}</p>
-                                <p className="text-xs text-gray-500">{item.variant?.productBrand || 'Unknown Brand'}</p>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-sm whitespace-nowrap overflow-hidden text-ellipsis">{item.variant?.productName || 'Unknown Product'}</p>
+                                <p className="text-xs text-gray-500 whitespace-nowrap overflow-hidden text-ellipsis">{item.variant?.productBrand || 'Unknown Brand'}</p>
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="font-mono text-xs py-2">
+                          <TableCell className="font-mono text-xs py-3 w-[100px]">
                             {(() => {
                               // Check if this is a pre-order or downpayment item
                               const isPreorderItem = item.variant?.type === 'Pre-order';
@@ -237,10 +239,12 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                               }
                             })()}
                           </TableCell>
-                          <TableCell className="text-xs py-2">
-                            {item.variant?.size || 'N/A'} ({item.variant?.sizeLabel || 'N/A'})
+                          <TableCell className="text-xs py-3 w-[80px]">
+                            <div className="whitespace-nowrap">
+                              {item.variant?.size || 'N/A'} ({item.variant?.sizeLabel || 'N/A'})
+                            </div>
                           </TableCell>
-                          <TableCell className="text-xs py-2 max-w-48">
+                          <TableCell className="text-xs py-3 w-[120px]">
                             {item.variant?.notes ? (
                               <div className="truncate" title={item.variant.notes}>
                                 {item.variant.notes}
@@ -249,8 +253,8 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                               <span className="text-gray-400 italic">No notes</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-right font-medium py-2">{formatCurrency(item.sold_price, currency)}</TableCell>
-                          <TableCell className="text-right text-gray-600 py-2">{formatCurrency(item.cost_price, currency)}</TableCell>
+                          <TableCell className="text-right font-medium py-3 w-[100px]">{formatCurrency(item.sold_price, currency)}</TableCell>
+                          <TableCell className="text-right text-gray-600 py-3 w-[100px]">{formatCurrency(item.cost_price, currency)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -267,9 +271,9 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                 <Users className="h-5 w-5" /> Profit Distribution
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4">
               {profitDistribution.length === 0 ? (
-                <p className="text-center text-gray-500 py-4">No profit distribution recorded for this sale.</p>
+                <p className="text-center text-gray-500 py-6">No profit distribution recorded for this sale.</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -282,9 +286,9 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                   <TableBody>
                     {profitDistribution.map((dist) => (
                       <TableRow key={dist.id}>
-                        <TableCell className="font-medium py-2">{dist.avatar?.name || 'Unknown Avatar'}</TableCell>
-                        <TableCell className="text-right py-2">{dist.percentage.toFixed(2)}%</TableCell>
-                        <TableCell className="text-right font-medium py-2">{formatCurrency(dist.amount, currency)}</TableCell>
+                        <TableCell className="font-medium py-3">{dist.avatar?.name || 'Unknown Avatar'}</TableCell>
+                        <TableCell className="text-right py-3">{dist.percentage.toFixed(2)}%</TableCell>
+                        <TableCell className="text-right font-medium py-3">{formatCurrency(dist.amount, currency)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

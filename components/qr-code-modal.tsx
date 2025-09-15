@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Variant } from "@/lib/types"
 import { Download, Printer } from "lucide-react"
 import dynamic from "next/dynamic"
+import { useTimezone } from "@/context/TimezoneContext"
 
 interface QRCodeModalProps {
   open: boolean
@@ -16,6 +17,7 @@ interface QRCodeModalProps {
 }
 
 export default function QRCodeModal({ open, variant, onClose }: QRCodeModalProps) {
+  const { formatDateInTimezone } = useTimezone()
   const [pdfUrl, setPdfUrl] = useState<string>("")
   const [generating, setGenerating] = useState(false)
 
@@ -87,11 +89,11 @@ export default function QRCodeModal({ open, variant, onClose }: QRCodeModalProps
       yPos += 8
       
       if ((variant as any).date_sold) {
-        pdf.text(`Date Sold: ${new Date((variant as any).date_sold).toLocaleDateString()}`, leftMargin, yPos)
+        pdf.text(`Date Sold: ${formatDateInTimezone((variant as any).date_sold)}`, leftMargin, yPos)
         yPos += 8
       }
       
-      pdf.text(`Date Added: ${new Date(variant.created_at).toLocaleDateString()}`, leftMargin, yPos)
+      pdf.text(`Date Added: ${formatDateInTimezone(variant.created_at)}`, leftMargin, yPos)
       yPos += 15
 
       // Generate QR Code

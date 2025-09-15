@@ -424,7 +424,7 @@ export default function ConsignmentSalesPage() {
                 ) : (
                   filteredSales.map((sale) => (
                     <TableRow key={sale.id}>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {new Date(sale.created_at).toLocaleDateString()}
                       </TableCell>
                       <TableCell className="font-medium">
@@ -478,7 +478,7 @@ export default function ConsignmentSalesPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell">
+                      <TableCell className="hidden lg:table-cell whitespace-nowrap">
                         {sale.payout_date ? new Date(sale.payout_date).toLocaleDateString() : '-'}
                       </TableCell>
                     </TableRow>

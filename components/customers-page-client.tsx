@@ -18,6 +18,7 @@ import { CustomerDeleteModal } from "./customer-delete-modal"
 import { CustomerStatsCard } from "./customer-stats-card"
 import { formatCurrency } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
+import { useTimezone } from "@/context/TimezoneContext"
 import { format } from "date-fns"
 
 interface Customer {
@@ -47,6 +48,7 @@ interface CustomersPageClientProps {
 
 export function CustomersPageClient({ initialCustomers, error }: CustomersPageClientProps) {
   const { currency } = useCurrency();
+  const { formatDateInTimezone } = useTimezone();
   const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
   const [searchTerm, setSearchTerm] = useState("");
   const [customerTypeFilter, setCustomerTypeFilter] = useState<string>("all");
@@ -373,10 +375,10 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
                       <TableCell className="text-right">
                         <div className="font-medium">{formatCurrency(customer.totalSpent, currency)}</div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {customer.lastOrderDate ? (
                           <div className="text-sm">
-                            {format(new Date(customer.lastOrderDate), 'MMM d, yyyy')}
+                            {formatDateInTimezone(customer.lastOrderDate)}
                           </div>
                         ) : (
                           <div className="text-sm text-gray-400">No orders</div>

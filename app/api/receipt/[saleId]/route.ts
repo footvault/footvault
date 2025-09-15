@@ -25,12 +25,12 @@ export async function GET(request: Request, { params }: { params: { saleId: stri
 
     const { saleId } = params
 
-    // Fetch sale data with user info
+    // Fetch sale data with user info including timezone
     const { data: saleData, error: saleError } = await supabase
       .from('sales')
       .select(`
         *,
-        users!inner(username, receipt_address, receipt_more_info, receipt_header_type, receipt_logo_url),
+        users!inner(username, receipt_address, receipt_more_info, receipt_header_type, receipt_logo_url, timezone),
         sale_items!inner(
           *,
           variants!inner(
@@ -49,6 +49,9 @@ export async function GET(request: Request, { params }: { params: { saleId: stri
       return NextResponse.json({ success: false, error: 'Sale not found' }, { status: 404 })
     }
 
+    // Get user timezone, default to America/New_York if not set
+    const userTimezone = saleData.users.timezone || 'America/New_York';
+
     // Format the data for the receipt
     const receiptData = {
       saleId: saleData.id,
@@ -62,11 +65,13 @@ export async function GET(request: Request, { params }: { params: { saleId: stri
       saleInfo: {
         invoiceNumber: saleData.sales_no || saleData.id.slice(-6),
         date: new Date(saleData.sale_date).toLocaleDateString('en-US', {
+          timeZone: userTimezone,
           month: '2-digit',
           day: '2-digit',
           year: 'numeric'
         }),
         time: new Date(saleData.created_at).toLocaleTimeString('en-US', {
+          timeZone: userTimezone,
           hour: '2-digit',
           minute: '2-digit',
           hour12: true

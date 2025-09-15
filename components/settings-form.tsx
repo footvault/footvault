@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { getTimezoneList, useTimezone } from "@/context/TimezoneContext"
 
 interface SettingsFormProps {
   user: {
@@ -36,6 +37,7 @@ interface SettingsFormProps {
 }
 
 export function SettingsForm({ user }: SettingsFormProps) {
+  const { formatDateInTimezone } = useTimezone();
   const [isPending, setIsPending] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
   const [currency, setCurrency] = useState(user?.currency || "USD")
@@ -128,11 +130,11 @@ export function SettingsForm({ user }: SettingsFormProps) {
                   <SelectValue placeholder="Select timezone" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="America/New_York">America/New_York (EST)</SelectItem>
-                  <SelectItem value="America/Los_Angeles">America/Los_Angeles (PST)</SelectItem>
-                  <SelectItem value="Europe/London">Europe/London (GMT)</SelectItem>
-                  <SelectItem value="Asia/Tokyo">Asia/Tokyo (JST)</SelectItem>
-                  <SelectItem value="Asia/Manila">Asia/Manila (PHT)</SelectItem>
+                  {getTimezoneList().map((tz) => (
+                    <SelectItem key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -214,7 +216,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
             <div className="space-y-2">
               <Label>Next Billing Date</Label>
               <p className="text-sm text-gray-500">
-                {new Date(user.next_billing_date).toLocaleDateString()}
+                {formatDateInTimezone(user.next_billing_date)}
               </p>
             </div>
           )}
