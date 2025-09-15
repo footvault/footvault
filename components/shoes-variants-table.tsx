@@ -31,11 +31,17 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Checkbox } from "@/components/ui/checkbox"
 import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, Lock, Plus } from "lucide-react"
 import jsPDF from "jspdf"
 import QRCode from "qrcode"
@@ -134,7 +140,7 @@ export function ShoesVariantsTable() {
 
   // New filter state
   const [locationFilter, setLocationFilter] = useState<string>("all")
-  const [sizeFilter, setSizeFilter] = useState<string>("all")
+  const [sizeFilter, setSizeFilter] = useState<string[]>([]) // Changed to array for multi-select
   const [brandFilter, setBrandFilter] = useState<string>("all")
   const [sizeCategoryFilter, setSizeCategoryFilter] = useState<string>("all")
 
@@ -273,6 +279,27 @@ export function ShoesVariantsTable() {
     return ["all", ...Array.from(set)]
   }, [variants])
 
+  // Compute size options grouped by size category
+  const sizeOptionsByCategory = useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+    variants.forEach(v => {
+      const sizeCategory = (v as any).product?.size_category;
+      if (!sizeCategory) return;
+      if (!map[sizeCategory]) map[sizeCategory] = new Set();
+      if (v.size) map[sizeCategory].add(String(v.size));
+    });
+    // Convert sets to sorted arrays
+    const result: Record<string, string[]> = {};
+    Object.entries(map).forEach(([cat, sizes]) => {
+      result[cat] = Array.from(sizes).sort((a, b) => {
+        const na = Number(a), nb = Number(b);
+        if (!isNaN(na) && !isNaN(nb)) return na - nb;
+        return String(a).localeCompare(String(b));
+      });
+    });
+    return result;
+  }, [variants]);
+
   // Filtered variants (all filters except status, which is handled by table column filter)
   const filteredVariants = useMemo(() => {
     let result = variants.filter(v => {
@@ -280,7 +307,7 @@ export function ShoesVariantsTable() {
       const sizeCategory = (v as any).product?.size_category;
       return (
         (locationFilter === "all" || v.location === locationFilter) &&
-        (sizeFilter === "all" || v.size === sizeFilter) &&
+        (sizeFilter.length === 0 || sizeFilter.includes(v.size || "")) &&
         (brandFilter === "all" || brand === brandFilter) &&
         (sizeCategoryFilter === "all" || sizeCategory === sizeCategoryFilter)
       );
@@ -798,67 +825,59 @@ export function ShoesVariantsTable() {
         </div>
         {/* Filters right, responsive */}
         <div className="flex flex-row gap-2 items-center mt-2 sm:mt-0">
-          {/* Size Dropdown with search inside */}
-          <Select value={sizeFilter} onValueChange={setSizeFilter}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Size" />
-            </SelectTrigger>
-            <SelectContent>
+          {/* Size Filter with checkboxes */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="shrink-0 justify-between min-w-[140px]">
+                <span className="truncate">
+                  {sizeFilter.length === 0 ? "All Sizes" : sizeFilter.join(", ")}
+                </span>
+                <svg className="ml-2 h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none"><path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[220px] max-h-72 overflow-y-auto p-0">
               <div className="px-2 py-1">
                 <Input
                   placeholder="Search size..."
                   value={sizeSearch}
                   onChange={e => setSizeSearch(e.target.value)}
-                  className="w-full mb-1"
+                  className="mb-2 text-xs"
+                  autoFocus
                 />
+                <div className="mb-2">
+                  <Checkbox
+                    id="all-sizes"
+                    checked={sizeFilter.length === 0}
+                    onCheckedChange={checked => {
+                      if (checked) setSizeFilter([]);
+                    }}
+                  />
+                  <label htmlFor="all-sizes" className="ml-2 text-xs cursor-pointer select-none">All Sizes</label>
+                </div>
               </div>
-              {/* Group sizes by category and size label */}
-              {['Men\'s', 'Women\'s', 'Youth', 'Toddlers', 'Kids', 'Unisex', 'T-Shirts', 'Figurines', 'Collectibles', 'Pop Marts'].map(category => {
-                // Get unique size labels for this category
-                const sizeLabelsInCategory = [...new Set(
-                  variants
-                    .filter(v => (v as any).product?.size_category === category)
-                    .map(v => (v as any).size_label)
-                    .filter(Boolean)
-                )].sort();
-                
-                if (sizeLabelsInCategory.length === 0) return null;
-                
-                return (
-                  <React.Fragment key={category}>
-                    <div className="px-2 py-1 text-xs text-muted-foreground font-semibold">{category}</div>
-                    {sizeLabelsInCategory.map(sizeLabel => {
-                      const options = filteredSizeOptions.filter(option => {
-                        if (option === 'all') return false;
-                        return variants.some(v => 
-                          v.size === option && 
-                          (v as any).product?.size_category === category &&
-                          (v as any).size_label === sizeLabel
-                        );
-                      });
-                      
-                      if (options.length === 0) return null;
-                      
-                      return (
-                        <React.Fragment key={`${category}-${sizeLabel}`}>
-                          <div className="px-4 py-1 text-xs text-muted-foreground">
-                            {sizeLabel} Sizes
-                          </div>
-                          {options.map(option => (
-                            <SelectItem key={`${option}-${sizeLabel}`} value={option}>
-                              {option} ({sizeLabel})
-                            </SelectItem>
-                          ))}
-                        </React.Fragment>
-                      );
-                    })}
-                  </React.Fragment>
-                );
-              })}
-              {/* All sizes option at top */}
-              <SelectItem value="all">All Sizes</SelectItem>
-            </SelectContent>
-          </Select>
+              {Object.entries(sizeOptionsByCategory).map(([cat, sizes]) => (
+                <React.Fragment key={cat}>
+                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/50 sticky top-0 z-10">{cat}</div>
+                  {sizes.filter(size => sizeSearch === "" || String(size).toLowerCase().includes(sizeSearch.toLowerCase())).map(size => {
+                    const checked = sizeFilter.includes(size);
+                    return (
+                      <div key={cat + "-" + size} className="flex items-center px-2 py-1 cursor-pointer hover:bg-muted/30 rounded">
+                        <Checkbox
+                          id={`size-${cat}-${size}`}
+                          checked={checked}
+                          onCheckedChange={checked => {
+                            if (checked) setSizeFilter(prev => [...prev, size]);
+                            else setSizeFilter(prev => prev.filter(s => s !== size));
+                          }}
+                        />
+                        <label htmlFor={`size-${cat}-${size}`} className="ml-2 text-xs cursor-pointer select-none">{size}</label>
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
+            </PopoverContent>
+          </Popover>
 
           {/* Responsive: show other filters in popover on mobile, inline on desktop */}
           <div className="hidden sm:flex flex-row gap-2 items-center">

@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
 
     // Username at top left - clean and truncated
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
+    doc.setFontSize(12); // Smaller font size to fit longer names
     
     // Truncate username to fit in top left area
     const maxUsernameWidth = USERNAME_MAX_WIDTH;
@@ -116,73 +116,32 @@ export async function GET(req: NextRequest) {
     doc.setFontSize(11);
     doc.text(sku, MARGIN_LEFT, currentY);
     
-    // Product name - smaller text to fit long names
-    currentY += 5;
+    // Product name below SKU (wrap text if too long)
+    currentY += 6;
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8); // Smaller font size for better fit
-    const maxProductWidth = CONTENT_MAX_WIDTH;
-    const truncatedProductName = doc.splitTextToSize(name, maxProductWidth)[0];
-    doc.text(truncatedProductName, MARGIN_LEFT, currentY);
-    
-    // Size information - compact
+    doc.setFontSize(9);
+    const productLines = doc.splitTextToSize(name, CONTENT_MAX_WIDTH);
+    doc.text(productLines, MARGIN_LEFT, currentY);
+
+    // Move Y down depending on wrapped product lines
+    currentY += productLines.length * 4;
+
+    // Size info
     doc.setFont("helvetica", "normal");
     doc.setFontSize(11);
-    let sizeInfo = `Size: ${sizeLabel} ${size}`;
-    
-    // Add gender info from the variant data if available
-    if (v.gender && !size.includes('(')) {
-      sizeInfo += ` (${v.gender.toUpperCase()})`;
-    }
-    
-    const sizeY = currentY; // Define sizeY for positioning calculations
-    doc.text(sizeInfo, MARGIN_LEFT, currentY);
-    
-    // Calculate available space for bottom elements
-    const bottomContentStart = LABEL_HEIGHT - MIN_BOTTOM_MARGIN;
-    const availableHeight = bottomContentStart - (sizeY + 3);
+    doc.text(`Size: ${sizeLabel} ${size}`, MARGIN_LEFT, currentY);
 
-    // QR code in top right - fixed position to avoid overlap
-    doc.addImage(qrUrl, "PNG", QR_X, QR_Y, QR_SIZE, QR_SIZE);
-
-    // Serial number - large and prominent at bottom
+    // Serial number large and centered at bottom
     doc.setFont("helvetica", "bold");
-    
-    // Calculate optimal serial number position
-    let serialFontSize = 60; // Much larger serial number for prominence
-    let serialY = 45;        // Position near bottom
-    const maxSerialY = LABEL_HEIGHT - 6;
-    
-    // Adjust font size based on serial length - progressive scaling
+    let serialFontSize = 60;
+    let serialY = LABEL_HEIGHT - 8;
+
+    // Adjust font size if serial is long
     if (labelSerial.length >= 6) {
-      serialFontSize = 50;
-      serialY = 46;
+      serialFontSize = 48;
     }
-    if (labelSerial.length > 8) {
-      serialFontSize = 45;
-    }
-    if (labelSerial.length > 12) {
-      serialFontSize = 40; // Minimum size for readability
-    }
-    
     doc.setFontSize(serialFontSize);
-    const serialTextWidth = doc.getTextWidth(labelSerial);
-    
-    // If serial is too wide, reduce font size further but keep it large
-    if (serialTextWidth > LABEL_WIDTH - 25) {
-      serialFontSize = 40; // Still relatively large minimum
-      serialY = 47;
-      doc.setFontSize(serialFontSize);
-    }
-    
-    // Ensure serial doesn't overlap with content above
-    if (sizeY + 6 > serialY - 8) {
-      // If content is too long, use smaller serial font and position lower
-      serialFontSize = Math.min(serialFontSize, 36); // Slightly larger minimum
-      serialY = Math.max(sizeY + 8, 46);
-      doc.setFontSize(serialFontSize);
-    }
-    
-    // Center the serial number
+
     const serialX = (LABEL_WIDTH - doc.getTextWidth(labelSerial)) / 2;
     doc.text(labelSerial, serialX, serialY);
   }
