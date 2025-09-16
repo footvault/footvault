@@ -204,17 +204,17 @@ export function CustomerDetailModal({ customer, onClose, onEdit }: CustomerDetai
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[1200px] max-h-[90vh] overflow-y-auto m-4 sm:m-6">
+      <DialogContent className="w-[95vw] max-w-[1200px] max-h-[90vh] overflow-y-auto m-2 sm:m-4 p-4 sm:p-6">
         <DialogHeader>
           <div>
-            <DialogTitle className="flex items-center gap-3">
-              <User className="h-5 w-5" />
-              {customer.name}
-              <Badge className={getCustomerTypeColor(customer.customerType)}>
+            <DialogTitle className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <User className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+              <span className="truncate">{customer.name}</span>
+              <Badge className={`${getCustomerTypeColor(customer.customerType)} text-xs flex-shrink-0`}>
                 {customer.customerType.toUpperCase()}
               </Badge>
             </DialogTitle>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-xs sm:text-sm text-gray-600 mt-1">
               Customer since {format(new Date(customer.createdAt), 'MMM d, yyyy')}
             </p>
           </div>
@@ -266,134 +266,257 @@ export function CustomerDetailModal({ customer, onClose, onEdit }: CustomerDetai
             </CardContent>
           </Card>
 
-          {/* Purchase History Table */}
-          <div className="overflow-x-auto rounded-md border">
-            <div className="min-w-[800px]">
-              {isLoading ? (
-                <div className="p-8 text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                  <p className="mt-2 text-gray-600">Loading purchase history...</p>
+          {/* Purchase History */}
+          <div className="w-full">
+            {isLoading ? (
+              <div className="p-8 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Loading purchase history...</p>
+              </div>
+            ) : filteredAndSortedItems.length === 0 ? (
+              <div className="p-8 text-center">
+                <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No Items Found</h3>
+                <p className="text-gray-600">
+                  {searchTerm || typeFilter !== "all" 
+                    ? "Try adjusting your search or filters"
+                    : "This customer hasn't purchased any items yet"
+                  }
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden lg:block w-full">
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table className="w-full">
+                      <TableHeader className="bg-muted">
+                        <TableRow>
+                          <TableHead className="w-16">Image</TableHead>
+                          <TableHead 
+                            className="cursor-pointer select-none min-w-[200px]"
+                            onClick={() => handleSort("productName")}
+                          >
+                            <div className="flex items-center gap-2">
+                              Product Name
+                              {getSortIcon("productName")}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer select-none w-24"
+                            onClick={() => handleSort("type")}
+                          >
+                            <div className="flex items-center gap-2">
+                              Type
+                              {getSortIcon("type")}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer select-none text-right w-28"
+                            onClick={() => handleSort("price")}
+                          >
+                            <div className="flex items-center justify-end gap-2">
+                              Price
+                              {getSortIcon("price")}
+                            </div>
+                          </TableHead>
+                          <TableHead className="text-right w-24">Discount</TableHead>
+                          <TableHead 
+                            className="cursor-pointer select-none w-28"
+                            onClick={() => handleSort("saleDate")}
+                          >
+                            <div className="flex items-center gap-2">
+                              Date
+                              {getSortIcon("saleDate")}
+                            </div>
+                          </TableHead>
+                          <TableHead className="w-24">Sold By</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredAndSortedItems.map((item) => (
+                          <TableRow key={item.id} className="hover:bg-gray-50">
+                            <TableCell className="p-2">
+                              <div className="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center">
+                                {item.image ? (
+                                  <img 
+                                    src={item.image} 
+                                    alt={item.productName}
+                                    className="w-12 h-12 object-cover rounded-md"
+                                  />
+                                ) : (
+                                  <Package className="h-6 w-6 text-gray-400" />
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="p-2">
+                              <div className="max-w-[200px]">
+                                <div className="font-medium text-sm truncate">{item.productName}</div>
+                                <div className="text-xs text-gray-500">Size: {item.size}</div>
+                                {item.serialNumber && (
+                                  <div className="text-xs text-gray-400 truncate">SN: {item.serialNumber}</div>
+                                )}
+                                {item.preorderNo && (
+                                  <div className="text-xs text-gray-400">PO: #{item.preorderNo}</div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="p-2">
+                              <Badge className={`${getTypeColor(item.type)} text-xs`}>
+                                {item.type}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-medium text-sm p-2">
+                              {formatCurrency(item.price, currency)}
+                            </TableCell>
+                            <TableCell className="text-right p-2">
+                              {item.discountAmount ? (
+                                <span className="text-red-600 text-xs">
+                                  -{formatCurrency(item.discountAmount, currency)}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 text-xs">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="p-2">
+                              <div className="text-xs">
+                                {format(new Date(item.saleDate), 'MMM d, yyyy')}
+                              </div>
+                            </TableCell>
+                            <TableCell className="p-2">
+                              <div className="text-xs truncate max-w-[80px]">
+                                {item.soldBy}
+                                {item.isTemplate && (
+                                  <div className="text-gray-400">Template</div>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
-              ) : filteredAndSortedItems.length === 0 ? (
-                <div className="p-8 text-center">
-                  <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Items Found</h3>
-                  <p className="text-gray-600">
-                    {searchTerm || typeFilter !== "all" 
-                      ? "Try adjusting your search or filters"
-                      : "This customer hasn't purchased any items yet"
-                    }
-                  </p>
-                </div>
-              ) : (
-                <Table className="w-full">
-                  <TableHeader className="bg-muted sticky top-0 z-10">
-                    <TableRow>
-                      <TableHead className="whitespace-nowrap">Image</TableHead>
-                      <TableHead 
-                        className="cursor-pointer select-none whitespace-nowrap"
-                        onClick={() => handleSort("productName")}
-                      >
-                        <div className="flex items-center gap-2">
-                          Product Name
-                          {getSortIcon("productName")}
-                        </div>
-                      </TableHead>
-                      <TableHead 
-                        className="cursor-pointer select-none whitespace-nowrap"
-                        onClick={() => handleSort("type")}
-                      >
-                        <div className="flex items-center gap-2">
-                          Type
-                          {getSortIcon("type")}
-                        </div>
-                      </TableHead>
-                      <TableHead 
-                        className="cursor-pointer select-none text-right whitespace-nowrap"
-                        onClick={() => handleSort("price")}
-                      >
-                        <div className="flex items-center justify-end gap-2">
-                          Sale Price
-                          {getSortIcon("price")}
-                        </div>
-                      </TableHead>
-                      <TableHead className="text-right whitespace-nowrap">Discount</TableHead>
-                      <TableHead 
-                        className="cursor-pointer select-none whitespace-nowrap"
-                        onClick={() => handleSort("saleDate")}
-                      >
-                        <div className="flex items-center gap-2">
-                          Date Sold
-                          {getSortIcon("saleDate")}
-                        </div>
-                      </TableHead>
-                      <TableHead className="whitespace-nowrap">Sold By</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredAndSortedItems.map((item) => (
-                      <TableRow key={item.id} className="hover:bg-gray-50">
-                        <TableCell>
-                          <div className="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center">
-                            {item.image ? (
-                              <img 
-                                src={item.image} 
-                                alt={item.productName}
-                                className="w-12 h-12 object-cover rounded-md"
-                              />
-                            ) : (
-                              <Package className="h-6 w-6 text-gray-400" />
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{item.productName}</div>
-                            <div className="text-sm text-gray-500">Size: {item.size}</div>
-                            {item.serialNumber && (
-                              <div className="text-xs text-gray-400">SN: {item.serialNumber}</div>
-                            )}
-                            {item.preorderNo && (
-                              <div className="text-xs text-gray-400">PO: #{item.preorderNo}</div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getTypeColor(item.type)}>
-                            {item.type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(item.price, currency)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {item.discountAmount ? (
-                            <span className="text-red-600">
-                              -{formatCurrency(item.discountAmount, currency)}
-                            </span>
+
+                {/* Tablet Card View */}
+                <div className="hidden md:block lg:hidden space-y-3">
+                  {filteredAndSortedItems.map((item) => (
+                    <Card key={item.id} className="p-4">
+                      <div className="flex gap-4">
+                        <div className="w-16 h-16 bg-gray-100 rounded-md flex items-center justify-center flex-shrink-0">
+                          {item.image ? (
+                            <img 
+                              src={item.image} 
+                              alt={item.productName}
+                              className="w-16 h-16 object-cover rounded-md"
+                            />
                           ) : (
-                            <span className="text-gray-400">-</span>
+                            <Package className="h-8 w-8 text-gray-400" />
                           )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {format(new Date(item.saleDate), 'MMM d, yyyy')}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1 min-w-0 pr-3">
+                              <h4 className="font-medium truncate">{item.productName}</h4>
+                              <p className="text-sm text-gray-500">Size: {item.size}</p>
+                              {item.serialNumber && (
+                                <p className="text-xs text-gray-400 truncate">SN: {item.serialNumber}</p>
+                              )}
+                              {item.preorderNo && (
+                                <p className="text-xs text-gray-400">PO: #{item.preorderNo}</p>
+                              )}
+                            </div>
+                            <Badge className={`${getTypeColor(item.type)} flex-shrink-0`}>
+                              {item.type}
+                            </Badge>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {item.soldBy}
-                            {item.isTemplate && (
-                              <div className="text-xs text-gray-400">Template</div>
-                            )}
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <div className="font-medium">{formatCurrency(item.price, currency)}</div>
+                              {item.discountAmount && (
+                                <div className="text-red-600 text-xs">
+                                  -{formatCurrency(item.discountAmount, currency)} discount
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs text-gray-500">
+                                {format(new Date(item.saleDate), 'MMM d, yyyy')}
+                              </div>
+                              <div className="text-xs text-gray-500">By: {item.soldBy}</div>
+                              {item.isTemplate && (
+                                <div className="text-xs text-gray-400">Template</div>
+                              )}
+                            </div>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-3">
+                  {filteredAndSortedItems.map((item) => (
+                    <Card key={item.id} className="p-3 w-full">
+                      <div className="flex gap-3 w-full min-w-0">
+                        <div className="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center flex-shrink-0">
+                          {item.image ? (
+                            <img 
+                              src={item.image} 
+                              alt={item.productName}
+                              className="w-12 h-12 object-cover rounded-md"
+                            />
+                          ) : (
+                            <Package className="h-6 w-6 text-gray-400" />
+                          )}
+                        </div>
+                        
+                        <div className="flex-1 min-w-0 w-0">
+                          <div className="flex items-start justify-between mb-2 gap-2">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-sm truncate">{item.productName}</h4>
+                              <p className="text-xs text-gray-500">Size: {item.size}</p>
+                              {item.serialNumber && (
+                                <p className="text-xs text-gray-400 truncate">SN: {item.serialNumber}</p>
+                              )}
+                              {item.preorderNo && (
+                                <p className="text-xs text-gray-400 truncate">PO: #{item.preorderNo}</p>
+                              )}
+                            </div>
+                            <Badge className={`${getTypeColor(item.type)} text-xs flex-shrink-0`}>
+                              {item.type}
+                            </Badge>
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <div className="font-medium text-sm">{formatCurrency(item.price, currency)}</div>
+                              <div className="text-xs text-gray-500 flex-shrink-0">
+                                {format(new Date(item.saleDate), 'MMM d')}
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="min-w-0 flex-1">
+                                {item.discountAmount && (
+                                  <span className="text-red-600 truncate">
+                                    -{formatCurrency(item.discountAmount, currency)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-gray-500 flex-shrink-0 ml-2 truncate max-w-[80px]">
+                                {item.soldBy}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </DialogContent>

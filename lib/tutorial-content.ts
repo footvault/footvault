@@ -11,7 +11,7 @@ export const tutorialContent: Record<string, TutorialData> = {
         id: "welcome",
         title: "Welcome to FootVault!",
         description: "FootVault is your all-in-one platform for managing sneaker inventory, sales, and customer relationships. Let's take a quick tour of the key features.",
-        image: "/images/tutorials/welcome-dashboard.png", // Add your image here
+        image: "/images/tutorials/welcome/welcome-dashboards.png", // Add your image here
         tips: [
           "Navigate using the sidebar on the left",
           "Access tutorials anytime by clicking the help icon",
@@ -319,17 +319,6 @@ export const tutorialContent: Record<string, TutorialData> = {
         ]
       },
       {
-        id: "payment-received",
-        title: "💰 Payment Processing",
-        description: "Record payments received with multiple payment methods and track partial payments for complete financial accuracy.",
-        image: "/images/tutorials/checkout/payment-received.png", // Add this image
-        tips: [
-          "Multiple payment method support",
-          "Partial payment tracking",
-          "Change calculation included"
-        ]
-      },
-      {
         id: "profit-distribution",
         title: "🎯 Profit Distribution",
         description: "Distribute profits through avatars and templates for partnership management and commission tracking.",
@@ -444,17 +433,6 @@ export const tutorialContent: Record<string, TutorialData> = {
           "Chronological purchase tracking",
           "Total spending calculations",
           "Favorite product identification"
-        ]
-      },
-      {
-        id: "customer-insights",
-        title: "📈 Customer Insights",
-        description: "Gain valuable insights into customer behavior, preferences, and purchasing patterns for better service.",
-        image: "/images/tutorials/customers/customer-insights.png", // Add this image
-        tips: [
-          "Purchase frequency analysis",
-          "Preferred brands and sizes",
-          "Customer lifetime value"
         ]
       }
     ]

@@ -26,6 +26,7 @@ interface TutorialContextType {
   closeTutorial: () => void
   setDontShowAgain: (page: string) => void
   markTutorialComplete: (page: string) => void
+  disableWelcomeTutorial: () => void
   
   // Loading state
   isLoading: boolean
@@ -179,6 +180,12 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
     }
   }
 
+  const disableWelcomeTutorial = () => {
+    setHasSeenWelcome(true)
+    saveTutorialPreferences(tutorialPreferences, true)
+    closeTutorial()
+  }
+
   // Check if a tutorial should be shown for a page
   const shouldShowTutorial = (page: string): boolean => {
     if (page === 'welcome') {
@@ -198,6 +205,7 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
     closeTutorial,
     setDontShowAgain,
     markTutorialComplete,
+    disableWelcomeTutorial,
     isLoading
   }
 

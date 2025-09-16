@@ -47,6 +47,7 @@ export function TutorialModal({
 }: TutorialModalProps) {
   const [currentStep, setCurrentStep] = useState(0)
   const [isCompleted, setIsCompleted] = useState(false)
+  const [dontShowWelcomeAgain, setDontShowWelcomeAgain] = useState(false)
 
   const steps = tutorialData.steps
   const totalSteps = steps.length
@@ -65,6 +66,10 @@ export function TutorialModal({
     if (isLastStep) {
       setIsCompleted(true)
       onComplete?.()
+      // Check if welcome tutorial should be disabled
+      if (tutorialData.page === "FootVault" && dontShowWelcomeAgain && onDontShowAgain) {
+        onDontShowAgain()
+      }
       setTimeout(() => {
         handleClose()
       }, 1500)
@@ -80,8 +85,13 @@ export function TutorialModal({
   }
 
   const handleClose = () => {
+    // Check if welcome tutorial should be disabled when closing
+    if (tutorialData.page === "FootVault" && dontShowWelcomeAgain && onDontShowAgain) {
+      onDontShowAgain()
+    }
     setCurrentStep(0)
     setIsCompleted(false)
+    setDontShowWelcomeAgain(false)
     onClose()
   }
 
@@ -144,11 +154,6 @@ export function TutorialModal({
             </div>
           ) : (
             <div className="space-y-4 sm:space-y-6">
-              {/* Step Badge */}
-              <Badge variant="secondary" className="w-fit text-xs sm:text-sm">
-                Step {currentStep + 1}: {currentStepData.title}
-              </Badge>
-
               {/* Main Content */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
                 {/* Left Column - Text Content */}
@@ -222,7 +227,23 @@ export function TutorialModal({
         {!isCompleted && (
           <div className="border-t p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0 flex-shrink-0">
             <div className="flex items-center gap-3 order-2 sm:order-1">
-              {isFirstTime && onDontShowAgain && (
+              {/* Welcome Tutorial Checkbox */}
+              {tutorialData.page === "FootVault" && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                    checked={dontShowWelcomeAgain}
+                    onChange={(e) => setDontShowWelcomeAgain(e.target.checked)}
+                  />
+                  <span className="text-xs sm:text-sm text-muted-foreground">
+                    Don't show welcome again
+                  </span>
+                </label>
+              )}
+              
+              {/* Generic Don't Show Again Button */}
+              {isFirstTime && tutorialData.page !== "FootVault" && onDontShowAgain && (
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -275,7 +296,8 @@ export function TutorialModalWrapper() {
     currentTutorial, 
     closeTutorial, 
     markTutorialComplete,
-    setDontShowAgain 
+    setDontShowAgain,
+    disableWelcomeTutorial
   } = useTutorial()
 
   if (!isModalOpen || !currentTutorial) {
@@ -284,7 +306,12 @@ export function TutorialModalWrapper() {
 
   const handleDontShowAgain = () => {
     if (currentTutorial) {
-      setDontShowAgain(currentTutorial.page)
+      // Use specific function for welcome tutorial
+      if (currentTutorial.page === "FootVault") {
+        disableWelcomeTutorial()
+      } else {
+        setDontShowAgain(currentTutorial.page)
+      }
     }
   }
 
