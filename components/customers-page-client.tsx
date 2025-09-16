@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Plus, Phone, Mail, MapPin, User, Calendar, DollarSign, Eye, Edit, Archive, ArrowUpDown, ArrowUp, ArrowDown, MoreHorizontal, Trash2 } from "lucide-react"
+import { Search, Plus, Phone, Mail, MapPin, User, Calendar, DollarSign, Eye, Edit, Archive, ArrowUpDown, ArrowUp, ArrowDown, MoreHorizontal, Trash2, Filter } from "lucide-react"
 import { AddCustomerModal } from "./add-customer-modal" 
 import { EditCustomerModal } from "./edit-customer-modal" 
 import { CustomerDetailModal } from "./customer-detail-modal" 
@@ -61,6 +61,18 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+
+  // Responsive design
+  const [screenWidth, setScreenWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 1024);
+
+  useEffect(() => {
+    const handleResize = () => setScreenWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isMobile = screenWidth < 640;
+  const isTablet = screenWidth < 768;
 
   // Filter and sort customers
   const filteredAndSortedCustomers = useMemo(() => {
@@ -192,7 +204,7 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
   return (
     <SidebarInset>
       <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1 hidden md:flex" />
+        <SidebarTrigger className="-ml-1 bg-white md:bg-transparent" />
         <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
         <h1 className="text-xl font-semibold">Customers</h1>
       </header>
@@ -266,128 +278,41 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
         </Card>
 
         {/* Customer table */}
-        <div className="overflow-x-auto rounded-md border">
-          <div className="min-w-[800px]">
-            {filteredAndSortedCustomers.length === 0 ? (
-              <div className="p-8 text-center">
-                <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No customers found</h3>
-                <p className="text-gray-600 mb-4">
-                  {searchTerm || customerTypeFilter !== "all" 
-                    ? "Try adjusting your search or filters"
-                    : "Get started by adding your first customer"
-                  }
-                </p>
-                {!searchTerm && customerTypeFilter === "all" && (
-                  <Button onClick={() => setShowAddModal(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Customer
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <Table className="w-full">
-                <TableHeader className="bg-muted sticky top-0 z-10">
-                  <TableRow>
-                    <TableHead 
-                      className="cursor-pointer select-none whitespace-nowrap"
-                      onClick={() => handleSort("name")}
-                    >
-                      <div className="flex items-center gap-2">
-                        Customer
-                        {getSortIcon("name")}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer select-none whitespace-nowrap"
-                      onClick={() => handleSort("customerType")}
-                    >
-                      <div className="flex items-center gap-2">
-                        Type
-                        {getSortIcon("customerType")}
-                      </div>
-                    </TableHead>
-                    <TableHead className="whitespace-nowrap">Phone</TableHead>
-                    <TableHead className="whitespace-nowrap">Email</TableHead>
-                    <TableHead 
-                      className="cursor-pointer select-none text-right whitespace-nowrap"
-                      onClick={() => handleSort("totalOrders")}
-                    >
-                      <div className="flex items-center justify-end gap-2">
-                        Orders
-                        {getSortIcon("totalOrders")}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer select-none text-right whitespace-nowrap"
-                      onClick={() => handleSort("totalSpent")}
-                    >
-                      <div className="flex items-center justify-end gap-2">
-                        Total Spent
-                        {getSortIcon("totalSpent")}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer select-none whitespace-nowrap"
-                      onClick={() => handleSort("lastOrderDate")}
-                    >
-                      <div className="flex items-center gap-2">
-                        Last Order
-                        {getSortIcon("lastOrderDate")}
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+        <div className="rounded-md border">
+          {filteredAndSortedCustomers.length === 0 ? (
+            <div className="p-8 text-center">
+              <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No customers found</h3>
+              <p className="text-gray-600 mb-4">
+                {searchTerm || customerTypeFilter !== "all" 
+                  ? "Try adjusting your search or filters"
+                  : "Get started by adding your first customer"
+                }
+              </p>
+              {!searchTerm && customerTypeFilter === "all" && (
+                <Button onClick={() => setShowAddModal(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Customer
+                </Button>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Mobile Card View */}
+              {isMobile ? (
+                <div className="space-y-4 p-4">
                   {filteredAndSortedCustomers.map((customer) => (
-                    <TableRow key={customer.id} className="hover:bg-gray-50">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <div className="font-medium">{customer.name}</div>
-                            {customer.notes && (
-                              <div className="text-sm text-gray-500 truncate max-w-[200px]">
-                                {customer.notes}
-                              </div>
-                            )}
-                          </div>
+                    <Card key={customer.id} className="p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="font-medium text-lg">{customer.name}</h3>
+                          <Badge className={getCustomerTypeColor(customer.customerType)}>
+                            {customer.customerType.toUpperCase()}
+                          </Badge>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getCustomerTypeColor(customer.customerType)}>
-                          {customer.customerType.toUpperCase()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {customer.phone || <span className="text-gray-400 italic">No phone</span>}
-                      </TableCell>
-                      <TableCell>
-                        {customer.email ? (
-                          <span className="truncate max-w-[150px]">{customer.email}</span>
-                        ) : (
-                          <span className="text-gray-400 italic">No email</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="font-medium">{customer.totalOrders}</div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="font-medium">{formatCurrency(customer.totalSpent, currency)}</div>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {customer.lastOrderDate ? (
-                          <div className="text-sm">
-                            {formatDateInTimezone(customer.lastOrderDate)}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-gray-400">No orders</div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button size="icon" variant="ghost" className="visible">
+                            <Button size="sm" variant="ghost">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -400,22 +325,188 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
                               <Edit className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleDeleteClick(customer)}
-                              className="text-red-600"
-                            >
+                            <DropdownMenuItem onClick={() => handleDeleteClick(customer)}>
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                      
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-gray-400" />
+                          <span>{customer.phone || "No phone"}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-gray-400" />
+                          <span className="truncate">{customer.email || "No email"}</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t">
+                          <div className="text-center">
+                            <div className="font-medium">{customer.totalOrders}</div>
+                            <div className="text-xs text-gray-500">Orders</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium">{formatCurrency(customer.totalSpent, currency)}</div>
+                            <div className="text-xs text-gray-500">Total Spent</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xs">
+                              {customer.lastOrderDate ? formatDateInTimezone(customer.lastOrderDate) : "No orders"}
+                            </div>
+                            <div className="text-xs text-gray-500">Last Order</div>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
                   ))}
-                </TableBody>
-              </Table>
-            )}
-          </div>
+                </div>
+              ) : (
+                /* Desktop Table View */
+                <div className="overflow-x-auto">
+                  <Table className="w-full">
+                    <TableHeader className="bg-muted sticky top-0 z-10">
+                      <TableRow>
+                        <TableHead 
+                          className="cursor-pointer select-none whitespace-nowrap"
+                          onClick={() => handleSort("name")}
+                        >
+                          <div className="flex items-center gap-2">
+                            Customer
+                            {getSortIcon("name")}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer select-none whitespace-nowrap"
+                          onClick={() => handleSort("customerType")}
+                        >
+                          <div className="flex items-center gap-2">
+                            Type
+                            {getSortIcon("customerType")}
+                          </div>
+                        </TableHead>
+                        {!isTablet && <TableHead className="whitespace-nowrap">Phone</TableHead>}
+                        {!isTablet && <TableHead className="whitespace-nowrap">Email</TableHead>}
+                        <TableHead 
+                          className="cursor-pointer select-none text-right whitespace-nowrap"
+                          onClick={() => handleSort("totalOrders")}
+                        >
+                          <div className="flex items-center justify-end gap-2">
+                            Orders
+                            {getSortIcon("totalOrders")}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer select-none text-right whitespace-nowrap"
+                          onClick={() => handleSort("totalSpent")}
+                        >
+                          <div className="flex items-center justify-end gap-2">
+                            Total Spent
+                            {getSortIcon("totalSpent")}
+                          </div>
+                        </TableHead>
+                        {!isTablet && (
+                          <TableHead 
+                            className="cursor-pointer select-none whitespace-nowrap"
+                            onClick={() => handleSort("lastOrderDate")}
+                          >
+                            <div className="flex items-center gap-2">
+                              Last Order
+                              {getSortIcon("lastOrderDate")}
+                            </div>
+                          </TableHead>
+                        )}
+                        <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredAndSortedCustomers.map((customer) => (
+                        <TableRow key={customer.id} className="hover:bg-gray-50">
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div>
+                                <div className="font-medium">{customer.name}</div>
+                                {/* Show phone/email on tablet when columns are hidden */}
+                                {isTablet && (
+                                  <div className="text-xs text-gray-500 space-y-1">
+                                    {customer.phone && <div>{customer.phone}</div>}
+                                    {customer.email && <div className="truncate max-w-[150px]">{customer.email}</div>}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getCustomerTypeColor(customer.customerType)}>
+                              {customer.customerType.toUpperCase()}
+                            </Badge>
+                          </TableCell>
+                          {!isTablet && (
+                            <TableCell>
+                              {customer.phone || <span className="text-gray-400 italic">No phone</span>}
+                            </TableCell>
+                          )}
+                          {!isTablet && (
+                            <TableCell>
+                              {customer.email ? (
+                                <span className="truncate max-w-[150px]">{customer.email}</span>
+                              ) : (
+                                <span className="text-gray-400 italic">No email</span>
+                              )}
+                            </TableCell>
+                          )}
+                          <TableCell className="text-right">
+                            <div className="font-medium">{customer.totalOrders}</div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="font-medium">{formatCurrency(customer.totalSpent, currency)}</div>
+                          </TableCell>
+                          {!isTablet && (
+                            <TableCell className="whitespace-nowrap">
+                              {customer.lastOrderDate ? (
+                                <div className="text-sm">
+                                  {formatDateInTimezone(customer.lastOrderDate)}
+                                </div>
+                              ) : (
+                                <div className="text-sm text-gray-400">No orders</div>
+                              )}
+                            </TableCell>
+                          )}
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="icon" variant="ghost" className="visible">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleViewCustomer(customer)}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Purchase History
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleEditClick(customer)}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => handleDeleteClick(customer)}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* Modals */}

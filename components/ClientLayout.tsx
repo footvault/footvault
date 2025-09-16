@@ -5,6 +5,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AuthForm } from "@/components/auth-form";
 import { Toaster } from "@/components/ui/toaster";
+import { TutorialModalWrapper } from "@/components/tutorial-modal";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 
@@ -31,6 +32,7 @@ export default function ClientLayout({ children, user }: ClientLayoutProps) {
       <div className="min-h-screen">
         {children}
         <Toaster />
+        <TutorialModalWrapper />
       </div>
     );
   }
@@ -40,6 +42,7 @@ export default function ClientLayout({ children, user }: ClientLayoutProps) {
       <div className="min-h-screen">
         {children}
         <Toaster />
+        <TutorialModalWrapper />
       </div>
     );
   }
@@ -55,6 +58,7 @@ export default function ClientLayout({ children, user }: ClientLayoutProps) {
           {children}
         </main>
         <Toaster />
+        <TutorialModalWrapper />
       </SidebarProvider>
     );
   } catch (error) {
@@ -64,6 +68,7 @@ export default function ClientLayout({ children, user }: ClientLayoutProps) {
       <div className="min-h-screen">
         {children}
         <Toaster />
+        <TutorialModalWrapper />
       </div>
     );
   }

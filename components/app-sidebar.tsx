@@ -3,7 +3,7 @@
 import type * as React from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Home, Plus, ShoppingCart, BarChart, CreditCard, Settings, Archive, Boxes, MessageSquare, Users, UserCheck, Package } from "lucide-react"
+import { Home, Plus, ShoppingCart, BarChart, CreditCard, Settings, Archive, Boxes, MessageSquare, Users, UserCheck, Package, HelpCircle } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import {
@@ -24,6 +24,7 @@ import {
 import { usePathname } from "next/navigation"
 import { getArchivedProducts } from "@/lib/data"
 import { getArchivedVariantsWithProduct } from "@/lib/archived-variants"
+import { useTutorial } from "@/context/TutorialContext"
 
 const mainNavigation = [
   {
@@ -79,6 +80,13 @@ const mainNavigation = [
 
 const secondaryNavigation = [
   {
+    title: "Help & Tutorials",
+    url: "#",
+    icon: HelpCircle,
+    protected: true,
+    isHelp: true,
+  },
+  {
     title: "Subscription",
     url: "/subscription",
     icon: CreditCard,
@@ -105,12 +113,43 @@ export function AppSidebar({ children, ...props }: React.ComponentProps<typeof S
   const pathname = usePathname()
   const [hasArchive, setHasArchive] = useState(false)
   const { isMobile, setOpenMobile } = useSidebar()
+  const { openTutorial, openWelcomeTutorial } = useTutorial()
 
   // Function to handle link clicks and close sidebar on mobile
   const handleLinkClick = () => {
     if (isMobile) {
       setOpenMobile(false)
     }
+  }
+
+  // Function to handle help button click
+  const handleHelpClick = () => {
+    // Get current page from pathname and open appropriate tutorial
+    const currentPage = pathname.split('/')[1] || 'welcome'
+    
+    // Map some paths to tutorial names
+    const pageMap: Record<string, string> = {
+      'inventory': 'inventory',
+      'variants': 'variants', 
+      'add-product': 'add-product',
+      'checkout': 'checkout',
+      'sales': 'sales',
+      'customers': 'customers',
+      'preorders': 'pre-orders',
+      'consignors': 'consignors',
+      'settings': 'settings'
+    }
+    
+    const tutorialPage = pageMap[currentPage]
+    
+    if (tutorialPage) {
+      openTutorial(tutorialPage)
+    } else {
+      // Default to welcome tutorial if no specific page tutorial
+      openWelcomeTutorial()
+    }
+    
+    handleLinkClick() // Close mobile sidebar
   }
 
   useEffect(() => {
@@ -178,19 +217,29 @@ export function AppSidebar({ children, ...props }: React.ComponentProps<typeof S
             <SidebarMenu>
               {secondaryNavigation.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={pathname === item.url}>
-                    {item.external ? (
-                      <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={handleLinkClick}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </a>
-                    ) : (
-                      <Link href={item.url} onClick={handleLinkClick}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    )}
-                  </SidebarMenuButton>
+                  {item.isHelp ? (
+                    <SidebarMenuButton onClick={handleHelpClick}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                  ) : (
+                    <SidebarMenuButton 
+                      asChild 
+                      isActive={pathname === item.url}
+                    >
+                      {item.external ? (
+                        <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={handleLinkClick}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </a>
+                      ) : (
+                        <Link href={item.url} onClick={handleLinkClick}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      )}
+                    </SidebarMenuButton>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

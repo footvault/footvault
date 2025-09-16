@@ -2077,6 +2077,7 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                       <TableHead className="whitespace-nowrap">Estimated Delivery</TableHead>
                       <TableHead className="whitespace-nowrap">Remaining Balance</TableHead>
                       <TableHead className="whitespace-nowrap">Customer</TableHead>
+                      <TableHead className="whitespace-nowrap">Notes</TableHead>
                       <TableHead className="whitespace-nowrap">Status</TableHead>
                       <TableHead className="whitespace-nowrap">Actions</TableHead>
                     </TableRow>
@@ -2138,6 +2139,11 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                         >
                           {preorder.customer.name}
                         </button>
+                      </TableCell>
+                      <TableCell className="px-4 py-2 max-w-32">
+                        <div className="truncate" title={preorder.notes || ""}>
+                          {preorder.notes || "No notes"}
+                        </div>
                       </TableCell>
                       <TableCell className="px-4 py-2 whitespace-nowrap">
                         <Badge className={getStatusColor(preorder.status)}>

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { CurrencyProvider } from "@/context/CurrencyContext"
 import { TimezoneProvider } from "@/context/TimezoneContext"
+import { TutorialProvider } from "@/context/TutorialContext"
 import { getUserSettings } from "./settings/settingActions"
 import ClientLayout from "@/components/ClientLayout"
 
@@ -210,7 +211,9 @@ export default async function RootLayout({
       <body>
         <CurrencyProvider currency={userSettings?.currency || "USD"}>
           <TimezoneProvider timezone={userSettings?.timezone || "America/New_York"}>
-            <ClientLayout user={user}>{children}</ClientLayout>
+            <TutorialProvider>
+              <ClientLayout user={user}>{children}</ClientLayout>
+            </TutorialProvider>
           </TimezoneProvider>
         </CurrencyProvider>
       </body>

@@ -206,22 +206,17 @@ export function CustomerDetailModal({ customer, onClose, onEdit }: CustomerDetai
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[1200px] max-h-[90vh] overflow-y-auto m-4 sm:m-6">
         <DialogHeader>
-          <div className="flex justify-between items-start">
-            <div>
-              <DialogTitle className="flex items-center gap-3">
-                <User className="h-5 w-5" />
-                {customer.name}
-                <Badge className={getCustomerTypeColor(customer.customerType)}>
-                  {customer.customerType.toUpperCase()}
-                </Badge>
-              </DialogTitle>
-              <p className="text-sm text-gray-600 mt-1">
-                Customer since {format(new Date(customer.createdAt), 'MMM d, yyyy')}
-              </p>
-            </div>
-            <Button variant="outline" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
+          <div>
+            <DialogTitle className="flex items-center gap-3">
+              <User className="h-5 w-5" />
+              {customer.name}
+              <Badge className={getCustomerTypeColor(customer.customerType)}>
+                {customer.customerType.toUpperCase()}
+              </Badge>
+            </DialogTitle>
+            <p className="text-sm text-gray-600 mt-1">
+              Customer since {format(new Date(customer.createdAt), 'MMM d, yyyy')}
+            </p>
           </div>
         </DialogHeader>
 
