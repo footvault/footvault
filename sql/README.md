@@ -11,7 +11,7 @@ This migration adds several new fields to support receipt generation and enhance
 - `change_amount`: Change amount given back to customer
 - `additional_charge`: Any additional charges added to the sale
 
-## How to Apply
+## How to Applys
 
 1. Connect to your Supabase database
 2. Run the SQL commands in `add_user_address_info.sql`
