@@ -18,7 +18,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, Plus, Package, Calendar as CalendarIcon, DollarSign, Eye, Edit, Clock, CheckCircle, XCircle, User, TrendingUp, CreditCard, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown, MoreHorizontal, Trash2, Download, AlertTriangle, Ban, RotateCcw } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Checkbox } from "@/components/ui/checkbox"
 import { formatCurrency } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
 import { format } from "date-fns"
@@ -110,16 +109,7 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
   const [customDateFrom, setCustomDateFrom] = useState<Date | undefined>();
   const [customDateTo, setCustomDateTo] = useState<Date | undefined>();
   
-  // Bulk action states
-  const [selectedItems, setSelectedItems] = useState<number[]>([]);
-  const [isAllSelected, setIsAllSelected] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  
-  // Clear selections when filters change
-  useEffect(() => {
-    setSelectedItems([]);
-    setIsAllSelected(false);
-  }, [dateFilter, customDateFrom, customDateTo, searchTerm, statusFilter]);
 
   // Fetch profit distribution templates and payment types
   useEffect(() => {
@@ -1428,214 +1418,6 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
     }
   };
 
-  // Bulk action handlers
-  const handleSelectAll = (checked: boolean) => {
-    setIsAllSelected(checked);
-    if (checked) {
-      setSelectedItems(filteredAndSortedPreorders.map(item => item.id));
-    } else {
-      setSelectedItems([]);
-    }
-  };
-
-  const handleSelectItem = (id: number, checked: boolean) => {
-    if (checked) {
-      setSelectedItems(prev => [...prev, id]);
-    } else {
-      setSelectedItems(prev => prev.filter(itemId => itemId !== id));
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    if (selectedItems.length === 0) return;
-    
-    // Only delete pre-orders that are not completed or cancelled
-    const deletablePreorders = preorders.filter(p => 
-      selectedItems.includes(p.id) && p.status !== 'completed' && p.status !== 'canceled'
-    );
-    
-    if (deletablePreorders.length === 0) {
-      toast({
-        title: "No valid items",
-        description: "Completed or cancelled pre-orders cannot be deleted.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setIsDeleting(true);
-    const supabase = createClient();
-    
-    try {
-      const deletableIds = deletablePreorders.map(p => p.id);
-      
-      const { error } = await supabase
-        .from('pre_orders')
-        .delete()
-        .in('id', deletableIds);
-
-      if (error) throw error;
-
-      // Remove from local state
-      setPreorders(prev => prev.filter(p => !deletableIds.includes(p.id)));
-      setSelectedItems([]);
-      setIsAllSelected(false);
-      
-      toast({
-        title: "Success",
-        description: `${deletablePreorders.length} pre-orders deleted successfully`,
-      });
-    } catch (error) {
-      console.error('Error deleting pre-orders:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete pre-orders. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleBulkStatusUpdate = async (newStatus: string) => {
-    if (selectedItems.length === 0) return;
-    
-    setIsUpdating(true);
-    const supabase = createClient();
-    
-    try {
-      const { error } = await supabase
-        .from('pre_orders')
-        .update({ 
-          status: newStatus,
-          updated_at: new Date().toISOString()
-        })
-        .in('id', selectedItems);
-
-      if (error) throw error;
-
-      // Update local state
-      setPreorders(prev => prev.map(p => 
-        selectedItems.includes(p.id) ? { ...p, status: newStatus as any } : p
-      ));
-      setSelectedItems([]);
-      setIsAllSelected(false);
-      
-      toast({
-        title: "Success",
-        description: `${selectedItems.length} pre-orders updated to ${newStatus}`,
-      });
-    } catch (error) {
-      console.error('Error updating pre-orders:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update pre-orders. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  // New bulk action handlers
-  const handleBulkVoid = async () => {
-    if (selectedItems.length === 0) return;
-    
-    // Only void pre-orders that are pending or confirmed
-    const voidablePreorders = preorders.filter(p => 
-      selectedItems.includes(p.id) && (p.status === 'pending' || p.status === 'confirmed')
-    );
-    
-    if (voidablePreorders.length === 0) {
-      toast({
-        title: "No valid items",
-        description: "Only pending or confirmed pre-orders can be voided.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setIsUpdating(true);
-    try {
-      const voidableIds = voidablePreorders.map(p => p.id);
-      
-      for (const preorder of voidablePreorders) {
-        await updatePreOrderStatus(preorder.id, 'voided', 'Pre-order voided - did not go through');
-      }
-      
-      setPreorders(prev => prev.map(p => 
-        voidableIds.includes(p.id) 
-          ? { ...p, status: 'voided', notes: 'Pre-order voided - did not go through' }
-          : p
-      ));
-      
-      setSelectedItems([]);
-      setIsAllSelected(false);
-      
-      toast({
-        title: "Success",
-        description: `${voidablePreorders.length} pre-orders voided successfully`,
-      });
-    } catch (error) {
-      console.error('Error voiding pre-orders:', error);
-      toast({
-        title: "Error",
-        description: "Failed to void pre-orders. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  const handleBulkCancel = async () => {
-    if (selectedItems.length === 0) return;
-    
-    // Only cancel pre-orders that are pending or confirmed
-    const cancellablePreorders = preorders.filter(p => 
-      selectedItems.includes(p.id) && (p.status === 'pending' || p.status === 'confirmed')
-    );
-    
-    if (cancellablePreorders.length === 0) {
-      toast({
-        title: "No valid items",
-        description: "Only pending or confirmed pre-orders can be cancelled.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setIsUpdating(true);
-    try {
-      // Process each cancellation (convert to variant and create sale)
-      for (const preorder of cancellablePreorders) {
-        await processCancelToSale(preorder);
-      }
-      
-      setSelectedItems([]);
-      setIsAllSelected(false);
-      
-      toast({
-        title: "Success",
-        description: `${cancellablePreorders.length} pre-orders cancelled and converted successfully`,
-      });
-    } catch (error) {
-      console.error('Error cancelling pre-orders:', error);
-      toast({
-        title: "Error",
-        description: "Failed to cancel pre-orders. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  // Computed property for selected preorders
-  const selectedPreordersForBulk = useMemo(() => {
-    return preorders.filter(p => selectedItems.includes(p.id));
-  }, [preorders, selectedItems]);
-
   // Filter and sort preorders
   const filteredAndSortedPreorders = useMemo(() => {
     // Apply date filtering first
@@ -1971,73 +1753,6 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
             </div>
           </CardHeader>
           <CardContent>
-            {/* Bulk Actions Bar */}
-            {selectedItems.length > 0 && (
-              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-blue-900">
-                      {selectedItems.length} item{selectedItems.length > 1 ? 's' : ''} selected
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {/* Bulk Void - Only for pending/confirmed */}
-                    {selectedPreordersForBulk.some(p => p.status === 'pending' || p.status === 'confirmed') && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleBulkVoid}
-                        disabled={isUpdating}
-                        className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                      >
-                        <AlertTriangle className="h-4 w-4 mr-1" />
-                        Void
-                      </Button>
-                    )}
-                    
-                    {/* Bulk Cancel - Only for pending/confirmed */}
-                    {selectedPreordersForBulk.some(p => p.status === 'pending' || p.status === 'confirmed') && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleBulkCancel}
-                        disabled={isUpdating}
-                        className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                      >
-                        <Ban className="h-4 w-4 mr-1" />
-                        Cancel
-                      </Button>
-                    )}
-
-                    {/* Bulk Delete - Not for completed */}
-                    {selectedPreordersForBulk.some(p => p.status !== 'completed') && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleBulkDelete}
-                        disabled={isDeleting}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        {isDeleting ? "Deleting..." : "Delete"}
-                      </Button>
-                    )}
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedItems([]);
-                        setIsAllSelected(false);
-                      }}
-                    >
-                      Clear Selection
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {filteredAndSortedPreorders.length === 0 ? (
               <div className="text-center py-8">
                 <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -2060,13 +1775,6 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                 <Table className="min-w-[1000px] w-full">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-12 whitespace-nowrap">
-                        <Checkbox 
-                          checked={isAllSelected}
-                          onCheckedChange={handleSelectAll}
-                          aria-label="Select all"
-                        />
-                      </TableHead>
                       <TableHead className="whitespace-nowrap">Pre-order #</TableHead>
                       <TableHead className="whitespace-nowrap">Image</TableHead>
                       <TableHead className="whitespace-nowrap">Name</TableHead>
@@ -2087,13 +1795,6 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                 <TableBody>
                   {filteredAndSortedPreorders.map((preorder) => (
                     <TableRow key={preorder.id}>
-                      <TableCell className="px-4 py-2 whitespace-nowrap">
-                        <Checkbox 
-                          checked={selectedItems.includes(preorder.id)}
-                          onCheckedChange={(checked) => handleSelectItem(preorder.id, checked as boolean)}
-                          aria-label={`Select preorder ${preorder.id}`}
-                        />
-                      </TableCell>
                       <TableCell className="font-mono text-sm px-4 py-2 whitespace-nowrap">
                         #{preorder.pre_order_no ? preorder.pre_order_no.toString().padStart(3, '0') : '---'}
                       </TableCell>
