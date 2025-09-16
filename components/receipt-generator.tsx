@@ -43,6 +43,116 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null)
   const { currency } = useCurrency()
 
+  // Helper function to convert image URL to base64
+  const getImageAsBase64 = async (url: string): Promise<string | null> => {
+    try {
+      console.log('getImageAsBase64 - Starting with URL:', url)
+      
+      // Check if URL is already base64
+      if (url.startsWith('data:')) {
+        console.log('URL is already base64')
+        return url
+      }
+
+      // Validate URL format
+      try {
+        new URL(url)
+      } catch (urlError) {
+        console.error('Invalid URL format:', url)
+        throw new Error('Invalid URL format')
+      }
+
+      // First try with fetch (handles CORS better in some cases)
+      try {
+        console.log('Trying fetch method...')
+        const response = await fetch(url, { mode: 'cors' })
+        if (response.ok) {
+          const blob = await response.blob()
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => {
+              console.log('Fetch method successful')
+              resolve(reader.result as string)
+            }
+            reader.onerror = () => reject(new Error('Failed to read blob'))
+            reader.readAsDataURL(blob)
+          })
+        } else {
+          throw new Error(`Fetch failed with status: ${response.status}`)
+        }
+      } catch (fetchError) {
+        console.log('Fetch method failed, trying image method:', fetchError)
+      }
+
+      // Fallback to image method
+      console.log('Trying image loading method...')
+      const img = new Image()
+      img.crossOrigin = 'anonymous' // Handle CORS
+      
+      return new Promise((resolve, reject) => {
+        img.onload = () => {
+          try {
+            console.log('Image loaded successfully, converting to canvas...')
+            const canvas = document.createElement('canvas')
+            const ctx = canvas.getContext('2d')
+            
+            if (!ctx) {
+              reject(new Error('Could not get canvas context'))
+              return
+            }
+            
+            // Set canvas dimensions to match image (with max dimensions for performance)
+            const maxWidth = 400
+            const maxHeight = 400
+            let { width, height } = img
+            
+            console.log('Original image dimensions:', width, 'x', height)
+            
+            // Scale down if too large
+            if (width > maxWidth || height > maxHeight) {
+              const scale = Math.min(maxWidth / width, maxHeight / height)
+              width *= scale
+              height *= scale
+              console.log('Scaled dimensions:', width, 'x', height)
+            }
+            
+            canvas.width = width
+            canvas.height = height
+            
+            // Draw image to canvas
+            ctx.drawImage(img, 0, 0, width, height)
+            
+            // Convert to base64 with good quality
+            const base64 = canvas.toDataURL('image/jpeg', 0.85)
+            console.log('Image conversion successful, base64 length:', base64.length)
+            resolve(base64)
+          } catch (canvasError) {
+            console.error('Canvas conversion error:', canvasError)
+            reject(canvasError)
+          }
+        }
+        
+        img.onerror = (event) => {
+          console.error('Image loading error:', event)
+          reject(new Error('Failed to load image - check if URL is accessible and image exists'))
+        }
+        
+        // Set a timeout to prevent hanging
+        setTimeout(() => {
+          console.error('Image loading timeout after 10 seconds')
+          reject(new Error('Image loading timeout - the image took too long to load'))
+        }, 10000) // 10 second timeout
+        
+        // Start loading the image
+        console.log('Starting image load...')
+        img.src = url
+      })
+    } catch (error) {
+      console.error('getImageAsBase64 failed:', error)
+      return null
+    }
+  }
+
   const fetchReceiptData = async () => {
     if (!saleId) return
     
@@ -60,6 +170,8 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
       const result = await response.json()
       
       if (result.success) {
+        console.log('Receipt data fetched:', result.data)
+        console.log('User info from API:', result.data.userInfo)
         setReceiptData(result.data)
       } else {
         onError?.(result.error || "Failed to fetch receipt data")
@@ -82,7 +194,7 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
     }
   }, [receiptData])
 
-  const generatePDF = (data: ReceiptData) => {
+  const generatePDF = async (data: ReceiptData) => {
     if (!data) return
     
     try {
@@ -207,7 +319,25 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
       // Store header (logo or name)
       checkPageBreak(8)
       
+      // Debug: Log the header configuration
+      console.log('Receipt Header Configuration:', {
+        receiptHeaderType: data.userInfo.receiptHeaderType,
+        receiptLogoUrl: data.userInfo.receiptLogoUrl,
+        username: data.userInfo.username
+      })
+      
       if (data.userInfo.receiptHeaderType === 'logo' && data.userInfo.receiptLogoUrl) {
+        console.log('Attempting to render logo...')
+        console.log('Logo URL:', data.userInfo.receiptLogoUrl)
+        console.log('Logo URL type:', typeof data.userInfo.receiptLogoUrl)
+        console.log('Logo URL length:', data.userInfo.receiptLogoUrl?.length)
+        
+        // Validate logo URL
+        if (!data.userInfo.receiptLogoUrl || data.userInfo.receiptLogoUrl.trim() === '') {
+          console.warn('Logo URL is empty or invalid, falling back to username')
+          throw new Error('Logo URL is empty or invalid')
+        }
+        
         // Try to add logo
         try {
           const logoHeight = 24 // same as width for better proportion
@@ -217,12 +347,47 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
           // Add some space before logo
           y += 2
           
-          // Add logo image (this will only work if the image is accessible)
-          doc.addImage(data.userInfo.receiptLogoUrl, 'JPEG', logoX, y, logoWidth, logoHeight)
-          y += logoHeight + 8 // More spacing after logo: 8mm (increased from 5mm)
+          // Convert image to base64 first
+          console.log('Loading logo from URL:', data.userInfo.receiptLogoUrl)
+          const logoBase64 = await getImageAsBase64(data.userInfo.receiptLogoUrl)
+          
+          if (logoBase64) {
+            // Determine image format from base64 string
+            let imageFormat = 'JPEG'
+            if (logoBase64.includes('data:image/png')) {
+              imageFormat = 'PNG'
+            } else if (logoBase64.includes('data:image/gif')) {
+              imageFormat = 'GIF'
+            } else if (logoBase64.includes('data:image/webp')) {
+              // jsPDF doesn't support WebP, convert to JPEG
+              imageFormat = 'JPEG'
+            }
+            
+            // Add logo image using base64
+            doc.addImage(logoBase64, imageFormat, logoX, y, logoWidth, logoHeight)
+            y += logoHeight + 8 // More spacing after logo: 8mm (increased from 5mm)
+            console.log('Logo successfully added to receipt')
+          } else {
+            throw new Error('Failed to convert logo to base64')
+          }
         } catch (error) {
           // If logo fails to load, fallback to username
           console.warn('Failed to load receipt logo, falling back to username:', error)
+          
+          // Show a user-friendly message about the logo issue
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          const logoUrl = data.userInfo.receiptLogoUrl || 'No URL provided'
+          
+          console.error('Logo URL issue - Please check:')
+          console.error('URL:', logoUrl)
+          console.error('Error:', errorMessage)
+          console.error('Suggestions:', [
+            'Ensure the image URL is accessible',
+            'Try using a direct image link (ends with .jpg, .png, etc.)',
+            'Consider uploading to a reliable image hosting service',
+            'Check if the image has CORS restrictions'
+          ])
+          
           doc.setFontSize(20) // Reduced from 24 to 20
           doc.setFont('helvetica', 'bolditalic')
           const storeName = data.userInfo.username.toUpperCase()

@@ -7,11 +7,13 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Label } from "@/components/ui/label"
 import Image from "next/image"
 import { toast } from "@/hooks/use-toast"
-import { Plus, Loader2 } from "lucide-react"
+import { Plus, Loader2, Check, ChevronsUpDown, CheckCircle, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export function ManualAddProduct({ 
@@ -75,6 +77,38 @@ export function ManualAddProduct({
     plan: string
   } | null>(null);
   const [loadingLimits, setLoadingLimits] = useState(false);
+
+  // Pre-order state
+  const [isPreOrder, setIsPreOrder] = useState(false);
+  const [customers, setCustomers] = useState<Array<{
+    id: number
+    name: string
+    email: string
+    phone?: string
+  }>>([]);
+  const [preOrderForm, setPreOrderForm] = useState({
+    customer_id: null as number | null,
+    customer_name: "",
+    customer_email: "",
+    customer_phone: "",
+    down_payment: "",
+    expected_delivery_date: "",
+    notes: ""
+  });
+  
+  // New customer form state
+  const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
+  const [newCustomerForm, setNewCustomerForm] = useState({
+    name: "",
+    phone: "",
+    address: "",
+    email: ""
+  });
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
+  
+  // Customer dropdown state
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const [customerSearchValue, setCustomerSearchValue] = useState("");
 
   // Fetch user custom locations from Supabase on mount
   useEffect(() => {
@@ -150,6 +184,88 @@ export function ManualAddProduct({
 
     fetchVariantLimits();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch customers
+  const fetchCustomers = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log("No user found when fetching customers");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('customers')
+        .select('id, name, email, phone')
+        .eq('user_id', user.id)
+        .order('name');
+
+      if (error) {
+        console.error("Failed to fetch customers:", error);
+      } else {
+        setCustomers(data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch customers:", error);
+    }
+  };
+
+  // Function to create a new customer
+  const handleCreateNewCustomer = async () => {
+    if (!newCustomerForm.name.trim()) return;
+
+    setIsCreatingCustomer(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
+
+      const { data, error } = await supabase
+        .from('customers')
+        .insert([{
+          user_id: user.id,
+          name: newCustomerForm.name.trim(),
+          phone: newCustomerForm.phone.trim() || null,
+          address: newCustomerForm.address.trim() || null,
+          email: newCustomerForm.email.trim() || null,
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add the new customer to the list and select it
+      setCustomers(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      setPreOrderForm(prev => ({ ...prev, customer_id: data.id.toString() }));
+
+      toast({
+        title: "Success",
+        description: `Customer "${data.name}" has been added and selected for the pre-order.`,
+      });
+
+      setShowNewCustomerForm(false);
+      setNewCustomerForm({ name: "", phone: "", address: "", email: "" });
+    } catch (error: any) {
+      console.error("Failed to create customer:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create customer. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreatingCustomer(false);
+    }
+  };
+
+  // Handle new customer form changes
+  const handleNewCustomerFormChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setNewCustomerForm(prev => ({ ...prev, [id]: value }));
+  };
+
+  // Fetch customers when component mounts
+  useEffect(() => {
+    fetchCustomers();
   }, []);
   // Helper function to generate dynamic size options
   const getDynamicSizes = (sizeCategory: string, sizeLabel: string): string[] => {
@@ -376,6 +492,25 @@ export function ManualAddProduct({
           setIsSaving(false);
           return;
         }
+
+        // Validate preorder requirements
+        if (isPreOrder) {
+          if (!preOrderForm.customer_id) {
+            toast({ title: "Missing Customer", description: "Please select a customer for the pre-order." });
+            setIsSaving(false);
+            return;
+          }
+          if (!preOrderForm.down_payment) {
+            toast({ title: "Missing Down Payment", description: "Please enter a down payment amount." });
+            setIsSaving(false);
+            return;
+          }
+          if (!preOrderForm.expected_delivery_date) {
+            toast({ title: "Missing Delivery Date", description: "Please select an expected delivery date." });
+            setIsSaving(false);
+            return;
+          }
+        }
         for (let i = 0; i < variants.length; i++) {
           const v = variants[i];
           if (!v.size || !v.location || !v.quantity) {
@@ -507,13 +642,54 @@ export function ManualAddProduct({
             .insert(variantsToInsert);
           if (variantError) throw new Error(variantError.message);
         }
-        toast({ title: "Product Added", description: "Product saved to inventory." });
+
+        // Create preorder if this is a preorder
+        if (isPreOrder) {
+          const preorderData = {
+            customer_id: preOrderForm.customer_id,
+            customer_name: preOrderForm.customer_name,
+            customer_email: preOrderForm.customer_email,
+            customer_phone: preOrderForm.customer_phone,
+            product_name: product.name,
+            product_brand: product.brand,
+            product_sku: product.sku,
+            size: variants[0].size,
+            size_label: sizeLabel,
+            product_price: parseFloat(product.salePrice),
+            down_payment: parseFloat(preOrderForm.down_payment),
+            expected_delivery_date: preOrderForm.expected_delivery_date,
+            notes: preOrderForm.notes,
+            user_id: user.id,
+            status: 'pending'
+          };
+
+          const { error: preorderError } = await supabase
+            .from('preorders')
+            .insert([preorderData]);
+          
+          if (preorderError) throw new Error(`Failed to create preorder: ${preorderError.message}`);
+        }
+        toast({ title: "Product Added", description: isPreOrder ? "Product and pre-order saved successfully." : "Product saved to inventory." });
         setProduct({ name: "", brand: "", sku: "", category: "", originalPrice: "", salePrice: "0", status: "In Stock", image: "", sizeCategory: "Men's" });
         setVariants([{ size: "", location: "", status: "Available", quantity: 1, condition: "New", dateAdded: new Date().toISOString().split("T")[0] }]);
         setOwnerType('store');
         setConsignorId(null);
         setShowCustomLocationInput(false);
         setNewCustomLocationName("");
+        
+        // Reset preorder state
+        setIsPreOrder(false);
+        setPreOrderForm({
+          customer_id: null,
+          customer_name: "",
+          customer_email: "",
+          customer_phone: "",
+          down_payment: "",
+          expected_delivery_date: "",
+          notes: ""
+        });
+        setCustomerSearchValue("");
+        
         if (onProductAdded) onProductAdded();
         if (onOpenChange) onOpenChange(false);
       } catch (e: any) {
@@ -957,6 +1133,178 @@ export function ManualAddProduct({
                   )}
                 </div>
               )}
+
+              {/* Preorder Toggle */}
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isPreOrder"
+                    checked={isPreOrder}
+                    onChange={(e) => setIsPreOrder(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="isPreOrder" className="text-sm font-medium">
+                    This is a pre-order
+                  </Label>
+                </div>
+
+                {isPreOrder && (
+                  <div className="space-y-3 p-3 bg-blue-50 rounded-md border border-blue-200">
+                    <p className="text-xs text-blue-800">
+                      Pre-order items require customer selection and down payment
+                    </p>
+                    
+                    {/* Customer Selection */}
+                    <div>
+                      <Label className="text-sm font-medium">Customer *</Label>
+                      <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={customerSearchOpen}
+                            className="w-full justify-between mt-1"
+                          >
+                            {preOrderForm.customer_id ? 
+                              customers.find(customer => customer.id === preOrderForm.customer_id)?.name || "Select customer..."
+                              : "Select customer..."
+                            }
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0">
+                          <Command>
+                            <CommandInput 
+                              placeholder="Search customers..." 
+                              value={customerSearchValue}
+                              onValueChange={setCustomerSearchValue}
+                            />
+                            <div className="max-h-40 overflow-y-auto">
+                              <CommandList>
+                                <CommandEmpty>No customers found.</CommandEmpty>
+                                {customers
+                                  .filter(customer => 
+                                    customer.name.toLowerCase().includes(customerSearchValue.toLowerCase()) ||
+                                    customer.email?.toLowerCase().includes(customerSearchValue.toLowerCase()) ||
+                                    customer.phone?.includes(customerSearchValue)
+                                  )
+                                  .map((customer) => (
+                                    <CommandItem
+                                      key={customer.id}
+                                      value={customer.name}
+                                      onSelect={() => {
+                                        setPreOrderForm(prev => ({
+                                          ...prev,
+                                          customer_id: customer.id,
+                                          customer_name: customer.name,
+                                          customer_email: customer.email || '',
+                                          customer_phone: customer.phone || ''
+                                        }));
+                                        setCustomerSearchOpen(false);
+                                        setCustomerSearchValue("");
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          preOrderForm.customer_id === customer.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      <div className="flex flex-col">
+                                        <span>{customer.name}</span>
+                                        <span className="text-xs text-gray-500">
+                                          {customer.email} {customer.phone && `• ${customer.phone}`}
+                                        </span>
+                                      </div>
+                                    </CommandItem>
+                                  ))
+                                }
+                              </CommandList>
+                            </div>
+                            <div className="border-t p-1">
+                              <Button
+                                variant="ghost"
+                                className="w-full justify-start text-sm"
+                                onClick={() => {
+                                  setCustomerSearchOpen(false);
+                                  handleCreateNewCustomer();
+                                }}
+                              >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add New Customer
+                              </Button>
+                            </div>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      {showRequired && isPreOrder && !preOrderForm.customer_id && (
+                        <span className="text-xs text-red-500 mt-1">Customer is required for pre-orders</span>
+                      )}
+                    </div>
+
+                    {/* Down Payment */}
+                    <div>
+                      <Label htmlFor="downPayment" className="text-sm">
+                        Down Payment *
+                      </Label>
+                      <Input
+                        id="downPayment"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={preOrderForm.down_payment}
+                        onChange={(e) => setPreOrderForm(prev => ({
+                          ...prev,
+                          down_payment: e.target.value
+                        }))}
+                        placeholder="0.00"
+                        className="text-sm mt-1"
+                      />
+                      {showRequired && isPreOrder && !preOrderForm.down_payment && (
+                        <span className="text-xs text-red-500 mt-1">Down payment is required</span>
+                      )}
+                    </div>
+
+                    {/* Expected Delivery Date */}
+                    <div>
+                      <Label htmlFor="expectedDeliveryDate" className="text-sm">
+                        Expected Delivery Date *
+                      </Label>
+                      <Input
+                        id="expectedDeliveryDate"
+                        type="date"
+                        value={preOrderForm.expected_delivery_date}
+                        onChange={(e) => setPreOrderForm(prev => ({
+                          ...prev,
+                          expected_delivery_date: e.target.value
+                        }))}
+                        className="text-sm mt-1"
+                      />
+                      {showRequired && isPreOrder && !preOrderForm.expected_delivery_date && (
+                        <span className="text-xs text-red-500 mt-1">Expected delivery date is required</span>
+                      )}
+                    </div>
+
+                    {/* Notes */}
+                    <div>
+                      <Label htmlFor="preOrderNotes" className="text-sm">
+                        Notes (Optional)
+                      </Label>
+                      <Input
+                        id="preOrderNotes"
+                        value={preOrderForm.notes}
+                        onChange={(e) => setPreOrderForm(prev => ({
+                          ...prev,
+                          notes: e.target.value
+                        }))}
+                        placeholder="Any additional notes..."
+                        className="text-sm mt-1"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

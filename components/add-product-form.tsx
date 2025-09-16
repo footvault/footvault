@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Loader2, Trash2, Edit, Save, CheckCircle, XCircle, ExternalLink, RefreshCw } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Plus, Loader2, Trash2, Edit, Save, CheckCircle, XCircle, ExternalLink, RefreshCw, Check, ChevronsUpDown } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 
@@ -290,6 +292,10 @@ export function AddProductForm({
     email: ""
   })
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false)
+  
+  // Customer dropdown state
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false)
+  const [customerSearchValue, setCustomerSearchValue] = useState("")
   
   // Removed editingVariantId and editingVariantValues; only single variant input is used
   // Serial number state removed (auto-assigned)
@@ -1245,38 +1251,85 @@ export function AddProductForm({
                     </Label>
                     {!showNewCustomerForm ? (
                       <div className="space-y-2">
-                        <Select
-                          value={preOrderForm.customer_id}
-                          onValueChange={(value) => {
-                            if (value === "add-new-customer") {
-                              setShowNewCustomerForm(true);
-                            } else {
-                              setPreOrderForm(prev => ({ ...prev, customer_id: value }));
-                            }
-                          }}
-                        >
-                          <SelectTrigger id="customer_id" className="w-full text-xs">
-                            <SelectValue placeholder="Select customer" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {customers.map((customer) => (
-                              <SelectItem key={customer.id} value={customer.id.toString()}>
-                                <div className="flex flex-col">
-                                  <span className="font-medium">{customer.name}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {customer.email}
-                                  </span>
+                        <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={customerSearchOpen}
+                              className="w-full justify-between text-xs h-8"
+                            >
+                              {preOrderForm.customer_id ? 
+                                customers.find((customer) => customer.id.toString() === preOrderForm.customer_id)?.name || "Select customer"
+                                : "Select customer"
+                              }
+                              <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[300px] p-0" align="start">
+                            <Command>
+                              <CommandInput 
+                                placeholder="Search customers..." 
+                                value={customerSearchValue}
+                                onValueChange={setCustomerSearchValue}
+                                className="h-8 text-xs"
+                              />
+                              <CommandList>
+                                <div className="max-h-40 overflow-y-auto">
+                                  <CommandEmpty>
+                                    <div className="text-center py-4">
+                                      <p className="text-xs text-gray-500 mb-2">No customers found.</p>
+                                    </div>
+                                  </CommandEmpty>
+                                  <CommandGroup>
+                                    {customers.map((customer) => (
+                                      <CommandItem
+                                        key={customer.id}
+                                        value={`${customer.name} ${customer.email}`}
+                                        onSelect={() => {
+                                          setPreOrderForm(prev => ({ ...prev, customer_id: customer.id.toString() }));
+                                          setCustomerSearchOpen(false);
+                                          setCustomerSearchValue("");
+                                        }}
+                                        className="flex items-center justify-between cursor-pointer"
+                                      >
+                                        <div className="flex flex-col">
+                                          <span className="font-medium text-xs">{customer.name}</span>
+                                          <span className="text-xs text-muted-foreground">
+                                            {customer.email}
+                                          </span>
+                                        </div>
+                                        <Check
+                                          className={cn(
+                                            "ml-auto h-3 w-3",
+                                            preOrderForm.customer_id === customer.id.toString()
+                                              ? "opacity-100"
+                                              : "opacity-0"
+                                          )}
+                                        />
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
                                 </div>
-                              </SelectItem>
-                            ))}
-                            <SelectItem value="add-new-customer">
-                              <div className="flex items-center gap-2 text-blue-600">
-                                <Plus className="w-3 h-3" />
-                                <span className="font-medium">Add New Customer</span>
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                                {/* Add New Customer - Always visible at bottom */}
+                                <div className="border-t p-1">
+                                  <CommandItem
+                                    value="add-new-customer-always-visible"
+                                    onSelect={() => {
+                                      setShowNewCustomerForm(true);
+                                      setCustomerSearchOpen(false);
+                                      setCustomerSearchValue("");
+                                    }}
+                                    className="flex items-center gap-2 text-blue-600 cursor-pointer"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                    <span className="font-medium text-xs">Add New Customer</span>
+                                  </CommandItem>
+                                </div>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                         {customers.length === 0 && (
                           <p className="text-xs text-gray-500">
                             No customers found. Add a new customer to create a pre-order.
