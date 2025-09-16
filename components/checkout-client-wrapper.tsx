@@ -1110,9 +1110,9 @@ export function CheckoutClientWrapper({
               </div>
 
               {/* Filter Controls */}
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                 <Select value={brandFilter} onValueChange={setBrandFilter}>
-                  <SelectTrigger className="w-[150px]">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="All Brands" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1125,7 +1125,7 @@ export function CheckoutClientWrapper({
                 </Select>
 
                 <Select value={sizeCategoryFilter} onValueChange={setSizeCategoryFilter}>
-                  <SelectTrigger className="w-[150px]">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="All Categories" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1138,7 +1138,7 @@ export function CheckoutClientWrapper({
                 </Select>
 
                 <Select value={locationFilter} onValueChange={setLocationFilter}>
-                  <SelectTrigger className="w-[150px]">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="All Locations" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1151,7 +1151,7 @@ export function CheckoutClientWrapper({
                 </Select>
 
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-[150px]">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1163,7 +1163,7 @@ export function CheckoutClientWrapper({
 
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-[150px] justify-between">
+                    <Button variant="outline" className="w-full justify-between">
                       <span className="truncate">
                         {sizeFilter.length === 0 ? "All Sizes" : sizeFilter.join(", ")}
                       </span>

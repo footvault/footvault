@@ -135,7 +135,7 @@ export function AppSidebar({ children, ...props }: React.ComponentProps<typeof S
       'checkout': 'checkout',
       'sales': 'sales',
       'customers': 'customers',
-      'preorders': 'pre-orders',
+      'preorders': 'preorders',
       'consignors': 'consignors',
       'settings': 'settings'
     }

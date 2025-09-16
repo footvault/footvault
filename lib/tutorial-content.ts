@@ -63,76 +63,470 @@ export const tutorialContent: Record<string, TutorialData> = {
   // Inventory page tutorial
   inventory: {
     page: "Inventory",
-    title: "Inventory Management Tutorial",
-    description: "Learn how to manage your sneaker and collectible inventory effectively",
+    title: "Inventory Management",
+    description: "Master your inventory management with these powerful features",
     steps: [
       {
-        id: "inventory-overview",
-        title: "Your Inventory Hub",
-        description: "This is where all your products are displayed. You can view, search, filter, and manage your entire inventory from this central location.",
+        id: "view-products",
+        title: "📦 View All Products",
+        description: "See all your products in one comprehensive view with detailed information about each item including stock levels and pricing.",
         tips: [
-          "Each row represents a product variant (specific size/condition)",
-          "Use the search bar to quickly find items",
-          "Status colors help identify availability at a glance"
+          "Each row shows product details with current stock",
+          "Color-coded status indicators for quick identification",
+          "Hover over items for additional quick actions"
+        ]
+      },
+      {
+        id: "size-tracking",
+        title: "👟 Size Availability Tracking",
+        description: "Track available sizes for each product with detailed size charts and availability status for every variant.",
+        tips: [
+          "Size charts adapted for different shoe types",
+          "Real-time availability updates",
+          "Easy size selection during checkout"
+        ]
+      },
+      {
+        id: "cost-price-tracking",
+        title: "💰 Cost and Price Tracking",
+        description: "Monitor your cost basis and sale prices to maintain healthy profit margins with automatic profit calculations.",
+        tips: [
+          "Set different prices for different conditions",
+          "Track profit margins automatically",
+          "Bulk price updates available"
+        ]
+      },
+      {
+        id: "stock-status",
+        title: "📊 Stock Status Management",
+        description: "Monitor stock levels and get notified when items are running low or out of stock with automated alerts.",
+        tips: [
+          "Visual indicators for stock levels",
+          "Automatic out-of-stock detection",
+          "Low stock alerts and notifications"
         ]
       },
       {
         id: "search-filter",
-        title: "Search & Filter Products",
-        description: "Use powerful search and filtering options to quickly find what you're looking for. Search by name, brand, SKU, or use advanced filters.",
+        title: "🔍 Advanced Search & Filtering",
+        description: "Use powerful search and filtering tools to quickly find exactly what you're looking for in your inventory.",
         tips: [
-          "Search works across product names, brands, and SKUs",
-          "Use filters for size, condition, location, and status",
-          "Combine multiple filters for precise results"
-        ]
-      },
-      {
-        id: "qr-scanner",
-        title: "QR Code Scanner",
-        description: "Quickly find products using the built-in QR code scanner. Perfect for fast lookups during inventory checks or sales.",
-        tips: [
-          "Click the QR icon in the search bar",
-          "Allow camera permissions for scanning",
-          "Generate QR codes for your products in the print view"
-        ]
-      },
-      {
-        id: "bulk-actions",
-        title: "Bulk Operations",
-        description: "Select multiple items to perform bulk actions like changing locations, updating status, or archiving products.",
-        tips: [
-          "Use checkboxes to select multiple items",
-          "Bulk actions appear when items are selected",
-          "Great for organizing large inventories"
+          "Search by name, brand, SKU, or any field",
+          "Multiple filter combinations",
+          "Save frequently used filter presets"
         ]
       }
     ]
   },
 
-  // Add more page tutorials here...
+  // Variants page tutorial
+  variants: {
+    page: "Variants",
+    title: "Product Variants Management",
+    description: "Efficiently manage all your product variants with advanced tools",
+    steps: [
+      {
+        id: "variants-overview",
+        title: "👀 View All Variants",
+        description: "See all product variants with their specific stock numbers, sizes, and conditions in a detailed overview.",
+        tips: [
+          "Each variant represents a specific size/condition",
+          "Stock numbers updated in real-time",
+          "Quick edit capabilities for each variant"
+        ]
+      },
+      {
+        id: "qr-search",
+        title: "📱 QR Code Search",
+        description: "Use your device camera to search through variants instantly by scanning QR codes for lightning-fast product lookup.",
+        tips: [
+          "Scan product QR codes for instant search",
+          "Works with both product and variant codes",
+          "Perfect for warehouse operations"
+        ]
+      },
+      {
+        id: "label-generation",
+        title: "🏷️ Label Generation",
+        description: "Generate professional labels for individual products or create bulk labels for efficient inventory management.",
+        tips: [
+          "Custom label templates available",
+          "Include QR codes, prices, and product details",
+          "Print-ready PDF format"
+        ]
+      },
+      {
+        id: "bulk-labels",
+        title: "📄 Bulk Label Generation",
+        description: "Create labels for multiple products at once to streamline your labeling process and save valuable time.",
+        tips: [
+          "Select multiple variants for bulk labeling",
+          "Consistent formatting across all labels",
+          "Batch printing capabilities"
+        ]
+      },
+      {
+        id: "advanced-filtering",
+        title: "🎯 Advanced Filtering",
+        description: "Filter variants by size, location, condition, and more criteria to find exactly what you need quickly.",
+        tips: [
+          "Multi-criteria filtering options",
+          "Location-based organization",
+          "Size range selections"
+        ]
+      }
+    ]
+  },
+
+  // Add Product page tutorial
   "add-product": {
     page: "Add Product",
-    title: "Adding Products Tutorial",
-    description: "Learn how to add new products to your inventory",
+    title: "Adding Products",
+    description: "Learn the fastest ways to add products to your inventory",
     steps: [
       {
         id: "product-search",
-        title: "Search Existing Products",
-        description: "First, search our database of existing products. If found, you can quickly add variants without entering all details manually.",
+        title: "🔍 Search Products Database",
+        description: "Search our extensive database to add products instantly with pre-filled information, saving you time on data entry.",
         tips: [
-          "Search by product name or brand",
-          "Most popular sneakers are in our database",
-          "This saves time on data entry"
+          "Search by product name, brand, or model",
+          "Most popular sneakers included in database",
+          "Automatic price suggestions available"
+        ]
+      },
+      {
+        id: "instant-info",
+        title: "⚡ Add Info Instantly",
+        description: "When products are found in our database, all information is filled automatically including images, specifications, and market data.",
+        tips: [
+          "Product images loaded automatically",
+          "Specifications pre-filled from database",
+          "Market pricing data included"
         ]
       },
       {
         id: "manual-entry",
-        title: "Manual Product Entry",
-        description: "If a product isn't in our database, you can add it manually with all the details including images, pricing, and specifications.",
+        title: "✍️ Manual Product Entry",
+        description: "For unique or unlisted products, add them manually with complete control over all product details and specifications.",
         tips: [
-          "Include clear product images",
-          "Set accurate cost and sale prices",
-          "Choose the correct size category"
+          "Upload custom product images",
+          "Set your own specifications",
+          "Create custom SKUs and categories"
+        ]
+      },
+      {
+        id: "size-categories",
+        title: "📏 Robust Size Categories",
+        description: "Comprehensive size category system with detailed labels and size numbers for accurate inventory tracking.",
+        tips: [
+          "Multiple size systems supported",
+          "Custom size labels available",
+          "Conversion between size systems"
+        ]
+      },
+      {
+        id: "locations-preorders",
+        title: "📍 Locations & Pre-orders",
+        description: "Add location tracking and set up pre-orders with consignor information for complete inventory management.",
+        tips: [
+          "Multiple storage location support",
+          "Pre-order management system",
+          "Consignor tracking and payouts"
+        ]
+      }
+    ]
+  },
+
+  // Checkout page tutorial
+  checkout: {
+    page: "Checkout",
+    title: "Checkout & Sales",
+    description: "Process sales efficiently with our comprehensive checkout system",
+    steps: [
+      {
+        id: "add-to-cart",
+        title: "🛒 Add Products to Cart",
+        description: "Quickly add shoes to your cart by scanning, searching, or browsing your inventory with real-time availability.",
+        tips: [
+          "Scan QR codes for instant addition",
+          "Search by name, brand, or SKU",
+          "Real-time stock validation"
+        ]
+      },
+      {
+        id: "filter-types",
+        title: "🏷️ Filter by Type & Size",
+        description: "Filter products by in-stock or pre-order status and available sizes to show only relevant items to customers.",
+        tips: [
+          "Toggle between in-stock and pre-order items",
+          "Size availability shown in real-time",
+          "Quick size selection tools"
+        ]
+      },
+      {
+        id: "customer-management",
+        title: "👥 Customer Selection",
+        description: "Select existing customers or add new ones during checkout with complete customer information management.",
+        tips: [
+          "Search existing customer database",
+          "Add new customers on-the-fly",
+          "Customer history integration"
+        ]
+      },
+      {
+        id: "payment-types",
+        title: "💳 Payment Types & Fees",
+        description: "Create and manage different payment types with associated fees for accurate transaction tracking.",
+        tips: [
+          "Multiple payment methods supported",
+          "Automatic fee calculations",
+          "Custom payment type creation"
+        ]
+      },
+      {
+        id: "discounts-charges",
+        title: "💸 Discounts & Additional Charges",
+        description: "Apply discounts and add additional charges like shipping, taxes, or handling fees to customize each transaction.",
+        tips: [
+          "Percentage or fixed amount discounts",
+          "Multiple discount types available",
+          "Itemized additional charges"
+        ]
+      },
+      {
+        id: "payment-received",
+        title: "💰 Payment Processing",
+        description: "Record payments received with multiple payment methods and track partial payments for complete financial accuracy.",
+        tips: [
+          "Multiple payment method support",
+          "Partial payment tracking",
+          "Change calculation included"
+        ]
+      },
+      {
+        id: "profit-distribution",
+        title: "🎯 Profit Distribution",
+        description: "Distribute profits through avatars and templates for partnership management and commission tracking.",
+        tips: [
+          "Create custom distribution templates",
+          "Avatar-based profit sharing",
+          "Automatic percentage calculations"
+        ]
+      },
+      {
+        id: "print-receipts",
+        title: "🖨️ Print Receipts",
+        description: "Generate and print professional receipts with your business branding and complete transaction details.",
+        tips: [
+          "Custom receipt templates",
+          "Business logo integration",
+          "Digital and print options"
+        ]
+      }
+    ]
+  },
+
+  // Sales page tutorial
+  sales: {
+    page: "Sales",
+    title: "Sales Management",
+    description: "Comprehensive sales tracking and management tools",
+    steps: [
+      {
+        id: "view-sales",
+        title: "📊 View All Sales",
+        description: "Monitor all your sales transactions with detailed information including dates, amounts, and customer details.",
+        tips: [
+          "Chronological sales listing",
+          "Detailed transaction information",
+          "Quick access to customer details"
+        ]
+      },
+      {
+        id: "avatar-management",
+        title: "👤 Add & Manage Avatars",
+        description: "Create and manage avatars for profit distribution and partnership tracking across your sales operations.",
+        tips: [
+          "Create custom avatars for partners",
+          "Set default profit percentages",
+          "Track individual performance"
+        ]
+      },
+      {
+        id: "template-creation",
+        title: "📋 Create Distribution Templates",
+        description: "Build reusable templates for profit distribution to streamline recurring partnership arrangements.",
+        tips: [
+          "Save time with reusable templates",
+          "Multiple distribution scenarios",
+          "Easy template modification"
+        ]
+      },
+      {
+        id: "refund-sales",
+        title: "↩️ Process Refunds",
+        description: "Handle refunds efficiently with proper inventory adjustments and financial tracking for accurate records.",
+        tips: [
+          "Automatic inventory restoration",
+          "Partial refund capabilities",
+          "Complete audit trail"
+        ]
+      },
+      {
+        id: "sales-filtering",
+        title: "🔍 Filter & Analyze Sales",
+        description: "Use advanced filtering options to analyze sales performance and generate insights for business growth.",
+        tips: [
+          "Date range filtering",
+          "Customer-based analysis",
+          "Product performance tracking"
+        ]
+      }
+    ]
+  },
+
+  // Customers page tutorial
+  customers: {
+    page: "Customers",
+    title: "Customer Management",
+    description: "Build and maintain strong customer relationships",
+    steps: [
+      {
+        id: "add-customers",
+        title: "👥 Add New Customers",
+        description: "Easily add new customers with complete contact information and preferences for personalized service.",
+        tips: [
+          "Complete contact information",
+          "Customer preferences tracking",
+          "Quick customer creation during checkout"
+        ]
+      },
+      {
+        id: "purchase-history",
+        title: "📜 View Purchase History",
+        description: "Access complete purchase history for each customer including items bought, dates, and amounts spent.",
+        tips: [
+          "Chronological purchase tracking",
+          "Total spending calculations",
+          "Favorite product identification"
+        ]
+      },
+      {
+        id: "customer-insights",
+        title: "📈 Customer Insights",
+        description: "Gain valuable insights into customer behavior, preferences, and purchasing patterns for better service.",
+        tips: [
+          "Purchase frequency analysis",
+          "Preferred brands and sizes",
+          "Customer lifetime value"
+        ]
+      }
+    ]
+  },
+
+  // Pre-orders page tutorial
+  preorders: {
+    page: "Pre-orders",
+    title: "Pre-order Management",
+    description: "Efficiently manage pre-orders and customer commitments",
+    steps: [
+      {
+        id: "view-preorders",
+        title: "👀 View Pre-order Variants",
+        description: "See all your pre-order variants with status tracking, delivery dates, and customer information in one organized view.",
+        tips: [
+          "Status tracking for each pre-order",
+          "Expected delivery date management",
+          "Customer commitment tracking"
+        ]
+      },
+      {
+        id: "add-preorders",
+        title: "➕ Add Pre-orders",
+        description: "Create new pre-orders directly from the add product page with customer details and expected delivery information.",
+        tips: [
+          "Link to customer accounts",
+          "Set expected delivery dates",
+          "Down payment tracking"
+        ]
+      },
+      {
+        id: "update-preorders",
+        title: "🔄 Update Pre-order Status",
+        description: "Manage pre-order lifecycle with status updates, payment tracking, and delivery coordination.",
+        tips: [
+          "Track down payments received",
+          "Update delivery status",
+          "Customer communication tools"
+        ]
+      },
+      {
+        id: "payment-management",
+        title: "💰 Down Payment Tracking",
+        description: "Track down payments and remaining balances for accurate financial management of pre-order commitments.",
+        tips: [
+          "Automatic balance calculations",
+          "Payment reminder system",
+          "Multiple payment installments"
+        ]
+      },
+      {
+        id: "status-management",
+        title: "📋 Status Management",
+        description: "Update pre-order status including cancelled and voided orders with proper inventory and financial adjustments.",
+        tips: [
+          "Cancel orders with inventory restoration",
+          "Void orders for problematic transactions",
+          "Maintain complete status history"
+        ]
+      }
+    ]
+  },
+
+  // Consignors page tutorial
+  consignors: {
+    page: "Consignors",
+    title: "Consignor Management",
+    description: "Manage consignors and their inventory partnerships",
+    steps: [
+      {
+        id: "create-consignors",
+        title: "👤 Create Consignors",
+        description: "Add new consignors with complete contact information and partnership terms for inventory consignment relationships.",
+        tips: [
+          "Complete consignor profiles",
+          "Partnership terms and agreements",
+          "Contact information management"
+        ]
+      },
+      {
+        id: "manage-consignors",
+        title: "🛠️ Manage Consignor Relationships",
+        description: "Maintain ongoing relationships with consignors including inventory tracking and performance monitoring.",
+        tips: [
+          "Track consigned inventory levels",
+          "Monitor sales performance",
+          "Maintain communication history"
+        ]
+      },
+      {
+        id: "portal-sharing",
+        title: "🌐 Share Consignor Portal",
+        description: "Provide consignors with access to their dedicated portal page for real-time inventory and sales tracking.",
+        tips: [
+          "Secure portal access",
+          "Real-time inventory updates",
+          "Sales performance tracking"
+        ]
+      },
+      {
+        id: "process-payouts",
+        title: "💸 Process Payouts",
+        description: "Calculate and process payouts to consignors based on sales performance and agreed-upon terms.",
+        tips: [
+          "Automatic payout calculations",
+          "Multiple payout schedules",
+          "Detailed payout reports"
         ]
       }
     ]

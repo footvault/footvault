@@ -494,7 +494,9 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
 
           if (variantToDelete) {
             // If variantToDelete is an array, get the first element
-            const variantId = Array.isArray(variantToDelete) ? variantToDelete[0]?.id : variantToDelete.id;
+            // Explicitly type variantToDelete as any to avoid TS 'never' error
+            const variantToDeleteTyped = variantToDelete as any;
+            const variantId = Array.isArray(variantToDeleteTyped) ? variantToDeleteTyped[0]?.id : variantToDeleteTyped.id;
             console.log('Found variant to delete:', variantId);
             
             // Delete in proper order to respect foreign key constraints:
