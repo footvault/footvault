@@ -80,6 +80,7 @@ export default function ConsignorsPage() {
   const [viewModal, setViewModal] = useState<{ open: boolean; consignor?: ConsignorDashboardStats }>({ open: false })
   const [payoutModal, setPayoutModal] = useState<{ open: boolean; consignor?: ConsignorDashboardStats }>({ open: false })
   const [itemsModal, setItemsModal] = useState<{ open: boolean; consignor?: ConsignorDashboardStats }>({ open: false })
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0)
 
   const router = useRouter()
   const { currency } = useCurrency()
@@ -87,15 +88,25 @@ export default function ConsignorsPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    fetchConsignors()
-    if (!showArchived) {
-      checkArchivedConsignors()
-    }
-  }, [searchTerm, statusFilter, showArchived])
+    // Debounce the fetch to avoid excessive API calls
+    const timeoutId = setTimeout(() => {
+      fetchConsignors()
+      if (!showArchived) {
+        checkArchivedConsignors()
+      }
+    }, 500); // 500ms debounce
+    
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, statusFilter, showArchived, lastFetchTime])
 
   const fetchConsignors = async () => {
+    // Only fetch if it's been more than 30 seconds since last fetch
+    const now = Date.now();
+    if (now - lastFetchTime < 30000) return;
+    
     try {
       setLoading(true)
+      console.time('fetchConsignors');
       const { data: { session } } = await supabase.auth.getSession()
 
       if (!session?.access_token) {
@@ -125,6 +136,7 @@ export default function ConsignorsPage() {
 
       setConsignors(result.consignors || [])
       setSummaryStats(result.summary || {})
+      setLastFetchTime(now);
     } catch (error) {
       console.error('❌ Error fetching consignors:', error)
       toast({
@@ -134,6 +146,7 @@ export default function ConsignorsPage() {
       })
     } finally {
       setLoading(false)
+      console.timeEnd('fetchConsignors');
     }
   }
 

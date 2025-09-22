@@ -111,9 +111,14 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
   
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Fetch profit distribution templates and payment types
+  // Fetch profit distribution templates and payment types with caching
   useEffect(() => {
     const fetchData = async () => {
+      // Only fetch if it's been more than 60 seconds since last fetch
+      const now = Date.now();
+      if (now - lastDataFetchTime < 60000) return;
+      
+      console.time('fetchPreorderData');
       const supabase = createClient();
       
       try {
@@ -125,58 +130,62 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
           return;
         }
 
-        // Fetch profit distribution templates with their items
-        const { data: templates, error: templatesError } = await supabase
-          .from('profit_distribution_templates')
-          .select(`
-            *,
-            profit_template_items (
-              id,
-              avatar_id,
-              percentage,
-              avatars (
+        // Batch all queries for better performance
+        const [templatesResult, paymentsResult, avatarsResult] = await Promise.all([
+          supabase
+            .from('profit_distribution_templates')
+            .select(`
+              *,
+              profit_template_items (
                 id,
-                name,
-                image,
-                type
+                avatar_id,
+                percentage,
+                avatars (
+                  id,
+                  name,
+                  image,
+                  type
+                )
               )
-            )
-          `)
-          .eq('user_id', user.id)
-          .order('name', { ascending: true });
+            `)
+            .eq('user_id', user.id)
+            .order('name', { ascending: true }),
+          
+          supabase
+            .from('payment_types')
+            .select('*')
+            .order('name', { ascending: true }),
+          
+          supabase
+            .from('avatars')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('type', { ascending: true })
+        ]);
 
-        if (templatesError) throw templatesError;
-        setProfitTemplates(templates || []);
+        if (templatesResult.error) throw templatesResult.error;
+        if (paymentsResult.error) throw paymentsResult.error;
+        if (avatarsResult.error) throw avatarsResult.error;
 
-        // Fetch payment types
-        const { data: payments, error: paymentsError } = await supabase
-          .from('payment_types')
-          .select('*')
-          .order('name', { ascending: true });
-
-        if (paymentsError) throw paymentsError;
-        setPaymentTypes(payments || []);
-
-        // Fetch avatars for the current user
-        const { data: avatarData, error: avatarError } = await supabase
-          .from('avatars')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('type', { ascending: true }); // Main comes before others alphabetically
-
-        if (avatarError) {
-          console.error('Avatar fetch error:', avatarError);
-          throw avatarError;
-        }
+        setProfitTemplates(templatesResult.data || []);
+        setPaymentTypes(paymentsResult.data || []);
+        setAvatars(avatarsResult.data || []);
+        setLastDataFetchTime(now);
         
-        setAvatars(avatarData || []);
+        console.log('Preorder data loaded:', {
+          templates: templatesResult.data?.length,
+          payments: paymentsResult.data?.length,
+          avatars: avatarsResult.data?.length
+        });
       } catch (error) {
         console.error('Error fetching data:', error);
+      } finally {
+        console.timeEnd('fetchPreorderData');
       }
     };
 
     fetchData();
-  }, []);
+  }, [lastDataFetchTime]);
   
   // Modal states
   const [showCustomerModal, setShowCustomerModal] = useState(false);
@@ -196,6 +205,7 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
   const [profitTemplates, setProfitTemplates] = useState<ProfitDistributionTemplate[]>([]);
   const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>([]);
   const [avatars, setAvatars] = useState<Avatar[]>([]);
+  const [lastDataFetchTime, setLastDataFetchTime] = useState<number>(0);
   const [cancelForm, setCancelForm] = useState({
     paymentType: '',
     profitTemplateId: 'main',

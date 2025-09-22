@@ -55,6 +55,10 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
   const [sortBy, setSortBy] = useState<string>("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20); // Show 20 customers per page
+  
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -74,8 +78,10 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
   const isMobile = screenWidth < 640;
   const isTablet = screenWidth < 768;
 
-  // Filter and sort customers
-  const filteredAndSortedCustomers = useMemo(() => {
+  // Filter and sort customers with pagination
+  const { paginatedCustomers, totalPages, totalFiltered } = useMemo(() => {
+    console.time('filterAndSortCustomers');
+    
     let filtered = customers.filter(customer => {
       const matchesSearch = searchTerm === "" || 
         customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -122,8 +128,17 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
       return 0;
     });
 
-    return filtered;
-  }, [customers, searchTerm, customerTypeFilter, sortBy, sortOrder]);
+    // Calculate pagination
+    const totalFiltered = filtered.length;
+    const totalPages = Math.ceil(totalFiltered / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedCustomers = filtered.slice(startIndex, startIndex + itemsPerPage);
+    
+    console.timeEnd('filterAndSortCustomers');
+    console.log(`Showing ${paginatedCustomers.length} of ${totalFiltered} customers (page ${currentPage}/${totalPages})`);
+    
+    return { paginatedCustomers, totalPages, totalFiltered };
+  }, [customers, searchTerm, customerTypeFilter, sortBy, sortOrder, currentPage, itemsPerPage]);
 
   const handleAddCustomer = (newCustomer: Customer) => {
     setCustomers([newCustomer, ...customers]);
@@ -279,7 +294,7 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
 
         {/* Customer table */}
         <div className="rounded-md border">
-          {filteredAndSortedCustomers.length === 0 ? (
+          {paginatedCustomers.length === 0 ? (
             <div className="p-8 text-center">
               <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No customers found</h3>
@@ -301,7 +316,7 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
               {/* Mobile Card View */}
               {isMobile ? (
                 <div className="space-y-4 p-4">
-                  {filteredAndSortedCustomers.map((customer) => (
+                  {paginatedCustomers.map((customer: Customer) => (
                     <Card key={customer.id} className="p-4">
                       <div className="flex justify-between items-start mb-3">
                         <div>
@@ -421,7 +436,7 @@ export function CustomersPageClient({ initialCustomers, error }: CustomersPageCl
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredAndSortedCustomers.map((customer) => (
+                      {paginatedCustomers.map((customer: Customer) => (
                         <TableRow key={customer.id} className="hover:bg-gray-50">
                           <TableCell>
                             <div className="flex items-center gap-3">

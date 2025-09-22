@@ -58,6 +58,7 @@ export function SalesClientWrapper({
     useState<{ avatarUrl: string; name: string; profit: number }[]>(initialAvatarProfits) // New state
   const [userPlan, setUserPlan] = useState<string | null>(null);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [lastStatsCache, setLastStatsCache] = useState<number>(0);
 
   // Function to calculate avatar profits from sales data
   const calculateAvatarProfits = (salesData: Sale[], avatarData: Avatar[]) => {
@@ -96,53 +97,68 @@ export function SalesClientWrapper({
   }
 
   useEffect(() => {
-    startFetchingStatsTransition(async () => {
-      try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        
-        if (sessionError || !session?.access_token) {
-          console.error('Authentication error:', sessionError)
-          return
-        }
-
-        const queryParams = new URLSearchParams()
-        if (dateRange.from) {
-          queryParams.set('from', dateRange.from.toISOString())
-        }
-        if (dateRange.to) {
-          queryParams.set('to', dateRange.to.toISOString())
-        }
-
-        const response = await fetch(`/api/get-sales-stats?${queryParams.toString()}`, {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
+    const fetchStats = async () => {
+      // Only fetch if it's been more than 30 seconds since last fetch
+      const now = Date.now();
+      if (now - lastStatsCache < 30000 && !dateRange.from && !dateRange.to) return;
+      
+      startFetchingStatsTransition(async () => {
+        console.time('fetchSalesStats');
+        try {
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+          
+          if (sessionError || !session?.access_token) {
+            console.error('Authentication error:', sessionError)
+            return
           }
-        })
 
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || 'Failed to fetch sales stats')
+          const queryParams = new URLSearchParams()
+          if (dateRange.from) {
+            queryParams.set('from', dateRange.from.toISOString())
+          }
+          if (dateRange.to) {
+            queryParams.set('to', dateRange.to.toISOString())
+          }
+
+          const response = await fetch(`/api/get-sales-stats?${queryParams.toString()}`, {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            }
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || 'Failed to fetch sales stats')
+          }
+
+          const data = await response.json()
+          if (data.success === false) {
+            throw new Error(data.error || 'Failed to fetch sales stats')
+          }
+
+          setSalesStats({
+            totalSalesAmount: data.totalSalesAmount || 0,
+            totalNetProfit: data.totalNetProfit || 0,
+            numberOfSales: data.numberOfSales || 0
+          })
+          setLastStatsCache(now);
+        } catch (error) {
+          console.error('Error fetching sales stats:', error)
+        } finally {
+          console.timeEnd('fetchSalesStats');
         }
-
-        const data = await response.json()
-        if (data.success === false) {
-          throw new Error(data.error || 'Failed to fetch sales stats')
-        }
-
-        setSalesStats({
-          totalSalesAmount: data.totalSalesAmount || 0,
-          totalNetProfit: data.totalNetProfit || 0,
-          numberOfSales: data.numberOfSales || 0
-        })
-      } catch (error) {
-        console.error('Error fetching sales stats:', error)
-      }
-    })
-  }, [dateRange])
+      })
+    };
+    
+    // Debounce the stats fetch
+    const timeoutId = setTimeout(fetchStats, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [dateRange, lastStatsCache])
 
   // Fetch sales from API with session token
   const fetchSalesFromApi = async () => {
+    console.time('fetchSalesFromApi');
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch('/api/get-sales', {
@@ -161,6 +177,8 @@ export function SalesClientWrapper({
       }
     } catch (err) {
       console.error('Failed to fetch sales:', err);
+    } finally {
+      console.timeEnd('fetchSalesFromApi');
     }
   };
 

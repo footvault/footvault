@@ -87,9 +87,15 @@ export function ShoesVariantsTable() {
   })
   const [statsLoading, setStatsLoading] = useState(true)
 
- // Fetch stats from API
+ // Fetch stats from API with caching
+ const [lastStatsCache, setLastStatsCache] = useState<number>(0)
  const fetchVariantStats = async () => {
+   // Only fetch if it's been more than 30 seconds since last fetch
+   const now = Date.now();
+   if (now - lastStatsCache < 30000) return;
+   
    setStatsLoading(true);
+   console.time('fetchVariantStats');
    try {
      const { data: { user } } = await supabase.auth.getUser();
      if (!user) throw new Error("No user");
@@ -106,10 +112,12 @@ export function ShoesVariantsTable() {
        totalSaleValue: stats.total_sale ?? 0,
        profit: stats.profit ?? 0
      });
+     setLastStatsCache(now);
    } catch (e) {
      setStatsData({ totalVariants: 0, totalCostValue: 0, totalSaleValue: 0, profit: 0 });
    } finally {
      setStatsLoading(false);
+     console.timeEnd('fetchVariantStats');
    }
  };
   // Calculate stats locally from available variants only
@@ -185,6 +193,7 @@ export function ShoesVariantsTable() {
   const fetchVariants = async () => {
     try {
       setLoading(true)
+      console.time('fetchVariants')
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
@@ -216,6 +225,7 @@ export function ShoesVariantsTable() {
         .neq('status', 'Sold')
         .order('serial_number', { ascending: false }) // Sort by serial number descending
 
+      console.timeEnd('fetchVariants')
       if (error) {
         console.error('Error fetching variants:', error)
       } else {

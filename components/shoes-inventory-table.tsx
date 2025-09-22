@@ -96,7 +96,7 @@ export type ProductTable = {
   };
 };
 
-// Helper to fetch variants for a product
+// Helper to fetch variants for a product (legacy - kept for compatibility)
 async function fetchVariantsForProduct(productId: number, supabase: any): Promise<Variant[]> {
   const { data, error } = await supabase
     .from('variants')
@@ -108,6 +108,34 @@ async function fetchVariantsForProduct(productId: number, supabase: any): Promis
     return [];
   }
   return data || [];
+}
+
+// Optimized batch fetcher for all variants
+async function fetchAllVariants(productIds: number[], supabase: any): Promise<Record<number, Variant[]>> {
+  if (productIds.length === 0) return {};
+  
+  console.time('fetchAllVariants');
+  const { data, error } = await supabase
+    .from('variants')
+    .select('*')
+    .in('product_id', productIds);
+  console.timeEnd('fetchAllVariants');
+  
+  if (error) {
+    console.error('Error fetching variants:', error);
+    return {};
+  }
+  
+  // Group by product_id
+  const grouped: Record<number, Variant[]> = {};
+  data?.forEach((variant: Variant) => {
+    if (!grouped[variant.product_id]) {
+      grouped[variant.product_id] = [];
+    }
+    grouped[variant.product_id].push(variant);
+  });
+  
+  return grouped;
 }
 
 const columnHelper = createColumnHelper<Product>()
@@ -138,37 +166,52 @@ export function ShoesInventoryTable() {
     sum + variants.filter(v => v.status === 'Available').length, 0
   );
    const [totalValue, setTotalValue] = useState<number>(0)
+   const [lastFetchTime, setLastFetchTime] = useState<number>(0)
 
   useEffect(() => {
     const fetchTotalValue = async () => {
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession()
+      // Only fetch if it's been more than 30 seconds since last fetch
+      const now = Date.now();
+      if (now - lastFetchTime < 30000) return;
+      
+      console.time('fetchTotalValue');
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession()
 
-      if (!session?.access_token) {
-        console.warn('No session token available')
-        return
-      }
+        if (!session?.access_token) {
+          console.warn('No session token available')
+          return
+        }
 
-      const res = await fetch('/api/inventory-value', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      })
+        const res = await fetch('/api/inventory-value', {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        })
 
-      const json = await res.json()
-      console.debug('[DEBUG] /api/inventory-value response:', json)
+        const json = await res.json()
+        console.debug('[DEBUG] /api/inventory-value response:', json)
 
-      if (typeof json.totalCost === 'number') {
-        setTotalValue(json.totalCost)
-      } else {
-        setTotalValue(0)
+        if (typeof json.totalCost === 'number') {
+          setTotalValue(json.totalCost)
+          setLastFetchTime(now)
+        } else {
+          setTotalValue(0)
+        }
+      } catch (error) {
+        console.error('Error fetching total value:', error)
+      } finally {
+        console.timeEnd('fetchTotalValue');
       }
     }
 
-    fetchTotalValue()
-  }, [products, rowVariants])
+    // Debounce the call to prevent excessive requests
+    const timeoutId = setTimeout(fetchTotalValue, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [products.length, Object.keys(rowVariants).length, lastFetchTime]) // Only depend on counts, not full objects
 
   // Track screen width for responsive design
   const [screenWidth, setScreenWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1400);
@@ -223,17 +266,18 @@ export function ShoesInventoryTable() {
     fetchProducts()
   }, [])
 
-  // When products change, prefetch all variants for quantity
+  // When products change, prefetch all variants for quantity (OPTIMIZED)
   useEffect(() => {
     async function prefetchAllVariants() {
       if (products.length === 0) return;
       setLoadingVariants(true);
-      const all: Record<number, Variant[]> = {};
-      for (const p of products) {
-        const variants = await fetchVariantsForProduct(p.id, supabase);
-        all[p.id] = variants;
-      }
-      setRowVariants(all);
+      
+      console.time('prefetchAllVariants');
+      const productIds = products.map(p => p.id);
+      const allVariants = await fetchAllVariants(productIds, supabase);
+      setRowVariants(allVariants);
+      console.timeEnd('prefetchAllVariants');
+      
       setLoadingVariants(false);
     }
     prefetchAllVariants();
