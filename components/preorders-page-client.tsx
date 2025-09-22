@@ -111,6 +111,9 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
   
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  // State for caching data fetches
+  const [lastDataFetchTime, setLastDataFetchTime] = useState<number>(0);
+
   // Fetch profit distribution templates and payment types with caching
   useEffect(() => {
     const fetchData = async () => {
@@ -205,7 +208,6 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
   const [profitTemplates, setProfitTemplates] = useState<ProfitDistributionTemplate[]>([]);
   const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>([]);
   const [avatars, setAvatars] = useState<Avatar[]>([]);
-  const [lastDataFetchTime, setLastDataFetchTime] = useState<number>(0);
   const [cancelForm, setCancelForm] = useState({
     paymentType: '',
     profitTemplateId: 'main',

@@ -9,7 +9,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-   experimental: {
+  experimental: {
     allowedDevOrigins: [
       'http://192.168.56.1:3000',
       'https://29f8-112-202-97-120.ngrok-free.app',
@@ -17,6 +17,12 @@ const nextConfig = {
       'http://192.168.1.11:3000', // Added your real LAN IP for phone access
       'https://18d2-112-202-97-218.ngrok-free.app', // Added your ngrok HTTPS tunnel for secure camera access
     ],
+  },
+  // Remove console logs in production
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error'] // Keep console.error for debugging
+    } : false,
   },
 }
 

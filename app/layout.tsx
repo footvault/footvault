@@ -8,6 +8,8 @@ import { TimezoneProvider } from "@/context/TimezoneContext"
 import { TutorialProvider } from "@/context/TutorialContext"
 import { getUserSettings } from "./settings/settingActions"
 import ClientLayout from "@/components/ClientLayout"
+import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export const metadata: Metadata = {
   title: {
@@ -216,6 +218,8 @@ export default async function RootLayout({
             </TutorialProvider>
           </TimezoneProvider>
         </CurrencyProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
