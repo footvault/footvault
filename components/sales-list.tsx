@@ -1,13 +1,22 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Eye, Trash2, RotateCcw, Filter, X, Search, Printer } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import { MoreHorizontal, Eye, Trash2, RotateCcw, Filter, X, Search, Printer, Download, Star, Lock } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -24,6 +33,7 @@ import { useCurrency } from "@/context/CurrencyContext"
 import { useTimezone } from "@/context/TimezoneContext"
 import type { DateRange } from "react-day-picker"
 import { useToast } from "@/hooks/use-toast"
+import PremiumFeatureModal from "@/components/PremiumFeatureModal"
 
 interface SalesListProps {
   sales: Sale[]
@@ -53,6 +63,17 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
+
+  // Export states
+  const [userPlan, setUserPlan] = useState<string>('free')
+  const [showPremiumModal, setShowPremiumModal] = useState(false)
+  const [premiumFeatureName, setPremiumFeatureName] = useState('')
+  const [exportModal, setExportModal] = useState(false)
+  const [exportFilters, setExportFilters] = useState({
+    paymentTypes: [] as string[],
+    statuses: [] as string[],
+    dateRange: undefined as DateRange | undefined
+  })
 
   // Handle date range selection
   const handleDateRangeSelect = (range: DateRange | undefined) => {
@@ -125,10 +146,234 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
     }
   }
 
+  // Fetch user plan
+  const fetchUserPlan = async () => {
+    try {
+      const res = await fetch('/api/user-plan')
+      const data = await res.json()
+      if (data.success) {
+        setUserPlan(data.plan.toLowerCase())
+      }
+    } catch (error) {
+      console.error('Failed to fetch user plan:', error)
+      setUserPlan('free')
+    }
+  }
+
+  // Handle export modal opening
+  const handleExportClick = () => {
+    if (userPlan === 'free') {
+      setPremiumFeatureName('Export Sales')
+      setShowPremiumModal(true)
+      return
+    }
+    // Set all filters to select all options by default
+    setExportFilters({
+      paymentTypes: [...uniquePaymentTypes],
+      statuses: [...uniqueStatuses],
+      dateRange: undefined
+    })
+    setExportModal(true)
+  }
+
+  // Handle export execution
+  const handleExport = () => {
+    // Filter sales based on selected criteria
+    let dataToExport = sales.filter(sale => {
+      // Payment type filtering
+      let salePaymentType = ""
+      if (sale.payment_type && typeof sale.payment_type === "object") {
+        if (sale.payment_type.name) {
+          salePaymentType = sale.payment_type.name
+        } else if (sale.payment_type.type) {
+          salePaymentType = "Cash"
+        } else {
+          salePaymentType = "Cash"
+        }
+      } else if (typeof sale.payment_type === "string" && sale.payment_type.toLowerCase() === "cash") {
+        salePaymentType = "Cash"
+      } else if (sale.payment_type_name) {
+        salePaymentType = sale.payment_type_name
+      } else if (!sale.payment_type) {
+        salePaymentType = "Cash"
+      } else {
+        salePaymentType = typeof sale.payment_type === "string" ? sale.payment_type : "Cash"
+      }
+
+      const paymentTypeMatch = exportFilters.paymentTypes.length === 0 || exportFilters.paymentTypes.includes(salePaymentType)
+      const statusMatch = exportFilters.statuses.length === 0 || exportFilters.statuses.includes(sale.status || '')
+      
+      // Date range filtering
+      let dateMatch = true
+      if (exportFilters.dateRange?.from || exportFilters.dateRange?.to) {
+        const saleDate = new Date(sale.sale_date || sale.date)
+        if (exportFilters.dateRange.from && saleDate < exportFilters.dateRange.from) {
+          dateMatch = false
+        }
+        if (exportFilters.dateRange.to && saleDate > exportFilters.dateRange.to) {
+          dateMatch = false
+        }
+      }
+
+      return paymentTypeMatch && statusMatch && dateMatch
+    })
+
+    // Convert to CSV format with detailed item information
+    const headers = ['Sale #', 'Date', 'Customer', 'Phone', 'Payment Type', 'Status', 'Total', 'Profit', 'Item Name', 'Brand', 'Size', 'Type', 'Serial Number/Pre-Order #']
+    
+    // Flatten sales data to have one row per item
+    const csvData: string[][] = []
+    
+    dataToExport.forEach(sale => {
+      // Get payment type name
+      let paymentTypeName = ""
+      if (sale.payment_type && typeof sale.payment_type === "object") {
+        if (sale.payment_type.name) {
+          paymentTypeName = sale.payment_type.name
+        } else if (sale.payment_type.type) {
+          paymentTypeName = "Cash"
+        } else {
+          paymentTypeName = "Cash"
+        }
+      } else if (typeof sale.payment_type === "string" && sale.payment_type.toLowerCase() === "cash") {
+        paymentTypeName = "Cash"
+      } else if (sale.payment_type_name) {
+        paymentTypeName = sale.payment_type_name
+      } else if (!sale.payment_type) {
+        paymentTypeName = "Cash"
+      } else {
+        paymentTypeName = typeof sale.payment_type === "string" ? sale.payment_type : "Cash"
+      }
+
+      // Common sale data
+      const saleData = [
+        formatSalesNo(sale.sales_no),
+        formatDateInTimezone(sale.sale_date || sale.date),
+        sale.customer_name || 'No name',
+        sale.customer_phone || '',
+        paymentTypeName,
+        sale.status ? sale.status.charAt(0).toUpperCase() + sale.status.slice(1) : 'N/A',
+        (sale.total_amount || sale.total || 0).toString(),
+        (sale.net_profit || sale.profit || 0).toString()
+      ]
+
+      // Process each item in the sale
+      if (sale.items && sale.items.length > 0) {
+        sale.items.forEach((item: any) => {
+          if (!item?.variant) {
+            // Handle invalid items
+            csvData.push([
+              ...saleData,
+              'Invalid item',
+              '',
+              '',
+              '',
+              ''
+            ])
+            return
+          }
+
+          const variant = item.variant
+          const isPreorderItem = variant.type === 'Pre-order'
+          const isDownpaymentItem = variant.type === 'downpayment'
+          
+          // Get identifier (serial number or pre-order number)
+          let identifier = ''
+          if (isPreorderItem || isDownpaymentItem) {
+            const preOrderMatch = variant.notes?.match(/pre-order #(\d+)/)
+            const preOrderNo = preOrderMatch?.[1] || 'N/A'
+            identifier = `PO: #${preOrderNo}`
+          } else {
+            identifier = `SN: ${variant.serialNumber || 'N/A'}`
+          }
+
+          // Get item type
+          let itemType = 'Regular'
+          if (isPreorderItem) {
+            itemType = 'Pre-order'
+          } else if (isDownpaymentItem) {
+            itemType = 'Down Payment'
+          }
+
+          csvData.push([
+            ...saleData,
+            variant.productName || '',
+            variant.brand || '',
+            variant.size || '',
+            itemType,
+            identifier
+          ])
+        })
+      } else {
+        // Sale with no items
+        csvData.push([
+          ...saleData,
+          'No items',
+          '',
+          '',
+          '',
+          ''
+        ])
+      }
+    })
+
+    // Create CSV content
+    const csvContent = [headers, ...csvData]
+      .map(row => row.map(field => `"${field}"`).join(','))
+      .join('\n')
+
+    // Download CSV file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `sales_export_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    setExportModal(false)
+    // Reset filters
+    setExportFilters({
+      paymentTypes: [],
+      statuses: [],
+      dateRange: undefined
+    })
+  }
+
+  // Export filter toggle functions
+  const toggleExportFilter = (filterType: keyof typeof exportFilters, value: string) => {
+    if (filterType === 'dateRange') return // Handle separately
+    
+    setExportFilters(prev => ({
+      ...prev,
+      [filterType]: (prev[filterType] as string[]).includes(value)
+        ? (prev[filterType] as string[]).filter(item => item !== value)
+        : [...(prev[filterType] as string[]), value]
+    }))
+  }
+
+  const toggleAllExportFilters = (filterType: keyof typeof exportFilters, allOptions: string[]) => {
+    if (filterType === 'dateRange') return // Handle separately
+    
+    setExportFilters(prev => ({
+      ...prev,
+      [filterType]: (prev[filterType] as string[]).length === allOptions.length ? [] : [...allOptions]
+    }))
+  }
+
   const [page, setPage] = useState(1)
   const pageSize = 10
+
+  // Fetch user plan on component mount
+  useEffect(() => {
+    fetchUserPlan()
+  }, [])
        
-  const formatSalesNo = (n: number | null | undefined) => n != null ? `#${n.toString().padStart(3, "0")}` : "#---";
+  const formatSalesNo = (n: number | null | undefined) => n != null ? `#${n.toString().padStart(3, "0")}` : "#---"
+       
+
 
   // Sorting state: by sales_no (default), can toggle asc/desc
   const [sortBy, setSortBy] = useState<'sales_no' | 'date' | 'total' | 'profit'>('sales_no');
@@ -507,6 +752,19 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                 Clear Filters
               </Button>
             )}
+
+            {/* Export Button */}
+            <Button
+              size="sm"
+              onClick={handleExportClick}
+              className={`bg-black hover:bg-gray-800 text-white h-10 px-3 w-full sm:w-auto `}
+            >
+          
+              <Download className="w-4 h-4 mr-2" />
+              Export
+       
+              {userPlan === 'free' && <Star className="w-3 h-3 ml-2 fill-current" />}
+            </Button>
           </div>
         </div>
 
@@ -1094,6 +1352,139 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
           onError={handleReceiptError}
         />
       )}
+
+      {/* Premium Feature Modal */}
+      <PremiumFeatureModal
+        open={showPremiumModal}
+        onOpenChange={setShowPremiumModal}
+        featureName={premiumFeatureName}
+      />
+
+      {/* Export Modal */}
+      <Dialog open={exportModal} onOpenChange={setExportModal}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Export Sales</DialogTitle>
+            <DialogDescription>
+              Select the filters for the sales you want to export. Leave categories empty to export all sales.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-6 py-4">
+            {/* Payment Type Filter */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Payment Type</label>
+              <div className="flex items-center gap-2 mb-2">
+                <Checkbox
+                  id="all-payment-types"
+                  checked={exportFilters.paymentTypes.length === uniquePaymentTypes.length}
+                  onCheckedChange={() => toggleAllExportFilters('paymentTypes', uniquePaymentTypes)}
+                />
+                <label htmlFor="all-payment-types" className="text-sm cursor-pointer">Select All</label>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {uniquePaymentTypes.map(paymentType => (
+                  <div key={paymentType} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`payment-${paymentType}`}
+                      checked={exportFilters.paymentTypes.includes(paymentType)}
+                      onCheckedChange={() => toggleExportFilter('paymentTypes', paymentType)}
+                    />
+                    <label htmlFor={`payment-${paymentType}`} className="text-sm cursor-pointer">{paymentType}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Status Filter */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Status</label>
+              <div className="flex items-center gap-2 mb-2">
+                <Checkbox
+                  id="all-statuses-export"
+                  checked={exportFilters.statuses.length === uniqueStatuses.length}
+                  onCheckedChange={() => toggleAllExportFilters('statuses', uniqueStatuses)}
+                />
+                <label htmlFor="all-statuses-export" className="text-sm cursor-pointer">Select All</label>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {uniqueStatuses.map(status => (
+                  <div key={status} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`status-export-${status}`}
+                      checked={exportFilters.statuses.includes(status)}
+                      onCheckedChange={() => toggleExportFilter('statuses', status)}
+                    />
+                    <label htmlFor={`status-export-${status}`} className="text-sm cursor-pointer">
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Date Range Filter */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Date Range (Optional)</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !exportFilters.dateRange?.from && !exportFilters.dateRange?.to && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {exportFilters.dateRange?.from ? (
+                      exportFilters.dateRange.to ? (
+                        <>
+                          {format(exportFilters.dateRange.from, "LLL dd, y")} -{" "}
+                          {format(exportFilters.dateRange.to, "LLL dd, y")}
+                        </>
+                      ) : (
+                        format(exportFilters.dateRange.from, "LLL dd, y")
+                      )
+                    ) : (
+                      <span>Pick a date range</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={exportFilters.dateRange?.from}
+                    selected={exportFilters.dateRange}
+                    onSelect={(range) => setExportFilters(prev => ({ ...prev, dateRange: range }))}
+                    numberOfMonths={2}
+                  />
+                </PopoverContent>
+              </Popover>
+              {exportFilters.dateRange?.from && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setExportFilters(prev => ({ ...prev, dateRange: undefined }))}
+                  className="w-full"
+                >
+                  Clear Date Range
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleExport}>
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

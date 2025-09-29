@@ -41,8 +41,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, Lock, Plus } from "lucide-react"
+import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, Lock, Plus, Download, Star } from "lucide-react"
 import jsPDF from "jspdf"
 import QRCode from "qrcode"
 import { createClient } from "@/lib/supabase/client"
@@ -76,6 +84,15 @@ export function ShoesVariantsTable() {
   const [bulkDeleteModal, setBulkDeleteModal] = useState<{ open: boolean, count: number }>({ open: false, count: 0 })
   const [userPlan, setUserPlan] = useState<string>('free')
   const [showPremiumModal, setShowPremiumModal] = useState(false)
+  const [premiumFeatureName, setPremiumFeatureName] = useState('')
+  const [exportModal, setExportModal] = useState(false)
+  const [exportFilters, setExportFilters] = useState({
+    statuses: [] as string[],
+    categories: [] as string[],
+    owners: [] as string[],
+    locations: [] as string[],
+    brands: [] as string[]
+  })
    const { currency } = useCurrency(); // Get the user's selected currency
   const currencySymbol = getCurrencySymbol(currency);
   // Stats state
@@ -164,6 +181,7 @@ export function ShoesVariantsTable() {
   // Handle bulk PDF generation with plan checking
   const handleBulkPdfGeneration = () => {
     if (userPlan === 'free') {
+      setPremiumFeatureName('Bulk PDF Generation')
       setShowPremiumModal(true);
       return;
     }
@@ -289,6 +307,102 @@ export function ShoesVariantsTable() {
     return ["all", ...Array.from(set)]
   }, [variants])
 
+  // Export options
+  const exportOwnerOptions = useMemo(() => {
+    const owners = new Set<string>()
+    variants.forEach(v => {
+      if (v.owner_type === 'store' || !v.owner_type || !v.consignor_id) {
+        owners.add('You')
+      } else {
+        owners.add(v.consignor?.name || `Consignor ${v.consignor_id}`)
+      }
+    })
+    return Array.from(owners)
+  }, [variants])
+
+  // Handle export modal opening
+  const handleExportClick = () => {
+    if (userPlan === 'free') {
+      setPremiumFeatureName('Export Variants')
+      setShowPremiumModal(true)
+      return
+    }
+    // Set all filters to select all options by default
+    setExportFilters({
+      statuses: [],
+      categories: [...sizeCategoryOptions.filter(c => c !== 'all')],
+      owners: [...exportOwnerOptions],
+      locations: [...locationOptions.filter(l => l !== 'all')],
+      brands: [...brandOptions.filter(b => b !== 'all')]
+    })
+    setExportModal(true)
+  }
+
+  // Handle export execution
+  const handleExport = () => {
+    // Filter variants based on selected criteria
+    let dataToExport = variants.filter(variant => {
+      const variantCategory = (variant as any).product?.size_category
+      const variantBrand = (variant as any).product?.brand
+      const variantLocation = variant.location
+      const variantOwner = variant.owner_type === 'store' || !variant.owner_type || !variant.consignor_id 
+        ? 'You' 
+        : (variant.consignor?.name || `Consignor ${variant.consignor_id}`)
+
+      const categoryMatch = exportFilters.categories.length === 0 || exportFilters.categories.includes(variantCategory || '')
+      const brandMatch = exportFilters.brands.length === 0 || exportFilters.brands.includes(variantBrand || '')
+      const locationMatch = exportFilters.locations.length === 0 || exportFilters.locations.includes(variantLocation || '')
+      const ownerMatch = exportFilters.owners.length === 0 || exportFilters.owners.includes(variantOwner)
+
+      return categoryMatch && brandMatch && locationMatch && ownerMatch
+    })
+
+    // Convert to CSV format
+    const headers = ['Stock', 'SKU', 'Name', 'Brand', 'Size', 'Category', 'Cost', 'Price', 'Status', 'Owner', 'Location', 'Date Added']
+    const csvData = dataToExport.map(variant => [
+      (variant as any).serial_number || '',
+      (variant as any).product?.sku || '',
+      (variant as any).product?.name || '',
+      (variant as any).product?.brand || '',
+      variant.size || '',
+      (variant as any).product?.size_category || '',
+      variant.cost_price || '',
+      (variant as any).product?.sale_price || '',
+      variant.status || '',
+      variant.owner_type === 'store' || !variant.owner_type || !variant.consignor_id 
+        ? 'You' 
+        : (variant.consignor?.name || `Consignor ${variant.consignor_id}`),
+      variant.location || '',
+      new Date(variant.created_at).toLocaleDateString()
+    ])
+
+    // Create CSV content
+    const csvContent = [headers, ...csvData]
+      .map(row => row.map(field => `"${field}"`).join(','))
+      .join('\n')
+
+    // Download CSV file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `variants_export_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    setExportModal(false)
+    // Reset filters
+    setExportFilters({
+      statuses: [],
+      categories: [],
+      owners: [],
+      locations: [],
+      brands: []
+    })
+  }
+
   // Compute size options grouped by size category
   const sizeOptionsByCategory = useMemo(() => {
     const map: Record<string, Set<string>> = {};
@@ -348,6 +462,23 @@ export function ShoesVariantsTable() {
   const toggleSelectOne = (id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
+
+  // Export filter toggle functions
+  const toggleExportFilter = (filterType: keyof typeof exportFilters, value: string) => {
+    setExportFilters(prev => ({
+      ...prev,
+      [filterType]: prev[filterType].includes(value)
+        ? prev[filterType].filter(item => item !== value)
+        : [...prev[filterType], value]
+    }))
+  }
+
+  const toggleAllExportFilters = (filterType: keyof typeof exportFilters, allOptions: string[]) => {
+    setExportFilters(prev => ({
+      ...prev,
+      [filterType]: prev[filterType].length === allOptions.length ? [] : [...allOptions]
+    }))
+  }
 
   const columns = useMemo(() => [
     // Checkbox column
@@ -835,6 +966,18 @@ export function ShoesVariantsTable() {
         </div>
         {/* Filters right, responsive */}
         <div className="flex flex-row gap-2 items-center mt-2 sm:mt-0">
+          {/* Export Button */}
+          <Button
+            size="sm"
+            onClick={handleExportClick}
+            className={`bg-black hover:bg-gray-800 text-white shrink-0 `}
+          >
+           
+            <Download className="w-4 h-4 mr-2" />
+            Export
+           
+            {userPlan === 'free' && <Star className="w-3 h-3 ml-2 fill-current" />}
+          </Button>
           {/* Size Filter with checkboxes */}
           <Popover>
             <PopoverTrigger asChild>
@@ -1140,8 +1283,132 @@ export function ShoesVariantsTable() {
       <PremiumFeatureModal
         open={showPremiumModal}
         onOpenChange={setShowPremiumModal}
-        featureName="Bulk PDF Generation"
+        featureName={premiumFeatureName}
       />
+
+      {/* Export Modal */}
+      <Dialog open={exportModal} onOpenChange={setExportModal}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Export Variants</DialogTitle>
+            <DialogDescription>
+              Select the filters for the variants you want to export. Leave categories empty to export all variants.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-6 py-4">
+            {/* Category Filter */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Size Category</label>
+              <div className="flex items-center gap-2 mb-2">
+                <Checkbox
+                  id="all-categories"
+                  checked={exportFilters.categories.length === sizeCategoryOptions.filter(c => c !== 'all').length}
+                  onCheckedChange={() => toggleAllExportFilters('categories', sizeCategoryOptions.filter(c => c !== 'all'))}
+                />
+                <label htmlFor="all-categories" className="text-sm cursor-pointer">Select All</label>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {sizeCategoryOptions.filter(category => category !== 'all').map(category => (
+                  <div key={category} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`category-${category}`}
+                      checked={exportFilters.categories.includes(category)}
+                      onCheckedChange={() => toggleExportFilter('categories', category)}
+                    />
+                    <label htmlFor={`category-${category}`} className="text-sm cursor-pointer">{category}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Owner Filter */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Owner</label>
+              <div className="flex items-center gap-2 mb-2">
+                <Checkbox
+                  id="all-owners"
+                  checked={exportFilters.owners.length === exportOwnerOptions.length}
+                  onCheckedChange={() => toggleAllExportFilters('owners', exportOwnerOptions)}
+                />
+                <label htmlFor="all-owners" className="text-sm cursor-pointer">Select All</label>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {exportOwnerOptions.map(owner => (
+                  <div key={owner} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`owner-${owner}`}
+                      checked={exportFilters.owners.includes(owner)}
+                      onCheckedChange={() => toggleExportFilter('owners', owner)}
+                    />
+                    <label htmlFor={`owner-${owner}`} className="text-sm cursor-pointer">{owner}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Location Filter */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Location</label>
+              <div className="flex items-center gap-2 mb-2">
+                <Checkbox
+                  id="all-locations"
+                  checked={exportFilters.locations.length === locationOptions.filter(l => l !== 'all').length}
+                  onCheckedChange={() => toggleAllExportFilters('locations', locationOptions.filter(l => l !== 'all'))}
+                />
+                <label htmlFor="all-locations" className="text-sm cursor-pointer">Select All</label>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {locationOptions.filter(location => location !== 'all').map(location => (
+                  <div key={location} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`location-${location}`}
+                      checked={exportFilters.locations.includes(location)}
+                      onCheckedChange={() => toggleExportFilter('locations', location)}
+                    />
+                    <label htmlFor={`location-${location}`} className="text-sm cursor-pointer">{location}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Brand Filter */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Brand</label>
+              <div className="flex items-center gap-2 mb-2">
+                <Checkbox
+                  id="all-brands"
+                  checked={exportFilters.brands.length === brandOptions.filter(b => b !== 'all').length}
+                  onCheckedChange={() => toggleAllExportFilters('brands', brandOptions.filter(b => b !== 'all'))}
+                />
+                <label htmlFor="all-brands" className="text-sm cursor-pointer">Select All</label>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {brandOptions.filter(brand => brand !== 'all').map(brand => (
+                  <div key={brand} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`brand-${brand}`}
+                      checked={exportFilters.brands.includes(brand)}
+                      onCheckedChange={() => toggleExportFilter('brands', brand)}
+                    />
+                    <label htmlFor={`brand-${brand}`} className="text-sm cursor-pointer">{brand}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleExport}>
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   )
