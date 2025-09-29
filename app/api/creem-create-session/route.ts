@@ -42,8 +42,8 @@ export async function POST(req: NextRequest) {
 
    
 
-    // CREATE the checkout session on Creem's test API
-    const creemRes = await fetch("https://test-api.creem.io/v1/checkouts", {
+    // CREATE the checkout session on Creem's production API
+    const creemRes = await fetch("https://api.creem.io/v1/checkouts", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
