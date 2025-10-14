@@ -126,10 +126,10 @@ export function CheckoutClientWrapper({
   const [discountValue, setDiscountValue] = useState<number>(0)
   const [customerName, setCustomerName] = useState<string>("")
   const [customerPhone, setCustomerPhone] = useState<string>("")
-  const [customerEmail, setCustomerEmail] = useState<string>("")
+
   const [customerType, setCustomerType] = useState<string>("regular")
-  const [customerDataForSaving, setCustomerDataForSaving] = useState<{ name: string; phone: string; email?: string; customer_type: string } | null>(null)
-  const [selectedCustomer, setSelectedCustomer] = useState<{ id: number; name: string; email: string | null; phone: string; customer_type: string } | null>(null)
+  const [customerDataForSaving, setCustomerDataForSaving] = useState<{ name: string; phone: string; customer_type: string } | null>(null)
+  const [selectedCustomer, setSelectedCustomer] = useState<{ id: number; name: string; phone: string; customer_type: string } | null>(null)
   const [paymentReceived, setPaymentReceived] = useState<number>(0)
   const [additionalCharge, setAdditionalCharge] = useState<number>(0)
   const [commissionFrom, setCommissionFrom] = useState<'total' | 'profit'>('total')
@@ -291,7 +291,6 @@ export function CheckoutClientWrapper({
       if (selectedVariants.length === 0 && selectedPreorders.length === 0) {
         setCustomerName(variant.preorderData.customer.name)
         setCustomerPhone(variant.preorderData.customer.phone || "")
-        setCustomerEmail(variant.preorderData.customer.email || "")
         setCustomerType(variant.preorderData.customer.customer_type || "regular")
       }
       
@@ -744,7 +743,6 @@ export function CheckoutClientWrapper({
             if (created?.data) {
               setCustomerName(created.data.name || finalCustomerName || "");
               setCustomerPhone(created.data.phone || finalCustomerPhone || "");
-              setCustomerEmail(created.data.email || "");
               setCustomerType(created.data.customer_type || "regular");
             }
           } else {
@@ -891,7 +889,7 @@ export function CheckoutClientWrapper({
           setSearchTerm("") // Clear search
           setCustomerName("") // Reset customer name
           setCustomerPhone("") // Reset customer phone
-          setCustomerEmail("") // Reset customer email
+
           setCustomerType("regular") // Reset customer type
           setCustomerDataForSaving(null) // Clear customer data for saving
           setPaymentReceived(0) // Reset payment received
@@ -1437,18 +1435,15 @@ export function CheckoutClientWrapper({
                       if (customer) {
                         setCustomerName(customer.name);
                         setCustomerPhone(customer.phone);
-                        setCustomerEmail(customer.email || "");
                         setCustomerType(customer.customer_type);
                       }
                     }}
                     manualCustomerName={customerName}
                     manualCustomerPhone={customerPhone}
-                    manualCustomerEmail={customerEmail}
                     manualCustomerType={customerType}
-                    onManualCustomerChange={(name, phone, email, type) => {
+                    onManualCustomerChange={(name, phone, type) => {
                       setCustomerName(name);
                       setCustomerPhone(phone);
-                      setCustomerEmail(email || "");
                       setCustomerType(type || "regular");
                       setSelectedCustomer(null);
                     }}

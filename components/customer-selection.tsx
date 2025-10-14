@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, User, UserPlus, Phone, Mail, Filter } from "lucide-react"
+import { Search, User, UserPlus, Phone, Filter } from "lucide-react"
 import { toast } from "sonner"
 
 interface Customer {
@@ -25,11 +25,10 @@ interface CustomerSelectionProps {
   onCustomerSelect: (customer: Customer | null) => void;
   manualCustomerName?: string;
   manualCustomerPhone?: string;
-  manualCustomerEmail?: string;
   manualCustomerType?: string;
-  onManualCustomerChange?: (name: string, phone: string, email?: string, customerType?: string) => void;
+  onManualCustomerChange?: (name: string, phone: string, customerType?: string) => void;
   showManualEntry?: boolean;
-  onSaveCustomer?: (customerData: { name: string; phone: string; email?: string; customer_type: string }) => void;
+  onSaveCustomer?: (customerData: { name: string; phone: string; customer_type: string }) => void;
 }
 
 export function CustomerSelection({
@@ -37,7 +36,6 @@ export function CustomerSelection({
   onCustomerSelect,
   manualCustomerName = "",
   manualCustomerPhone = "",
-  manualCustomerEmail = "",
   manualCustomerType = "regular",
   onManualCustomerChange,
   showManualEntry = true,
@@ -53,7 +51,7 @@ export function CustomerSelection({
   // Manual entry form state
   const [manualName, setManualName] = useState(manualCustomerName);
   const [manualPhone, setManualPhone] = useState(manualCustomerPhone);
-  const [manualEmail, setManualEmail] = useState(manualCustomerEmail || "");
+
   const [manualType, setManualType] = useState(manualCustomerType);
 
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
@@ -65,16 +63,14 @@ export function CustomerSelection({
   useEffect(() => {
     setManualName(manualCustomerName);
     setManualPhone(manualCustomerPhone);
-    setManualEmail(manualCustomerEmail || "");
     setManualType(manualCustomerType);
-  }, [manualCustomerName, manualCustomerPhone, manualCustomerEmail, manualCustomerType]);
+  }, [manualCustomerName, manualCustomerPhone, manualCustomerType]);
 
   useEffect(() => {
     // Filter customers based on search term and type filter
     let filtered = customers.filter(customer =>
       customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.phone.includes(searchTerm) ||
-      (customer.email && customer.email.toLowerCase().includes(searchTerm.toLowerCase()))
+      customer.phone.includes(searchTerm)
     );
 
     // Apply type filter
@@ -114,26 +110,23 @@ export function CustomerSelection({
     const customerData = {
       name: manualName.trim(),
       phone: manualPhone.trim(),
-      email: manualEmail.trim() || undefined,
       customer_type: manualType,
     };
     
     onSaveCustomer?.(customerData);
   };
 
-  const handleManualEntryChange = (name: string, phone: string, email: string = "", customerType: string = "regular") => {
+  const handleManualEntryChange = (name: string, phone: string, customerType: string = "regular") => {
     setManualName(name);
     setManualPhone(phone);
-    setManualEmail(email);
     setManualType(customerType);
-    onManualCustomerChange?.(name, phone, email, customerType);
+    onManualCustomerChange?.(name, phone, customerType);
     
     // Automatically prepare customer data for saving during checkout
     if (name.trim() && phone.trim()) {
       const customerData = {
         name: name.trim(),
         phone: phone.trim(),
-        email: email.trim() || undefined,
         customer_type: customerType,
       };
       console.log('Preparing customer data for saving:', customerData);
@@ -168,7 +161,7 @@ export function CustomerSelection({
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Search customers by name, phone, or email..."
+                placeholder="Search customers by name or phone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -214,12 +207,6 @@ export function CustomerSelection({
                             <div className="text-sm text-gray-500 flex items-center gap-2 truncate">
                               <Phone className="h-3 w-3" />
                               <span className="truncate">{customer.phone}</span>
-                              {customer.email && (
-                                <>
-                                  <Mail className="h-3 w-3 ml-2" />
-                                  <span className="ml-1 truncate">{customer.email}</span>
-                                </>
-                              )}
                             </div>
                           </div>
                         </div>
@@ -233,8 +220,7 @@ export function CustomerSelection({
               </div>
               {customers.filter(customer => {
                 let matches = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                customer.phone.includes(searchTerm) ||
-                (customer.email && customer.email.toLowerCase().includes(searchTerm.toLowerCase()));
+                customer.phone.includes(searchTerm);
                 if (customerTypeFilter !== "all") {
                   matches = matches && customer.customer_type === customerTypeFilter;
                 }
@@ -256,7 +242,7 @@ export function CustomerSelection({
             <Input
               id="manual-name"
               value={manualName}
-              onChange={(e) => handleManualEntryChange(e.target.value, manualPhone, manualEmail, manualType)}
+              onChange={(e) => handleManualEntryChange(e.target.value, manualPhone, manualType)}
               placeholder="Enter customer name"
             />
           </div>
@@ -266,26 +252,15 @@ export function CustomerSelection({
             <Input
               id="manual-phone"
               value={manualPhone}
-              onChange={(e) => handleManualEntryChange(manualName, e.target.value, manualEmail, manualType)}
+              onChange={(e) => handleManualEntryChange(manualName, e.target.value, manualType)}
               placeholder="Enter phone number"
               type="tel"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="manual-email">Email (Optional)</Label>
-            <Input
-              id="manual-email"
-              value={manualEmail}
-              onChange={(e) => handleManualEntryChange(manualName, manualPhone, e.target.value, manualType)}
-              placeholder="Enter email address"
-              type="email"
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="manual-type">Customer Type</Label>
-            <Select value={manualType} onValueChange={(value) => handleManualEntryChange(manualName, manualPhone, manualEmail, value)}>
+            <Select value={manualType} onValueChange={(value) => handleManualEntryChange(manualName, manualPhone, value)}>
               <SelectTrigger id="manual-type">
                 <SelectValue placeholder="Select customer type" />
               </SelectTrigger>
