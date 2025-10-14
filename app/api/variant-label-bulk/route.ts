@@ -3,9 +3,245 @@ import { createClient } from "@supabase/supabase-js";
 import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
 
+// Label generation functions (same as single variant route)
+function generateStoreDisplayLabel(doc: jsPDF, v: any, qrUrl: string) {
+  const LABEL_WIDTH = 90;
+  const LABEL_HEIGHT = 54;
+  const MARGIN_LEFT = 6;
+  const QR_SIZE = 20;
+  const QR_X = 64;
+  const QR_Y = 8;
+  const USERNAME_MAX_WIDTH = 48;
+  const CONTENT_MAX_WIDTH = 52;
+
+  const hasSerialNumber = v.serial_number !== null && v.serial_number !== undefined;
+  const labelSerial = hasSerialNumber ? String(v.serial_number) : "-----";
+  const sku = v.product?.sku || "-";
+  const name = v.product?.name || "-";
+  const salePrice = v.product?.sale_price || 0;
+
+  // Store name/brand at top
+  const labelBrand = v.user?.username || "FOOTVAULT";
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  const truncatedUsername = doc.splitTextToSize(labelBrand.toUpperCase(), USERNAME_MAX_WIDTH)[0];
+  doc.text(truncatedUsername, MARGIN_LEFT, 12);
+
+  // QR code top right
+  doc.addImage(qrUrl, "PNG", QR_X, QR_Y, QR_SIZE, QR_SIZE);
+
+  // Product name prominently displayed
+  let currentY = 20;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  const productLines = doc.splitTextToSize(name, CONTENT_MAX_WIDTH);
+  doc.text(productLines, MARGIN_LEFT, currentY);
+  currentY += productLines.length * 4;
+
+  // Sale price prominently displayed
+  currentY += 2;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text(`$${salePrice.toFixed(2)}`, MARGIN_LEFT, currentY);
+
+  // Size info
+  currentY += 6;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  const sizeLabel = v.size_label || "US";
+  doc.text(`Size: ${sizeLabel} ${v.size || "-"}`, MARGIN_LEFT, currentY);
+
+  // Serial number at bottom
+  doc.setFont("helvetica", "bold");
+  let serialFontSize = 48;
+  if (labelSerial.length >= 6) serialFontSize = 36;
+  doc.setFontSize(serialFontSize);
+  const serialX = (LABEL_WIDTH - doc.getTextWidth(labelSerial)) / 2;
+  doc.text(labelSerial, serialX, LABEL_HEIGHT - 8);
+}
+
+function generateInventoryLabel(doc: jsPDF, v: any, qrUrl: string) {
+  const LABEL_WIDTH = 90;
+  const LABEL_HEIGHT = 54;
+  const MARGIN_LEFT = 6;
+  const QR_SIZE = 20;
+  const QR_X = 64;
+  const QR_Y = 8;
+  const CONTENT_MAX_WIDTH = 52;
+
+  const hasSerialNumber = v.serial_number !== null && v.serial_number !== undefined;
+  const labelSerial = hasSerialNumber ? String(v.serial_number) : "-----";
+  const sku = v.product?.sku || "-";
+  const name = v.product?.name || "-";
+  const costPrice = v.cost_price || 0;
+
+  // Title
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("INVENTORY", MARGIN_LEFT, 10);
+
+  // QR code top right
+  doc.addImage(qrUrl, "PNG", QR_X, QR_Y, QR_SIZE, QR_SIZE);
+
+  // SKU
+  let currentY = 18;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.text(`SKU: ${sku}`, MARGIN_LEFT, currentY);
+
+  // Product name
+  currentY += 4;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  const productLines = doc.splitTextToSize(name, CONTENT_MAX_WIDTH);
+  doc.text(productLines, MARGIN_LEFT, currentY);
+  currentY += productLines.length * 3;
+
+  // Cost price
+  currentY += 2;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text(`Cost: $${costPrice.toFixed(2)}`, MARGIN_LEFT, currentY);
+
+  // Location
+  currentY += 4;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text(`Location: ${v.location || "Unknown"}`, MARGIN_LEFT, currentY);
+
+  // Size
+  currentY += 3;
+  const sizeLabel = v.size_label || "US";
+  doc.text(`Size: ${sizeLabel} ${v.size || "-"}`, MARGIN_LEFT, currentY);
+
+  // Serial number at bottom
+  doc.setFont("helvetica", "bold");
+  let serialFontSize = 48;
+  if (labelSerial.length >= 6) serialFontSize = 36;
+  doc.setFontSize(serialFontSize);
+  const serialX = (LABEL_WIDTH - doc.getTextWidth(labelSerial)) / 2;
+  doc.text(labelSerial, serialX, LABEL_HEIGHT - 8);
+}
+
+function generateShippingLabel(doc: jsPDF, v: any, qrUrl: string) {
+  const LABEL_WIDTH = 90;
+  const LABEL_HEIGHT = 54;
+  const MARGIN_LEFT = 6;
+  const QR_SIZE = 20;
+  const QR_X = 64;
+  const QR_Y = 8;
+  const CONTENT_MAX_WIDTH = 52;
+
+  const hasSerialNumber = v.serial_number !== null && v.serial_number !== undefined;
+  const labelSerial = hasSerialNumber ? String(v.serial_number) : "-----";
+  const sku = v.product?.sku || "-";
+  const name = v.product?.name || "-";
+
+  // Title
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("SHIPPING LABEL", MARGIN_LEFT, 10);
+
+  // QR code top right
+  doc.addImage(qrUrl, "PNG", QR_X, QR_Y, QR_SIZE, QR_SIZE);
+
+  // Item details
+  let currentY = 18;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text(`Item: ${sku}`, MARGIN_LEFT, currentY);
+
+  currentY += 3;
+  const productLines = doc.splitTextToSize(name, CONTENT_MAX_WIDTH);
+  doc.text(productLines, MARGIN_LEFT, currentY);
+  currentY += productLines.length * 3;
+
+  // Size
+  currentY += 2;
+  const sizeLabel = v.size_label || "US";
+  doc.text(`Size: ${sizeLabel} ${v.size || "-"}`, MARGIN_LEFT, currentY);
+
+  // Ship from
+  currentY += 4;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("FROM:", MARGIN_LEFT, currentY);
+  currentY += 3;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  const storeName = v.user?.username || "FOOTVAULT";
+  doc.text(storeName.toUpperCase(), MARGIN_LEFT, currentY);
+
+  // Serial number at bottom
+  doc.setFont("helvetica", "bold");
+  let serialFontSize = 48;
+  if (labelSerial.length >= 6) serialFontSize = 36;
+  doc.setFontSize(serialFontSize);
+  const serialX = (LABEL_WIDTH - doc.getTextWidth(labelSerial)) / 2;
+  doc.text(labelSerial, serialX, LABEL_HEIGHT - 8);
+}
+
+function generateConsignmentLabel(doc: jsPDF, v: any, qrUrl: string) {
+  const LABEL_WIDTH = 90;
+  const LABEL_HEIGHT = 54;
+  const MARGIN_LEFT = 6;
+  const QR_SIZE = 20;
+  const QR_X = 64;
+  const QR_Y = 8;
+  const CONTENT_MAX_WIDTH = 52;
+
+  const hasSerialNumber = v.serial_number !== null && v.serial_number !== undefined;
+  const labelSerial = hasSerialNumber ? String(v.serial_number) : "-----";
+  const sku = v.product?.sku || "-";
+  const name = v.product?.name || "-";
+  const consignorName = v.consignor?.name || "Unknown Consignor";
+
+  // Title
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("CONSIGNMENT", MARGIN_LEFT, 10);
+
+  // QR code top right
+  doc.addImage(qrUrl, "PNG", QR_X, QR_Y, QR_SIZE, QR_SIZE);
+
+  // Consignor
+  let currentY = 18;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("CONSIGNOR:", MARGIN_LEFT, currentY);
+  currentY += 4;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  const consignorLines = doc.splitTextToSize(consignorName, CONTENT_MAX_WIDTH);
+  doc.text(consignorLines, MARGIN_LEFT, currentY);
+  currentY += consignorLines.length * 3;
+
+  // Product name
+  currentY += 2;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  const productLines = doc.splitTextToSize(name, CONTENT_MAX_WIDTH);
+  doc.text(productLines, MARGIN_LEFT, currentY);
+  currentY += productLines.length * 3;
+
+  // Size
+  currentY += 2;
+  const sizeLabel = v.size_label || "US";
+  doc.text(`Size: ${sizeLabel} ${v.size || "-"}`, MARGIN_LEFT, currentY);
+
+  // Serial number at bottom
+  doc.setFont("helvetica", "bold");
+  let serialFontSize = 48;
+  if (labelSerial.length >= 6) serialFontSize = 36;
+  doc.setFontSize(serialFontSize);
+  const serialX = (LABEL_WIDTH - doc.getTextWidth(labelSerial)) / 2;
+  doc.text(labelSerial, serialX, LABEL_HEIGHT - 8);
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const idsParam = searchParams.get("ids");
+  const labelType = searchParams.get("type") || "store"; // Default to store display
   if (!idsParam) {
     return new Response("Missing ids", { status: 400 });
   }
@@ -24,8 +260,9 @@ export async function GET(req: NextRequest) {
     .from("variants")
     .select(`
       *,
-      product:products (id, name, brand, sku),
-      user:users (username)
+      product:products (id, name, brand, sku, sale_price, original_price),
+      user:users (username),
+      consignor:consignors (name)
     `)
     .in("id", ids);
 
@@ -85,65 +322,23 @@ export async function GET(req: NextRequest) {
     }
     pageAdded = true;
 
-  // Define responsive layout constants
-  const LABEL_WIDTH = 90;
-  const LABEL_HEIGHT = 54;
-  const MARGIN_LEFT = 6;
-  const QR_SIZE = 20;  // Slightly smaller QR code
-  const QR_X = 64;     // Move QR code left to give more space
-  const QR_Y = 8;      // Move QR code down slightly
-  const USERNAME_MAX_WIDTH = 48; // More space for username
-  const CONTENT_MAX_WIDTH = 52;  // More space for content
-  const MIN_BOTTOM_MARGIN = 12;  // More bottom margin for better spacing    // Reset font settings for each label to ensure consistency
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(12);
-
-    // Username at top left - clean and truncated
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12); // Smaller font size to fit longer names
-    
-    // Truncate username to fit in top left area
-    const maxUsernameWidth = USERNAME_MAX_WIDTH;
-    const truncatedUsername = doc.splitTextToSize(labelBrand.toUpperCase(), maxUsernameWidth)[0];
-    doc.text(truncatedUsername, MARGIN_LEFT, 12);
-    
-    // QR code in top right - well positioned
-    doc.addImage(qrUrl, "PNG", QR_X, QR_Y, QR_SIZE, QR_SIZE);
-    
-    // SKU below username
-    let currentY = 20;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-    doc.text(sku, MARGIN_LEFT, currentY);
-    
-    // Product name below SKU (wrap text if too long)
-    currentY += 6;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    const productLines = doc.splitTextToSize(name, CONTENT_MAX_WIDTH);
-    doc.text(productLines, MARGIN_LEFT, currentY);
-
-    // Move Y down depending on wrapped product lines
-    currentY += productLines.length * 4;
-
-    // Size info
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-    doc.text(`Size: ${sizeLabel} ${size}`, MARGIN_LEFT, currentY);
-
-    // Serial number large and centered at bottom
-    doc.setFont("helvetica", "bold");
-    let serialFontSize = 60;
-    let serialY = LABEL_HEIGHT - 8;
-
-    // Adjust font size if serial is long
-    if (labelSerial.length >= 6) {
-      serialFontSize = 48;
+    // Generate appropriate label template based on type
+    switch (labelType) {
+      case "store":
+        generateStoreDisplayLabel(doc, v, qrUrl);
+        break;
+      case "inventory":
+        generateInventoryLabel(doc, v, qrUrl);
+        break;
+      case "shipping":
+        generateShippingLabel(doc, v, qrUrl);
+        break;
+      case "consignment":
+        generateConsignmentLabel(doc, v, qrUrl);
+        break;
+      default:
+        generateStoreDisplayLabel(doc, v, qrUrl);
     }
-    doc.setFontSize(serialFontSize);
-
-    const serialX = (LABEL_WIDTH - doc.getTextWidth(labelSerial)) / 2;
-    doc.text(labelSerial, serialX, serialY);
   }
 
   const pdf = doc.output("arraybuffer");
@@ -151,7 +346,7 @@ export async function GET(req: NextRequest) {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename=variant-labels-bulk.pdf`,
+      "Content-Disposition": `inline; filename=variant-labels-${labelType}-bulk.pdf`,
     },
   });
 }

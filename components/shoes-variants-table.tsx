@@ -50,7 +50,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, Lock, Plus, Download, Star } from "lucide-react"
+import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, Lock, Plus, Download, Star, ChevronRight, Tag, Package, Truck, Users } from "lucide-react"
 import jsPDF from "jspdf"
 import QRCode from "qrcode"
 import { createClient } from "@/lib/supabase/client"
@@ -93,6 +93,8 @@ export function ShoesVariantsTable() {
     locations: [] as string[],
     brands: [] as string[]
   })
+  const [bulkLabelType, setBulkLabelType] = useState<string>('store')
+  const [showBulkLabelModal, setShowBulkLabelModal] = useState(false)
    const { currency } = useCurrency(); // Get the user's selected currency
   const currencySymbol = getCurrencySymbol(currency);
   // Stats state
@@ -178,6 +180,13 @@ export function ShoesVariantsTable() {
     window.open(`/api/variant-label?id=${encodeURIComponent(id)}`, "_blank");
   }
 
+  // Handle PDF generation with specific label type
+  const handleGeneratePdfWithType = (variant: Variant, labelType: string) => {
+    const id = (variant as any).id;
+    if (!id) return;
+    window.open(`/api/variant-label?id=${encodeURIComponent(id)}&type=${labelType}`, "_blank");
+  }
+
   // Handle bulk PDF generation with plan checking
   const handleBulkPdfGeneration = () => {
     if (userPlan === 'free') {
@@ -185,8 +194,13 @@ export function ShoesVariantsTable() {
       setShowPremiumModal(true);
       return;
     }
-    // Bulk PDF: open new tab with ids as query param
-    window.open(`/api/variant-label-bulk?ids=${selectedIds.join(',')}`, "_blank");
+    setShowBulkLabelModal(true)
+  }
+
+  // Execute bulk PDF generation with selected label type
+  const executeBulkPdfGeneration = () => {
+    window.open(`/api/variant-label-bulk?ids=${selectedIds.join(',')}&type=${bulkLabelType}`, "_blank");
+    setShowBulkLabelModal(false)
   }
 
   // For searchable size dropdown
@@ -879,10 +893,39 @@ export function ShoesVariantsTable() {
                   <Edit className="mr-2 h-4 w-4" />
                   Edit
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleGeneratePdf(variant)}>
-                  <QrCode className="mr-2 h-4 w-4" />
-                  Generate PDF
-                </DropdownMenuItem>
+                
+                {/* Label generation submenu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <QrCode className="mr-2 h-4 w-4" />
+                      Generate Label
+                      <ChevronRight className="ml-auto h-4 w-4" />
+                    </DropdownMenuItem>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="right" align="start">
+                    <DropdownMenuItem onClick={() => handleGeneratePdfWithType(variant, 'store')}>
+                      <Tag className="mr-2 h-4 w-4" />
+                      Store Display
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleGeneratePdfWithType(variant, 'inventory')}>
+                      <Package className="mr-2 h-4 w-4" />
+                      Inventory Label
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleGeneratePdfWithType(variant, 'shipping')}>
+                      <Truck className="mr-2 h-4 w-4" />
+                      Shipping Label
+                    </DropdownMenuItem>
+                    {/* Only show consignment label for consignment variants */}
+                    {variant.owner_type !== 'store' && variant.owner_type && variant.consignor_id && (
+                      <DropdownMenuItem onClick={() => handleGeneratePdfWithType(variant, 'consignment')}>
+                        <Users className="mr-2 h-4 w-4" />
+                        Consignment Label
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 <DropdownMenuItem 
                   onClick={() => setDeleteModal({ open: true, variant })}
                   className="text-red-600"
@@ -947,7 +990,7 @@ export function ShoesVariantsTable() {
             className={userPlan === 'free' ? "opacity-75" : ""}
           >
             {userPlan === 'free' && <Lock className="w-4 h-4 mr-2" />}
-            Bulk Generate PDF
+            Bulk Generate Labels
             {userPlan === 'free' && <span className="ml-1 text-xs">(Premium)</span>}
           </Button>
         </div>
@@ -1405,6 +1448,73 @@ export function ShoesVariantsTable() {
             <Button onClick={handleExport}>
               <Download className="w-4 h-4 mr-2" />
               Export CSV
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Label Type Selection Modal */}
+      <Dialog open={showBulkLabelModal} onOpenChange={setShowBulkLabelModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Label Type</DialogTitle>
+            <DialogDescription>
+              Choose the type of label to generate for {selectedIds.length} selected variants.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Label Type</label>
+              <Select value={bulkLabelType} onValueChange={setBulkLabelType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="store">
+                    <div className="flex items-center">
+                      <Tag className="mr-2 h-4 w-4" />
+                      Store Display - Shows sale price prominently
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="inventory">
+                    <div className="flex items-center">
+                      <Package className="mr-2 h-4 w-4" />
+                      Inventory - Shows cost and location details
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="shipping">
+                    <div className="flex items-center">
+                      <Truck className="mr-2 h-4 w-4" />
+                      Shipping - Includes shipping information
+                    </div>
+                  </SelectItem>
+                  {/* Only show consignment option if any selected variants are consignment variants */}
+                  {variants.some(v => 
+                    selectedIds.includes((v as any).id) && 
+                    v.owner_type !== 'store' && 
+                    v.owner_type && 
+                    v.consignor_id
+                  ) && (
+                    <SelectItem value="consignment">
+                      <div className="flex items-center">
+                        <Users className="mr-2 h-4 w-4" />
+                        Consignment - Shows consignor details
+                      </div>
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkLabelModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={executeBulkPdfGeneration}>
+              <QrCode className="w-4 h-4 mr-2" />
+              Generate Labels
             </Button>
           </DialogFooter>
         </DialogContent>
