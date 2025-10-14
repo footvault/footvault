@@ -4,7 +4,7 @@ import { cookies } from "next/headers"
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { serialNumber: string } }
+  { params }: { params: Promise<{ serialNumber: string }> }
 ) {
   try {
     console.log('=== API ROUTE HIT ===');
@@ -24,9 +24,11 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const serialNumber = decodeURIComponent(params.serialNumber)
+    // Await params to fix Next.js warning
+    const resolvedParams = await params;
+    const serialNumber = decodeURIComponent(resolvedParams.serialNumber)
     console.log('=== SCANNING FOR VALUE ===');
-    console.log('Raw serialNumber param:', params.serialNumber);
+    console.log('Raw serialNumber param:', resolvedParams.serialNumber);
     console.log('Decoded serialNumber:', serialNumber);
 
     // Determine if the scanned value is a UUID (variant ID) or a number (serial number)
