@@ -34,6 +34,7 @@ interface ScannedVariant {
   consignorName?: string;
   consignorCommissionRate?: number;
   scannedAt: Date;
+  scanId: string; // Unique identifier for each scan instance
 }
 
 interface QRCheckoutScannerProps {
@@ -66,7 +67,9 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
     variant?: ScannedVariant;
   } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
   const scanCountRef = useRef(0);
+  const scannedSerialNumbersRef = useRef<Set<string>>(new Set()); // Track scanned serial numbers
 
   // Keep input focused when in scanner mode
   useEffect(() => {
@@ -74,7 +77,6 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
       const focusInput = () => {
         const input = document.querySelector('input[autoFocus]') as HTMLInputElement;
         if (input && document.activeElement !== input) {
-          console.log('Focusing input via useEffect');
           input.focus();
         }
       };
@@ -102,17 +104,9 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
 
   // Process scanned value (works for both camera and manual input)
   const processScannedValue = async (scannedValue: string) => {
-    scanCountRef.current += 1;
-    console.log(`=== SCAN #${scanCountRef.current} ===`);
-    console.log('Value:', scannedValue);
-    console.log('isProcessing:', isProcessing);
-    
     if (isProcessing || !scannedValue.trim()) {
-      console.log('Skipping - already processing or empty value');
       return;
     }
-    
-    console.log('Processing scan...');
     setIsProcessing(true);
     
     try {
@@ -120,14 +114,11 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
       setLastScanResult(null);
 
 
-      // Check if already scanned in current batch
-      const alreadyScanned = scannedBatch.find(v => 
-        v.serialNumber === scannedValue || v.id === scannedValue
-      );
-      if (alreadyScanned) {
+      // Check if already scanned in current batch using ref to avoid race conditions
+      if (scannedSerialNumbersRef.current.has(scannedValue)) {
         setLastScanResult({
           type: 'duplicate',
-          message: `Item already on the list`,
+          message: `Item already in the list`,
         });
         setIsProcessing(false);
         return;
@@ -181,9 +172,13 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
       // Valid variant - add to batch
       const scannedVariant: ScannedVariant = {
         ...variant,
-        scannedAt: new Date()
+        scannedAt: new Date(),
+        scanId: `${variant.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` // Unique scan identifier
       };
 
+      // Add to scanned serial numbers ref to prevent duplicates
+      scannedSerialNumbersRef.current.add(scannedValue);
+      
       setScannedBatch(prev => [...prev, scannedVariant]);
       setLastScanResult({
         type: 'success',
@@ -206,7 +201,6 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
       });
     } finally {
       // Always reset processing state, even if there's an error
-      console.log('Scan processing complete, resetting isProcessing');
       setIsProcessing(false);
     }
   };
@@ -223,13 +217,11 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
   // Handle manual input changes (auto-process for handheld scanner)
   const handleManualInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    console.log('Input change:', value, 'Length:', value.length, 'isProcessing:', isProcessing);
     setManualInput(value);
     
     // Clear any previous timeout to avoid processing partial scans
     if (scannerTimeoutRef.current) {
       clearTimeout(scannerTimeoutRef.current);
-      console.log('Cleared previous timeout');
     }
 
     // Clear any previous error messages when new input starts
@@ -241,26 +233,20 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
     if (value.trim() && scannerType === 'manual') {
       // Capture the current value for processing
       const valueToProcess = value.trim();
-      console.log('Setting timeout for:', valueToProcess);
       
       // Longer delay to ensure complete scan capture and avoid partial processing
       scannerTimeoutRef.current = setTimeout(async () => {
-        console.log('Timeout fired for:', valueToProcess);
         // Process the captured value directly (don't compare with current state)
         if (valueToProcess) {
           await processScannedValue(valueToProcess);
-          console.log('Clearing input after processing');
           setManualInput(''); // Clear after processing
           
           // Refocus the input field for next scan
           setTimeout(() => {
             const input = document.querySelector('input[autoFocus]') as HTMLInputElement;
             if (input) {
-              console.log('Refocusing input after processing');
               input.focus();
               input.click(); // Also click to ensure it's really focused
-            } else {
-              console.log('Could not find input field to refocus');
             }
           }, 200); // Increased delay to ensure DOM is ready
         }
@@ -288,7 +274,6 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
           // Ensure input stays focused for next scan
           setTimeout(() => {
             const input = e.target as HTMLInputElement;
-            console.log('Refocusing input after Enter key processing');
             input.focus();
             input.click();
           }, 200);
@@ -298,17 +283,19 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
   };
 
   const handleScanError = (error: unknown) => {
-    // Only log actual errors, not routine scanning messages
-    if (error && typeof error === 'object' && 'message' in error) {
-      const errorMessage = (error as Error).message;
-      if (!errorMessage.includes("No QR code found") && !errorMessage.includes("Camera not found")) {
-        console.log("QR scan error:", errorMessage);
-      }
-    }
+    // Handle QR scanner errors silently for common issues
+    // Only handle unexpected errors if needed for debugging
   };
 
   // Remove item from batch
   const removeFromBatch = (variantId: string) => {
+    // Find the variant to get its serial number
+    const variantToRemove = scannedBatch.find(v => v.id === variantId);
+    if (variantToRemove) {
+      // Remove from scanned serial numbers ref
+      scannedSerialNumbersRef.current.delete(variantToRemove.serialNumber);
+    }
+    
     setScannedBatch(prev => prev.filter(v => v.id !== variantId));
     toast.success("Removed from scan batch");
   };
@@ -322,11 +309,17 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
 
     onBatchComplete(scannedBatch);
     toast.success(`Added ${scannedBatch.length} items to cart`);
+    
+    // Clear the scanned serial numbers ref
+    scannedSerialNumbersRef.current.clear();
+    
     onClose();
   };
 
   // Cancel and close
   const handleCancel = () => {
+    // Clear the scanned serial numbers ref
+    scannedSerialNumbersRef.current.clear();
     onClose();
   };
 
@@ -381,6 +374,12 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
             >
               <ScanLine className="h-4 w-4" />
               Scanner
+                            {scannerType === 'manual' && (
+                <div className={`w-2 h-2 rounded-full ${
+                  inputFocused ? 'bg-green-400' : 'bg-red-400'
+                }`} />
+              )}
+
             </Button>
             <Button
               variant={scannerType === 'camera' ? 'default' : 'outline'}
@@ -395,10 +394,7 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
               <Camera className="h-4 w-4" />
               Camera
             </Button>
-            
-
           </div>
-          
 
         </CardHeader>
 
@@ -470,7 +466,6 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
                 <div 
                   className="py-8 relative min-h-[320px] cursor-pointer"
                   onClick={() => {
-                    console.log('Scanner area clicked, focusing input');
                     const input = document.querySelector('input[autoFocus]') as HTMLInputElement;
                     if (input) {
                       input.focus();
@@ -479,13 +474,28 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
                   }}
                 >
                   <div className="text-center mb-6">
-                    <ScanLine className={`h-12 w-12 mx-auto mb-4 ${isProcessing ? 'text-blue-600 animate-pulse' : 'text-blue-500'}`} />
+                    <div className="relative">
+                      <ScanLine className={`h-12 w-12 mx-auto mb-4 ${isProcessing ? 'text-blue-600 animate-pulse' : 'text-blue-500'}`} />
+                      
+                      
+                    </div>
+                    
                     <p className="text-gray-600 font-medium">
                       {isProcessing ? 'Processing...' : 'Scanner Ready'}
                     </p>
-                    <p className="text-sm text-gray-500">
-                      {isProcessing ? 'Please wait' : 'Point scanner at items to add them'}
-                    </p>
+                    
+                    {/* Status-based instructions */}
+                    {isProcessing ? (
+                      <p className="text-sm text-gray-500">Please wait</p>
+                    ) : !inputFocused ? (
+                      <p className="text-sm text-orange-600 font-medium">
+                        Click here to activate
+                      </p>
+                    ) : (
+                      <p className="text-sm text-green-600">
+                        Ready to scan items
+                      </p>
+                    )}
                   </div>
                   
                   {/* Show recent scans in scanner interface */}
@@ -519,9 +529,9 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
                     value={manualInput}
                     onChange={handleManualInputChange}
                     onKeyDown={handleManualKeyPress}
-                    onFocus={() => console.log('Input focused')}
+                    onFocus={() => setInputFocused(true)}
                     onBlur={() => {
-                      console.log('Input lost focus - refocusing in 100ms');
+                      setInputFocused(false);
                       setTimeout(() => {
                         const input = document.querySelector('input[autoFocus]') as HTMLInputElement;
                         if (input && scannerType === 'manual' && !isProcessing) {
@@ -585,7 +595,7 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
               ) : (
                 <div className="p-4 space-y-3">
                   {scannedBatch.map((variant) => (
-                    <div key={variant.id} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
+                    <div key={variant.scanId} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
                       <div className="w-12 h-12 relative rounded overflow-hidden flex-shrink-0">
                         <Image
                           src={variant.productImage || "/placeholder.svg"}
