@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import CallToAction from '@/components/CallToAction';
 import Footer from '@/components/Footer';
 import { AuthButton } from "@/components/auth-button";
+import { DiscordBanner } from "@/components/discord-banner";
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -19,9 +20,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function QRCodesPage() {
+export default function QRScannerPage() {
   return (
     <div className="min-h-screen bg-background">
+      {/* Discord Banner */}
+      <DiscordBanner />
+      
       {/* Navbar */}
       <nav className="w-full border-b border-b-foreground/10 h-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">

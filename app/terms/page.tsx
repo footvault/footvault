@@ -2,10 +2,14 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Footer from '@/components/Footer';
 import { AuthButton } from "@/components/auth-button";
+import { DiscordBanner } from "@/components/discord-banner";
 
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 dark:from-gray-950 dark:to-slate-900">
+      {/* Discord Banner */}
+      <DiscordBanner />
+      
       {/* Navbar */}
       <nav className="w-full border-b border-b-foreground/10 h-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">

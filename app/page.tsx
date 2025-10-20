@@ -1,6 +1,7 @@
 import { AuthButton } from "@/components/auth-button";
 import { Hero } from "@/components/hero";
 import { Metadata } from "next";
+import { DiscordBanner } from "@/components/discord-banner";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -107,6 +108,9 @@ export default async function Home() {
       />
       
       <div className="flex-1 w-full flex flex-col">
+        {/* Discord Banner */}
+        <DiscordBanner />
+
         {/* ✅ Responsive Navbar */}
         <nav className="w-full border-b border-b-foreground/10 h-16">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">

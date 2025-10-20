@@ -1,4 +1,4 @@
-import { ArrowLeft, TrendingUp, Users, CreditCard, BarChart } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, TrendingUp, Calendar, Users, DollarSign, BarChart3, CreditCard } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import CallToAction from '@/components/CallToAction';
 import Footer from '@/components/Footer';
 import { AuthButton } from "@/components/auth-button";
+import { DiscordBanner } from "@/components/discord-banner";
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -22,6 +23,9 @@ export const metadata: Metadata = {
 export default function SalesPage() {
   return (
     <div className="min-h-screen bg-background">
+      {/* Discord Banner */}
+      <DiscordBanner />
+      
       {/* Navbar */}
       <nav className="w-full border-b border-b-foreground/10 h-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
@@ -172,7 +176,7 @@ export default function SalesPage() {
         <div className="grid md:grid-cols-3 gap-8 mb-20">
           <div className="text-center p-6">
             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mx-auto mb-4">
-              <BarChart className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <BarChart3 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
             </div>
             <h3 className="font-semibold mb-2">Avatar Profit Distribution</h3>
             <p className="text-sm text-muted-foreground">See profit breakdown by team members</p>
