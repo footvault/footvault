@@ -25,6 +25,7 @@ import { createClient } from "@/lib/supabase/client"
 import { toast } from "@/hooks/use-toast"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
+import { getNextSerialNumber } from "@/lib/utils/serial-number-generator"
 
 interface Preorder {
   id: number;
@@ -726,50 +727,49 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
       if (!variantId) {
         console.log('Creating variant for pre-order:', preorder);
         
-        // Get the highest serial_number for this user to continue numbering
-        const { data: maxSerialData, error: maxSerialError } = await supabase
-          .from("variants")
-          .select("serial_number")
-          .eq("user_id", user.id)
-          .order("serial_number", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        // Use the sequential serial number approach
+        try {
+          // Get the next sequential serial number
+          const serialNumber = await getNextSerialNumber(user.id, supabase);
+          
+          const variantInsert = {
+            id: crypto.randomUUID(), // Generate UUID for the id field
+            product_id: preorder.product_id,
+            size: preorder.size,
+            size_label: preorder.size_label,
+            serial_number: serialNumber, // Use sequential serial number
+            variant_sku: `${preorder.product.sku}-${preorder.size || 'NOSIZE'}-${serialNumber}`,
+            cost_price: preorder.cost_price,
+            status: 'Available', // Will be changed to 'Sold' after sale
+            user_id: user.id,
+            date_added: new Date().toISOString().slice(0, 10), // YYYY-MM-DD format
+            location: 'Store', // Default location for pre-order variants
+            type: 'Pre-order', // Mark as Pre-order type
+            notes: `Created from pre-order #${preorder.id}`
+          };
 
-        let nextSerial = 1;
-        if (!maxSerialError && maxSerialData && maxSerialData.serial_number) {
-          const last = parseInt(maxSerialData.serial_number, 10);
-          nextSerial = isNaN(last) ? 1 : last + 1;
+          const { data: variantData, error: variantError } = await supabase
+            .from('variants')
+            .insert([variantInsert])
+            .select('*')
+            .single();
+
+          if (variantError) {
+            console.error('Error creating variant:', variantError);
+            throw variantError;
+          }
+          
+          if (!variantData) {
+            throw new Error('Failed to create variant - no data returned');
+          }
+          
+          // assign variantId while variantData is still in scope
+          variantId = variantData.id;
+          console.log('Created variant with ID:', variantId);
+        } catch (error: any) {
+          console.error('Failed to create variant:', error);
+          throw error;
         }
-        
-        const variantInsert = {
-          id: crypto.randomUUID(), // Generate UUID for the id field
-          product_id: preorder.product_id,
-          size: preorder.size,
-          size_label: preorder.size_label,
-          serial_number: nextSerial, // Use numeric serial number
-          variant_sku: `${preorder.product.sku}-${preorder.size || 'NOSIZE'}-${nextSerial}`,
-          cost_price: preorder.cost_price,
-          status: 'Available', // Will be changed to 'Sold' after sale
-          user_id: user.id,
-          date_added: new Date().toISOString().slice(0, 10), // YYYY-MM-DD format
-          location: 'Store', // Default location for pre-order variants
-          type: 'Pre-order', // Mark as Pre-order type
-          notes: `Created from pre-order #${preorder.id}`
-        };
-
-        const { data: variantData, error: variantError } = await supabase
-          .from('variants')
-          .insert([variantInsert])
-          .select('*')
-          .single();
-
-        if (variantError) {
-          console.error('Error creating variant:', variantError);
-          throw variantError;
-        }
-
-        variantId = variantData.id;
-        console.log('Created variant with ID:', variantId);
       }
 
       // Get the next sales number

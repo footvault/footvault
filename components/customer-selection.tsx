@@ -18,6 +18,11 @@ interface Customer {
   email: string | null;
   phone: string;
   customer_type: string;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip_code?: string | null;
+  country?: string | null;
 }
 
 interface CustomerSelectionProps {

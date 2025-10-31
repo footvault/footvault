@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Search, Plus, X, DollarSign, Loader2, CheckCircle, User } from "lucide-react"
+import { Search, Plus, X, DollarSign, Loader2, CheckCircle, User, MapPin } from "lucide-react"
 import Image from "next/image"
 import { CheckoutCart } from "@/components/checkout-cart"
 import { CustomerSelection } from "@/components/customer-selection"
@@ -27,6 +27,10 @@ import { ReceiptGenerator } from "@/components/receipt-generator"
 import { useRouter } from "next/navigation"
 import { useCurrency } from "@/context/CurrencyContext"
 import { formatCurrency } from "@/lib/utils/currency"
+import { Switch } from "@/components/ui/switch"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
 
 interface TransformedVariant {
   id: string
@@ -149,9 +153,51 @@ export function CheckoutClientWrapper({
   const [pendingProfitDistribution, setPendingProfitDistribution] = useState<
     { avatarId: string; percentage: number; amount: number }[]
   >([])
+  
+  // Shipping-related state
+  const [shippingMode, setShippingMode] = useState(false)
+  const [shippingDetails, setShippingDetails] = useState({
+    customerName: '',
+    customerPhone: '',
+    customerEmail: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: 'Philippines',
+    downPaymentAmount: 0,
+    shippingNotes: ''
+  })
+  const [showShippingForm, setShowShippingForm] = useState(false)
+  
   const router = useRouter()
 
   const { currency } = useCurrency(); // Get the user's selected currency
+
+  // Auto-fill shipping details when customer is selected or manual info changes
+  useEffect(() => {
+    if (selectedCustomer) {
+      // Pre-fill from selected customer
+      setShippingDetails(prev => ({
+        ...prev,
+        customerName: selectedCustomer.name || '',
+        customerPhone: selectedCustomer.phone || '',
+        customerEmail: (selectedCustomer as any).email || '',
+        address: (selectedCustomer as any).address || '',
+        city: (selectedCustomer as any).city || '',
+        state: (selectedCustomer as any).state || '',
+        zipCode: (selectedCustomer as any).zip_code || '',
+        country: (selectedCustomer as any).country || 'Philippines'
+      }))
+    } else if (customerName || customerPhone) {
+      // Pre-fill from manual customer entry
+      setShippingDetails(prev => ({
+        ...prev,
+        customerName: customerName || '',
+        customerPhone: customerPhone || ''
+      }))
+    }
+  }, [selectedCustomer, customerName, customerPhone])
 
   const availableVariants = useMemo(() => {
     const selectedIds = new Set(selectedVariants.map((v) => v.id))
@@ -710,15 +756,35 @@ export function CheckoutClientWrapper({
       // --- END CONSOLE LOG ---
 
       // Use pre-order customer info if available, otherwise use selected customer or manual input
-      const finalCustomerName = preorderCustomerInfo?.name || selectedCustomer?.name || customerName;
-      const finalCustomerPhone = preorderCustomerInfo?.phone || selectedCustomer?.phone || customerPhone || null;
+      // In shipping mode, prioritize shipping details for customer info
+      const finalCustomerName = shippingMode 
+        ? shippingDetails.customerName 
+        : (preorderCustomerInfo?.name || selectedCustomer?.name || customerName);
+      const finalCustomerPhone = shippingMode 
+        ? shippingDetails.customerPhone 
+        : (preorderCustomerInfo?.phone || selectedCustomer?.phone || customerPhone || null);
       let finalCustomerId = selectedCustomer?.id || null;
 
-      // If we don't have a selected customer but we have manual customer data prepared,
+      // If we don't have a selected customer but we have customer data (manual entry or shipping details),
       // create the customer first so we can link the sale to that customer.
-      if (!finalCustomerId && customerDataForSaving) {
+      const needsCustomerCreation = !finalCustomerId && (customerDataForSaving || (shippingMode && shippingDetails.customerName.trim()));
+      
+      if (needsCustomerCreation) {
         try {
-          console.log('Creating customer before recording sale:', customerDataForSaving);
+          // Prepare customer data for creation
+          const customerData = customerDataForSaving || {
+            name: shippingDetails.customerName,
+            phone: shippingDetails.customerPhone || null,
+            email: shippingDetails.customerEmail || null,
+            address: shippingDetails.address || null,
+            city: shippingDetails.city || null,
+            state: shippingDetails.state || null,
+            zip_code: shippingDetails.zipCode || null,
+            country: shippingDetails.country || 'Philippines',
+            customer_type: 'regular'
+          };
+
+          console.log('Creating customer before recording sale:', customerData);
           const { createClient } = await import("@/lib/supabase/client");
           const supabase = createClient();
           const { data: { session } } = await supabase.auth.getSession();
@@ -729,7 +795,7 @@ export function CheckoutClientWrapper({
               'Content-Type': 'application/json',
               Authorization: `Bearer ${session?.access_token || ""}`,
             },
-            body: JSON.stringify(customerDataForSaving),
+            body: JSON.stringify(customerData),
           });
 
           if (createRes.ok) {
@@ -741,9 +807,12 @@ export function CheckoutClientWrapper({
             setCustomerDataForSaving(null);
             // update local fields
             if (created?.data) {
-              setCustomerName(created.data.name || finalCustomerName || "");
-              setCustomerPhone(created.data.phone || finalCustomerPhone || "");
-              setCustomerType(created.data.customer_type || "regular");
+              if (!shippingMode) {
+                // Only update manual fields if not in shipping mode
+                setCustomerName(created.data.name || finalCustomerName || "");
+                setCustomerPhone(created.data.phone || finalCustomerPhone || "");
+                setCustomerType(created.data.customer_type || "regular");
+              }
             }
           } else {
             const txt = await createRes.text();
@@ -771,13 +840,25 @@ export function CheckoutClientWrapper({
         netProfit,
         items,
         profitDistribution,
-  customerName: finalCustomerName, // Use pre-order customer name if available
-  customerPhone: finalCustomerPhone, // Use pre-order customer phone if available
-  customerId: finalCustomerId, // now created (if needed) before sale
+        customerName: finalCustomerName, // Use pre-order customer name if available
+        customerPhone: finalCustomerPhone, // Use pre-order customer phone if available
+        customerId: finalCustomerId, // now created (if needed) before sale
         paymentType: paymentTypeJson, // Save as JSONB
-        paymentReceived,
-        changeAmount,
+        paymentReceived: shippingMode ? shippingDetails.downPaymentAmount : paymentReceived,
+        changeAmount: shippingMode ? 0 : changeAmount,
         additionalCharge,
+        // Shipping-related fields
+        ...(shippingMode && {
+          status: 'pending',
+          shippingAddress: shippingDetails.address,
+          shippingCity: shippingDetails.city,
+          shippingState: shippingDetails.state,
+          shippingZip: shippingDetails.zipCode,
+          shippingCountry: shippingDetails.country,
+          shippingNotes: shippingDetails.shippingNotes,
+          downPayment: shippingDetails.downPaymentAmount,
+          remainingBalance: totalAmount - shippingDetails.downPaymentAmount
+        })
       }
 
       try {
@@ -879,8 +960,10 @@ export function CheckoutClientWrapper({
           }
 
           toast({
-            title: "Sale Recorded Successfully!",
-            description: `Sale of $${totalAmount.toFixed(2)} completed.`,
+            title: shippingMode ? "Down Payment Recorded!" : "Sale Recorded Successfully!",
+            description: shippingMode 
+              ? `Down payment of ${formatCurrency(shippingDetails.downPaymentAmount, currency)} recorded. Sale is pending completion.`
+              : `Sale of ${formatCurrency(totalAmount, currency)} completed.`,
           })
           setCompletedSaleId(result.saleId) // Store the sale ID
           setSelectedVariants([]) // Clear cart
@@ -894,6 +977,23 @@ export function CheckoutClientWrapper({
           setCustomerDataForSaving(null) // Clear customer data for saving
           setPaymentReceived(0) // Reset payment received
           setAdditionalCharge(0) // Reset additional charge
+          
+          // Reset shipping form
+          if (shippingMode) {
+            setShippingMode(false)
+            setShippingDetails({
+              customerName: '',
+              customerPhone: '',
+              customerEmail: '',
+              address: '',
+              city: '',
+              state: '',
+              zipCode: '',
+              country: 'Philippines',
+              downPaymentAmount: 0,
+              shippingNotes: ''
+            })
+          }
           setShowConfirmSaleModal(false) // Close confirmation modal
           setShowSaleSuccessModal(true) // Show success modal
 
@@ -970,6 +1070,45 @@ export function CheckoutClientWrapper({
         variant: "destructive",
       })
       return
+    }
+
+    // Validate shipping mode requirements
+    if (shippingMode) {
+      if (shippingDetails.downPaymentAmount <= 0) {
+        toast({
+          title: "Down Payment Required",
+          description: "Please enter a valid down payment amount for shipping orders.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (!shippingDetails.address.trim()) {
+        toast({
+          title: "Shipping Address Required",
+          description: "Please enter a shipping address for shipping orders.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (!shippingDetails.customerName.trim()) {
+        toast({
+          title: "Customer Name Required",
+          description: "Please enter a customer name for shipping orders.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (shippingDetails.downPaymentAmount > totalAmount) {
+        toast({
+          title: "Invalid Down Payment",
+          description: "Down payment cannot exceed the total amount.",
+          variant: "destructive",
+        })
+        return
+      }
     }
 
     // Check if consignment splits are valid
@@ -2020,6 +2159,82 @@ export function CheckoutClientWrapper({
                   <span>Store Profit {selectedVariants.some(v => v.ownerType === 'consignor') ? '(for team distribution)' : ''}</span>
                   <span className={netProfit < 0 ? "text-red-600" : "text-green-600"}>{formatCurrency(netProfit, currency)}</span>
                 </div>
+
+                {/* Shipping Toggle */}
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <Label htmlFor="shipping-toggle" className="text-sm font-medium">
+                      Shipping Order
+                    </Label>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="shipping-toggle"
+                        checked={shippingMode}
+                        onCheckedChange={setShippingMode}
+                      />
+                    </div>
+                  </div>
+                  
+                  {shippingMode && (
+                    <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex justify-between items-start">
+                        <p className="text-sm text-blue-700 font-medium">
+                          Shipping Mode: Customer will pay down payment now, remaining balance on delivery
+                        </p>
+                        {selectedCustomer && (
+                          <Badge variant="secondary" className="text-xs">
+                            Pre-filled from {selectedCustomer.name}
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      {/* Down Payment Input */}
+                      <div>
+                        <Label htmlFor="down-payment" className="text-sm">
+                          Down Payment Amount
+                        </Label>
+                        <Input
+                          id="down-payment"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max={totalAmount}
+                          value={shippingDetails.downPaymentAmount || ""}
+                          onChange={(e) => setShippingDetails(prev => ({ 
+                            ...prev, 
+                            downPaymentAmount: parseFloat(e.target.value) || 0 
+                          }))}
+                          placeholder="Enter down payment amount"
+                          className="mt-1"
+                        />
+                        <p className="text-xs text-gray-600 mt-1">
+                          Remaining: {formatCurrency(totalAmount - shippingDetails.downPaymentAmount, currency)}
+                        </p>
+                      </div>
+
+                      {/* Shipping Details Button */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowShippingForm(true)}
+                        className="w-full"
+                      >
+                        <MapPin className="h-4 w-4 mr-2" />
+                        {shippingDetails.address ? 'Edit' : 'Add'} Shipping Details
+                      </Button>
+                      
+                      {shippingDetails.address && (
+                        <div className="text-sm text-gray-600 bg-white p-3 rounded border">
+                          <p className="font-medium">{shippingDetails.customerName || 'No Name'}</p>
+                          <p>{shippingDetails.address}</p>
+                          <p>{shippingDetails.city}, {shippingDetails.state} {shippingDetails.zipCode}</p>
+                          <p>{shippingDetails.country}</p>
+                          {shippingDetails.customerPhone && <p>Phone: {shippingDetails.customerPhone}</p>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -2108,10 +2323,205 @@ export function CheckoutClientWrapper({
               profitTemplates={profitTemplates}
               onRecordSale={(profitDistribution) => Promise.resolve(handleRecordSaleClick(profitDistribution))}
               isRecordingSale={isConfirmingSale}
+              shippingMode={shippingMode}
+              downPaymentAmount={shippingDetails.downPaymentAmount}
             />
           </div>
         </div>
       </div>
+
+      {/* Shipping Details Modal */}
+      <Dialog open={showShippingForm} onOpenChange={setShowShippingForm}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Shipping Details</DialogTitle>
+            <DialogDescription>
+              {selectedCustomer 
+                ? `Shipping details pre-filled from ${selectedCustomer.name}. You can modify as needed.`
+                : "Enter the shipping address and contact information for this order."
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="ship-name">Full Name</Label>
+                <Input
+                  id="ship-name"
+                  value={shippingDetails.customerName}
+                  onChange={(e) => setShippingDetails(prev => ({ 
+                    ...prev, 
+                    customerName: e.target.value 
+                  }))}
+                  placeholder="Recipient's full name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="ship-phone">Phone Number</Label>
+                <Input
+                  id="ship-phone"
+                  value={shippingDetails.customerPhone}
+                  onChange={(e) => setShippingDetails(prev => ({ 
+                    ...prev, 
+                    customerPhone: e.target.value 
+                  }))}
+                  placeholder="Contact number"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <Label htmlFor="ship-email">Email (Optional)</Label>
+              <Input
+                id="ship-email"
+                type="email"
+                value={shippingDetails.customerEmail}
+                onChange={(e) => setShippingDetails(prev => ({ 
+                  ...prev, 
+                  customerEmail: e.target.value 
+                }))}
+                placeholder="Email address"
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="ship-address">Street Address</Label>
+              <Input
+                id="ship-address"
+                value={shippingDetails.address}
+                onChange={(e) => setShippingDetails(prev => ({ 
+                  ...prev, 
+                  address: e.target.value 
+                }))}
+                placeholder="House number, street name"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="ship-city">City</Label>
+                <Input
+                  id="ship-city"
+                  value={shippingDetails.city}
+                  onChange={(e) => setShippingDetails(prev => ({ 
+                    ...prev, 
+                    city: e.target.value 
+                  }))}
+                  placeholder="City"
+                />
+              </div>
+              <div>
+                <Label htmlFor="ship-state">State/Province</Label>
+                <Input
+                  id="ship-state"
+                  value={shippingDetails.state}
+                  onChange={(e) => setShippingDetails(prev => ({ 
+                    ...prev, 
+                    state: e.target.value 
+                  }))}
+                  placeholder="State or Province"
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="ship-zip">Zip Code</Label>
+                <Input
+                  id="ship-zip"
+                  value={shippingDetails.zipCode}
+                  onChange={(e) => setShippingDetails(prev => ({ 
+                    ...prev, 
+                    zipCode: e.target.value 
+                  }))}
+                  placeholder="Postal code"
+                />
+              </div>
+              <div>
+                <Label htmlFor="ship-country">Country</Label>
+                <Input
+                  id="ship-country"
+                  value={shippingDetails.country}
+                  onChange={(e) => setShippingDetails(prev => ({ 
+                    ...prev, 
+                    country: e.target.value 
+                  }))}
+                  placeholder="Country"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <Label htmlFor="ship-notes">Shipping Notes (Optional)</Label>
+              <Textarea
+                id="ship-notes"
+                value={shippingDetails.shippingNotes}
+                onChange={(e) => setShippingDetails(prev => ({ 
+                  ...prev, 
+                  shippingNotes: e.target.value 
+                }))}
+                placeholder="Special delivery instructions..."
+                rows={3}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowShippingForm(false)}>
+              Cancel
+            </Button>
+            {selectedCustomer && (
+              <Button 
+                variant="secondary" 
+                onClick={async () => {
+                  // Update customer address
+                  try {
+                    const { createClient } = await import("@/lib/supabase/client");
+                    const supabase = createClient();
+                    const { data: { session } } = await supabase.auth.getSession();
+
+                    const updateRes = await fetch('/api/customers/list', {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${session?.access_token || ""}`,
+                      },
+                      body: JSON.stringify({
+                        id: selectedCustomer.id,
+                        name: shippingDetails.customerName,
+                        phone: shippingDetails.customerPhone,
+                        email: shippingDetails.customerEmail,
+                        address: shippingDetails.address,
+                        city: shippingDetails.city,
+                        state: shippingDetails.state,
+                        zip_code: shippingDetails.zipCode,
+                        country: shippingDetails.country,
+                        customer_type: selectedCustomer.customer_type
+                      }),
+                    });
+
+                    if (updateRes.ok) {
+                      toast({
+                        title: "Customer Updated",
+                        description: "Customer address has been updated with shipping details.",
+                      });
+                    }
+                  } catch (error) {
+                    console.error('Error updating customer:', error);
+                  }
+                  setShowShippingForm(false);
+                }}
+              >
+                Save & Update Customer
+              </Button>
+            )}
+            <Button onClick={() => setShowShippingForm(false)}>
+              Save Shipping Details
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

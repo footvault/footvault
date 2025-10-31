@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
-import { MoreHorizontal, Eye, Trash2, RotateCcw, Filter, X, Search, Printer, Download, Star, Lock } from "lucide-react"
+import { MoreHorizontal, Eye, Trash2, RotateCcw, Filter, X, Search, Printer, Download, Star, Lock, Check } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -40,9 +40,11 @@ interface SalesListProps {
   sales: Sale[]
   onRefunded?: () => void
   onDeleted?: () => void
+  onCompleted?: () => void
+  onVoided?: () => void
 }
 
-const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) => {
+const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onCompleted, onVoided }) => {
   const { currency } = useCurrency()
   const { formatDateInTimezone } = useTimezone()
   const { toast } = useToast()
@@ -55,6 +57,9 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
   const [isRefunding, setIsRefunding] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [saleToComplete, setSaleToComplete] = useState<string | null>(null)
+  const [saleToVoid, setSaleToVoid] = useState<string | null>(null)
   
   // Receipt generation state
   const [receiptSaleId, setReceiptSaleId] = useState<string | null>(null)
@@ -682,6 +687,150 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
     }
   }
 
+  // Handler for completing pending sales
+  const handleCompleteSale = async (saleId: string) => {
+    setIsUpdating(true);
+    
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
+      // Get the sale details
+      const { data: sale, error: saleError } = await supabase
+        .from('sales')
+        .select('*')
+        .eq('id', saleId)
+        .single();
+
+      if (saleError) throw saleError;
+
+      if (sale.status !== 'pending') {
+        toast({
+          title: "Invalid Action",
+          description: "This sale is not in pending status.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update sale to completed status
+      const { error: updateError } = await supabase
+        .from('sales')
+        .update({ 
+          status: 'completed',
+          payment_received: sale.total_amount,
+          remaining_balance: 0,
+          change_amount: 0
+        })
+        .eq('id', saleId);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Sale Completed",
+        description: "The remaining balance has been collected and the sale is now complete.",
+      });
+
+      // Refresh the sales list
+      if (onCompleted) {
+        await onCompleted();
+      }
+
+    } catch (error) {
+      console.error('Error completing sale:', error);
+      toast({
+        title: "Error",
+        description: "Failed to complete sale. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Handler for voiding pending sales (refund down payment)
+  const handleVoidPendingSale = async (saleId: string) => {
+    setIsUpdating(true);
+    
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
+      // Get the sale details
+      const { data: sale, error: saleError } = await supabase
+        .from('sales')
+        .select('*')
+        .eq('id', saleId)
+        .single();
+
+      if (saleError) throw saleError;
+
+      if (sale.status !== 'pending') {
+        toast({
+          title: "Invalid Action", 
+          description: "This sale is not in pending status.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update sale to voided status
+      const { error: updateError } = await supabase
+        .from('sales')
+        .update({ 
+          status: 'voided'
+        })
+        .eq('id', saleId);
+
+      if (updateError) throw updateError;
+
+      // Return variants to available status
+      const { data: saleItems } = await supabase
+        .from('sale_items')
+        .select('variant_id')
+        .eq('sale_id', saleId);
+
+      if (saleItems) {
+        for (const item of saleItems) {
+          if (item.variant_id) {
+            await supabase
+              .from('variants')
+              .update({ status: 'Available' })
+              .eq('id', item.variant_id);
+          }
+        }
+      }
+
+      toast({
+        title: "Sale Voided",
+        description: "The down payment sale has been voided and items returned to inventory.",
+      });
+
+      // Refresh the sales list
+      if (onVoided) {
+        await onVoided();
+      }
+
+    } catch (error) {
+      console.error('Error voiding sale:', error);
+      toast({
+        title: "Error",
+        description: "Failed to void sale. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Search and Filter Controls */}
@@ -861,21 +1010,48 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                         <Printer className="mr-2 h-4 w-4" />
                         Print Receipt
                       </DropdownMenuItem>
-                      {sale.status !== 'refunded' && sale.status !== 'archived' && (
+                      
+                      {/* Show Complete Sale for pending sales */}
+                      {sale.status === 'pending' && (
+                        <DropdownMenuItem
+                          onClick={() => handleCompleteSale(sale.id)}
+                          className="text-green-600"
+                          disabled={isUpdating}
+                        >
+                          <Check className="mr-2 h-4 w-4" />
+                          Complete Sale
+                        </DropdownMenuItem>
+                      )}
+                      
+                      {/* Show Void for pending sales */}
+                      {sale.status === 'pending' && (
+                        <DropdownMenuItem
+                          onClick={() => handleVoidPendingSale(sale.id)}
+                          className="text-orange-600"
+                          disabled={isUpdating}
+                        >
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          Void & Refund
+                        </DropdownMenuItem>
+                      )}
+                      
+                      {/* Show Refund for completed non-preorder sales */}
+                      {sale.status === 'completed' && !isPreOrderSale(sale) && (
                         <DropdownMenuItem
                           onClick={() => handleRefundClick(sale.id)}
                           className="text-orange-600"
                         >
                           <RotateCcw className="mr-2 h-4 w-4" />
-                          Refund
+                          Refund Sale
                         </DropdownMenuItem>
                       )}
+                      
                       <DropdownMenuItem
                         onClick={() => handleDeleteClick(sale.id)}
                         className="text-red-600"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
+                        Delete Sale
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -1420,12 +1596,14 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                       {sale.status ? (
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${
                           sale.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          sale.status === 'refunded' ? 'bg-yellow-100 text-yellow-800' :
+                          sale.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          sale.status === 'refunded' ? 'bg-orange-100 text-orange-800' :
                           sale.status === 'voided' ? 'bg-gray-200 text-gray-700' :
                           sale.status === 'downpayment' ? 'bg-blue-100 text-blue-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {sale.status.charAt(0).toUpperCase() + sale.status.slice(1)}
+                          {sale.status === 'pending' && (sale as any).shipping_address ? 'Shipping Pending' : 
+                           sale.status.charAt(0).toUpperCase() + sale.status.slice(1)}
                         </span>
                       ) : (
                         <span className="text-gray-400 italic">N/A</span>
@@ -1458,7 +1636,33 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                             <Printer className="h-4 w-4 mr-2" />
                             {isGeneratingReceipt && receiptSaleId === sale.id ? "Generating..." : "Print Receipt"}
                           </DropdownMenuItem>
-                          {sale.status !== 'refunded' && !isPreOrderSale(sale) && (
+                          
+                          {/* Show Complete Sale for pending sales */}
+                          {sale.status === 'pending' && (
+                            <DropdownMenuItem
+                              onClick={() => handleCompleteSale(sale.id)}
+                              className="text-green-600"
+                              disabled={isUpdating}
+                            >
+                              <Check className="h-4 w-4 mr-2" />
+                              Complete Sale
+                            </DropdownMenuItem>
+                          )}
+                          
+                          {/* Show Void for pending sales */}
+                          {sale.status === 'pending' && (
+                            <DropdownMenuItem
+                              onClick={() => handleVoidPendingSale(sale.id)}
+                              className="text-orange-600"
+                              disabled={isUpdating}
+                            >
+                              <RotateCcw className="h-4 w-4 mr-2" />
+                              Void & Refund
+                            </DropdownMenuItem>
+                          )}
+                          
+                          {/* Show Refund for completed non-preorder sales */}
+                          {sale.status === 'completed' && !isPreOrderSale(sale) && (
                             <DropdownMenuItem
                               onClick={() => handleRefundClick(sale.id)}
                               className="text-yellow-600"
@@ -1467,6 +1671,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                               Refund Sale
                             </DropdownMenuItem>
                           )}
+                          
                           <DropdownMenuItem
                             onClick={() => handleDeleteClick(sale.id)}
                             className="text-red-600"

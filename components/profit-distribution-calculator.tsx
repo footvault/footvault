@@ -25,6 +25,8 @@ interface ProfitDistributionCalculatorProps {
   profitTemplates: ProfitDistributionTemplateDetail[]
   onRecordSale: (profitDistribution: { avatarId: string; percentage: number; amount: number }[]) => Promise<void>
   isRecordingSale: boolean
+  shippingMode?: boolean
+  downPaymentAmount?: number
 }
 
 export function ProfitDistributionCalculator({
@@ -33,6 +35,8 @@ export function ProfitDistributionCalculator({
   profitTemplates,
   onRecordSale,
   isRecordingSale,
+  shippingMode = false,
+  downPaymentAmount = 0,
 }: ProfitDistributionCalculatorProps) {
   console.log('ProfitDistributionCalculator: profitTemplates', profitTemplates)
   const [distributionType, setDistributionType] = useState<"default" | "manual" | "template">("default")
@@ -345,8 +349,10 @@ export function ProfitDistributionCalculator({
         >
           {isRecordingSale ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Recording Sale...
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...
             </>
+          ) : shippingMode ? (
+            `Record Down Payment (${formatCurrency(downPaymentAmount, currency)})`
           ) : (
             "Complete Sale"
           )}

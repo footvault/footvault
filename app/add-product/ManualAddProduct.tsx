@@ -15,6 +15,7 @@ import Image from "next/image"
 import { toast } from "@/hooks/use-toast"
 import { Plus, Loader2, Check, ChevronsUpDown, CheckCircle, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { insertVariantsWithUniqueSerials } from "@/lib/utils/serial-number-generator"
 
 export function ManualAddProduct({ 
   open, 
@@ -560,46 +561,93 @@ export function ManualAddProduct({
           // Continue with submission if limit check fails
         }
 
-        // Get the highest serial_number for this user
-        const { data: maxSerialData } = await supabase
-          .from("variants")
-          .select("serial_number")
-          .eq("user_id", user.id)
-          .order("serial_number", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        // Helper function to create variants with retry logic
+        const createVariantsWithRetry = async (productId: string) => {
+          let retries = 3;
+          let success = false;
+          
+          while (retries > 0 && !success) {
+            try {
+              // Get the highest serial_number for this user
+              const { data: maxSerialData, error: serialError } = await supabase
+                .from("variants")
+                .select("serial_number")
+                .eq("user_id", user.id)
+                .order("serial_number", { ascending: false })
+                .limit(1)
+                .maybeSingle();
 
-        let nextSerial = 1;
-        if (maxSerialData && maxSerialData.serial_number) {
-          const last = parseInt(maxSerialData.serial_number, 10);
-          nextSerial = isNaN(last) ? 1 : last + 1;
-        }
+              if (serialError) {
+                throw new Error(serialError.message || 'Failed to get max serial number');
+              }
 
-        // For each variant row, create N variants (N = quantity)
-        let variantsToInsert: any[] = [];
-        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-        for (const v of variants) {
-          const qty = parseInt(v.quantity as any, 10) || 1;
-          for (let i = 0; i < qty; i++) {
-            variantsToInsert.push({
-              id: uuidv4(),
-              size: v.size,
-              location: v.location,
-              status: v.status,
-              serial_number: nextSerial++,
-              user_id: user.id,
-              variant_sku: product.sku,
-              date_added: v.dateAdded || today,
-              condition: v.condition || "New",
-              size_label: sizeLabel,
-              cost_price: 0.00,
-              isArchived: false,
-              owner_type: ownerType,
-              consignor_id: ownerType === 'consignor' ? consignorId : null,
-              // product_id will be set below
-            });
+              let nextSerial = 1;
+              if (maxSerialData && maxSerialData.serial_number) {
+                const last = parseInt(maxSerialData.serial_number, 10);
+                nextSerial = isNaN(last) ? 1 : last + 1;
+              }
+
+              // For each variant row, create N variants (N = quantity)
+              let variantsToInsert: any[] = [];
+              const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+              for (const v of variants) {
+                const qty = parseInt(v.quantity as any, 10) || 1;
+                for (let i = 0; i < qty; i++) {
+                  variantsToInsert.push({
+                    id: uuidv4(),
+                    product_id: productId,
+                    size: v.size,
+                    location: v.location,
+                    status: v.status,
+                    serial_number: nextSerial++,
+                    user_id: user.id,
+                    variant_sku: product.sku,
+                    date_added: v.dateAdded || today,
+                    condition: v.condition || "New",
+                    size_label: sizeLabel,
+                    cost_price: 0.00,
+                    isArchived: false,
+                    owner_type: ownerType,
+                    consignor_id: ownerType === 'consignor' ? consignorId : null,
+                  });
+                }
+              }
+
+              // Insert variants
+              if (variantsToInsert.length > 0) {
+                const { error: variantError } = await supabase
+                  .from("variants")
+                  .insert(variantsToInsert);
+                
+                if (variantError) {
+                  // Check if it's a unique constraint violation
+                  if (variantError.message?.includes('unique_serial_per_user') || 
+                      variantError.message?.includes('duplicate key value')) {
+                    retries--;
+                    if (retries > 0) {
+                      console.log(`🔄 Serial number conflict detected, retrying... (${retries} attempts left)`);
+                      // Wait a bit before retrying to avoid rapid-fire conflicts
+                      await new Promise(resolve => setTimeout(resolve, 100));
+                      continue;
+                    } else {
+                      throw new Error('Unable to generate unique serial numbers after multiple attempts. Please try again.');
+                    }
+                  } else {
+                    throw new Error(variantError.message);
+                  }
+                }
+              }
+              
+              success = true;
+            } catch (error: any) {
+              if (retries === 1) {
+                throw error; // Re-throw on final attempt
+              }
+              retries--;
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
           }
-        }
+        };
 
         // Check if product exists
         const { data: existingProduct, error: checkError } = await supabase
@@ -634,14 +682,9 @@ export function ManualAddProduct({
         } else {
           productId = existingProduct.id;
         }
-        // Insert variants
-        if (variantsToInsert.length > 0) {
-          variantsToInsert = variantsToInsert.map(v => ({ ...v, product_id: productId }));
-          const { error: variantError } = await supabase
-            .from("variants")
-            .insert(variantsToInsert);
-          if (variantError) throw new Error(variantError.message);
-        }
+        
+        // Insert variants with retry logic
+        await createVariantsWithRetry(productId);
 
         // Create preorder if this is a preorder
         if (isPreOrder) {

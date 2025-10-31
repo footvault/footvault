@@ -377,6 +377,8 @@ export function SalesClientWrapper({
               <SalesList sales={filteredSales}
               onRefunded={fetchSalesFromApi}
               onDeleted={fetchSalesFromApi}
+              onCompleted={fetchSalesFromApi}
+              onVoided={fetchSalesFromApi}
               // @ts-ignore
               onSelectSale={handleViewDetails} />
             </div>

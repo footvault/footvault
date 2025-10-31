@@ -19,7 +19,31 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     console.log('Request body:', body);
-    const { saleDate, totalAmount, totalDiscount, netProfit, customerName, customerPhone, customerId, items, profitDistribution, paymentType, paymentReceived, changeAmount, additionalCharge } = body;
+    const { 
+      saleDate, 
+      totalAmount, 
+      totalDiscount, 
+      netProfit, 
+      customerName, 
+      customerPhone, 
+      customerId, 
+      items, 
+      profitDistribution, 
+      paymentType, 
+      paymentReceived, 
+      changeAmount, 
+      additionalCharge,
+      // Shipping-related fields
+      status,
+      shippingAddress,
+      shippingCity,
+      shippingState,
+      shippingZip,
+      shippingCountry,
+      shippingNotes,
+      downPayment,
+      remainingBalance
+    } = body;
 
     // Get user from token for RLS
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -73,7 +97,19 @@ export async function POST(request: Request) {
       sales_no: nextSalesNo,
       payment_received: paymentReceived || null,
       change_amount: changeAmount || 0,
-      additional_charge: additionalCharge || 0
+      additional_charge: additionalCharge || 0,
+      status: status || 'completed',
+      // Shipping fields (only included if shipping mode)
+      ...(shippingAddress && {
+        shipping_address: shippingAddress,
+        shipping_city: shippingCity,
+        shipping_state: shippingState,
+        shipping_zip: shippingZip,
+        shipping_country: shippingCountry,
+        shipping_notes: shippingNotes,
+        down_payment: downPayment,
+        remaining_balance: remainingBalance
+      })
     };
     console.log('Inserting sale:', saleInsert);
     const { data: saleData, error: saleError } = await supabase

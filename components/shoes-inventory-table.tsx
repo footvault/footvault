@@ -58,6 +58,7 @@ import EditProductModal from "@/components/edit-product-modal"
 import { ConfirmationModal } from "@/components/confirmation-modal"
 import { EditVariantModal } from "@/components/edit-variant-modal"
 import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency"
+import { insertVariantsWithUniqueSerials } from "@/lib/utils/serial-number-generator"
 import { useCurrency } from "@/context/CurrencyContext"
 import { Badge } from "@/components/ui/badge"
 
@@ -1601,67 +1602,47 @@ function AddVariantsModal({
       
 
 
-      // Get the highest serial_number for this user to continue numbering
-      console.log('🔍 Fetching highest serial number...');
-      const { data: maxSerialData, error: serialError } = await supabase
-        .from("variants")
-        .select("serial_number")
-        .eq("user_id", user.id)
-        .order("serial_number", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (serialError) {
-        console.error('❌ Error fetching serial number:', serialError);
-      } else {
-        console.log('📊 Max serial data:', maxSerialData);
-      }
-
-      let nextSerial = 1;
-      if (maxSerialData && maxSerialData.serial_number) {
-        const last = parseInt(maxSerialData.serial_number, 10);
-        nextSerial = isNaN(last) ? 1 : last + 1;
-      }
-      
-      console.log('🔢 Next serial number will start at:', nextSerial);
-
-      // Create variants for each selected size
-      const variantsToCreate = [];
-      
-      for (const size of selectedSizes) {
-        // Create multiple variants based on quantity
-        for (let i = 0; i < quantity; i++) {
-          const variant = {
-            id: crypto.randomUUID(), // Generate UUID for the id field
-            product_id: product.id,
-            size: size,
-            status: status,
-            location: location,
-            serial_number: nextSerial++,
-            user_id: user.id,
-            date_added: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
-            variant_sku: `${product.sku || 'SKU'}-${size}-${nextSerial - 1}`, // Generate variant SKU
-            cost_price: product.original_price || 0.00, // Set cost_price from product's original_price
-            size_label: sizeLabel, // Add size_label field
-            type: 'In Stock', // Regular inventory items are 'In Stock'
-          };
-          variantsToCreate.push(variant);
+      // Use the sequential utility function to create variants
+      try {
+        console.log('🔍 Creating variants with sequential serial numbers...');
+        
+        // Create variants for each selected size
+        const variantsToCreate = [];
+        
+        for (const size of selectedSizes) {
+          // Create multiple variants based on quantity
+          for (let i = 0; i < quantity; i++) {
+            const variant = {
+              id: crypto.randomUUID(), // Generate UUID for the id field
+              product_id: product.id,
+              size: size,
+              status: status,
+              location: location,
+              date_added: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
+              variant_sku: `${product.sku || 'SKU'}-${size}`, // Generate variant SKU
+              cost_price: product.original_price || 0.00, // Set cost_price from product's original_price
+              size_label: sizeLabel, // Add size_label field
+              type: 'In Stock', // Regular inventory items are 'In Stock'
+            };
+            variantsToCreate.push(variant);
+          }
         }
-      }
-      
-      console.log('📦 Variants to create:', variantsToCreate);
-      console.log('🎯 Total variants to create:', variantsToCreate.length);
+        
+        console.log('📦 Variants to create:', variantsToCreate);
+        console.log('🎯 Total variants to create:', variantsToCreate.length);
 
-      const { error } = await supabase
-        .from('variants')
-        .insert(variantsToCreate);
-
-      if (error) {
-        console.error('❌ Supabase error details:', error);
-        console.error('❌ Error code:', error.code);
-        console.error('❌ Error message:', error.message);
-        console.error('❌ Error details:', error.details);
-        console.error('❌ Error hint:', error.hint);
+        // Use the utility function to insert variants with sequential serial numbers
+        const result = await insertVariantsWithUniqueSerials(variantsToCreate, user.id, supabase);
+        
+        if (!result.success) {
+          console.error('❌ Failed to create variants:', result.error);
+          alert(`Error creating variants: ${result.error || 'Unknown error'}`);
+          return;
+        }
+        
+        console.log('✅ All variants created successfully!');
+      } catch (error: any) {
+        console.error('❌ Unexpected error:', error);
         alert(`Error creating variants: ${error.message}`);
         return;
       }
