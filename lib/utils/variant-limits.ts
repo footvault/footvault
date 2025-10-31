@@ -3,7 +3,7 @@
 export function getVariantLimit(plan: string): number {
   switch (plan?.toLowerCase()) {
     case 'free':
-      return 100;
+      return 30;
     case 'individual':
       return 500;
     case 'team':
@@ -11,7 +11,7 @@ export function getVariantLimit(plan: string): number {
     case 'store':
       return 5000;
     default:
-      return 100; // Default to free plan limits
+      return 30; // Default to free plan limits
   }
 }
 

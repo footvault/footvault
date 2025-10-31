@@ -10,7 +10,7 @@ export const pricingTiers = [
       { label: "Track available shoes" },
       { label: "Track sold shoes" },
       { label: "Manage your inventory and sales" },
-      { label: "Up to 100 available variants" },
+      { label: "Up to 30 available variants" },
       {
         label: "Community support",
         tooltip: "Access community forums and resources for help."

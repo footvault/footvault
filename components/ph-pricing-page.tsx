@@ -50,7 +50,7 @@ export default function PHPricingPage() {
         'Track available shoes',
         'Track sold shoes', 
         'Manage your inventory and sales',
-        'Up to 100 available variants',
+        'Up to 30 available variants',
         'Community support'
       ],
       popular: false,

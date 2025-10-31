@@ -81,7 +81,7 @@ export default function UserDashboard() {
       price: "$0",
       description: "Perfect for getting started",
       features: [
-        "Up to 100 available variants",
+        "Up to 30 available variants",
         "Track available shoes",
         "Track sold shoes",
         "Community support"
