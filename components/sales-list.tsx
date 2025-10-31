@@ -6,6 +6,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   Dialog,
@@ -219,7 +220,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
     })
 
     // Convert to CSV format with detailed item information
-    const headers = ['Sale #', 'Date', 'Customer', 'Phone', 'Payment Type', 'Status', 'Total', 'Profit', 'Item Name', 'Brand', 'Size', 'Type', 'Serial Number/Pre-Order #']
+    const headers = ['Sale #', 'Date', 'Customer', 'Serial/Pre-Order', 'Payment Type', 'Status', 'Total', 'Profit', 'Item Name', 'Brand', 'Size', 'Type', 'Serial Number/Pre-Order #']
     
     // Flatten sales data to have one row per item
     const csvData: string[][] = []
@@ -245,12 +246,30 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
         paymentTypeName = typeof sale.payment_type === "string" ? sale.payment_type : "Cash"
       }
 
+      // Get serial numbers/pre-order numbers for this sale
+      const serialNumbers = sale.items && sale.items.length > 0 ? 
+        sale.items.map((item: any) => {
+          if (!item?.variant) return 'N/A';
+          
+          const isPreorderItem = (item.variant as any).type === 'Pre-order';
+          const isDownpaymentItem = (item.variant as any).type === 'downpayment';
+          
+          if (isPreorderItem || isDownpaymentItem) {
+            const preOrderMatch = (item.variant as any).notes?.match(/pre-order #(\d+)/);
+            const preOrderNo = preOrderMatch?.[1] || 'N/A';
+            return `PO #${preOrderNo}`;
+          } else {
+            const serialNo = item.variant.serialNumber || item.variant.serial_number || 'N/A';
+            return `SN: ${serialNo}`;
+          }
+        }).join(', ') : '';
+
       // Common sale data
       const saleData = [
         formatSalesNo(sale.sales_no),
         formatDateInTimezone(sale.sale_date || sale.date),
         sale.customer_name || 'No name',
-        sale.customer_phone || '',
+        serialNumbers,
         paymentTypeName,
         sale.status ? sale.status.charAt(0).toUpperCase() + sale.status.slice(1) : 'N/A',
         (sale.total_amount || sale.total || 0).toString(),
@@ -444,14 +463,25 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
         // Search in customer name
         if (sale.customer_name?.toLowerCase().includes(searchLower)) return true;
         
-        // Search in customer phone
-        if (sale.customer_phone?.toLowerCase().includes(searchLower)) return true;
-        
-        // Search in items (product name, serial number)
-        if (sale.items?.some((item: any) => 
-          item.variant?.productName?.toLowerCase().includes(searchLower) ||
-          String(item.variant?.serialNumber || '').toLowerCase().includes(searchLower)
-        )) return true;
+        // Search in items (product name, serial number, pre-order number)
+        if (sale.items?.some((item: any) => {
+          // Search in product name
+          if (item.variant?.productName?.toLowerCase().includes(searchLower)) return true;
+          
+          // Search in serial number
+          if (String(item.variant?.serialNumber || item.variant?.serial_number || '').toLowerCase().includes(searchLower)) return true;
+          
+          // Search in pre-order number
+          const isPreorderItem = (item.variant as any)?.type === 'Pre-order';
+          const isDownpaymentItem = (item.variant as any)?.type === 'downpayment';
+          if (isPreorderItem || isDownpaymentItem) {
+            const preOrderMatch = (item.variant as any)?.notes?.match(/pre-order #(\d+)/);
+            const preOrderNo = preOrderMatch?.[1] || '';
+            if (preOrderNo.toLowerCase().includes(searchLower)) return true;
+          }
+          
+          return false;
+        })) return true;
         
         return false;
       });
@@ -660,7 +690,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
         <div className="relative mt-2 px-1">
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
-            placeholder="Search by sale ID, product, serial number, customer name, or phone..."
+            placeholder="Search by sale ID, product, serial number, pre-order number, or customer name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -857,8 +887,92 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                     <span className="font-medium text-gray-600">Customer:</span>{" "}
                     {sale.customer_name || <span className="text-gray-400 italic">No name</span>}
                   </div>
-                  {sale.customer_phone && (
-                    <div className="text-sm text-muted-foreground">{sale.customer_phone}</div>
+                  
+                  {/* Serial Numbers / Pre-Order Numbers */}
+                  {sale.items && sale.items.length > 0 && (
+                    (() => {
+                      // Create sorted badges data for mobile
+                      const badgesData = sale.items
+                        .filter((item: any) => item?.variant)
+                        .map((item: any) => {
+                          const isPreorderItem = (item.variant as any).type === 'Pre-order';
+                          const isDownpaymentItem = (item.variant as any).type === 'downpayment';
+                          
+                          let badgeContent;
+                          let badgeVariant: "default" | "secondary" | "destructive" | "outline" = "outline";
+                          let sortValue = 0;
+                          
+                          if (isPreorderItem || isDownpaymentItem) {
+                            const preOrderMatch = (item.variant as any).notes?.match(/pre-order #(\d+)/);
+                            const preOrderNo = preOrderMatch?.[1] || '0';
+                            badgeContent = `PO #${preOrderNo}`;
+                            badgeVariant = "secondary";
+                            sortValue = parseInt(preOrderNo, 10) || 0;
+                          } else {
+                            const serialNo = item.variant.serialNumber || item.variant.serial_number || 'N/A';
+                            badgeContent = `SN: ${serialNo}`;
+                            badgeVariant = "outline";
+                            // Try to extract numeric part for sorting
+                            const numMatch = String(serialNo).match(/\d+/);
+                            sortValue = numMatch ? parseInt(numMatch[0], 10) : 999999;
+                          }
+                          
+                          return {
+                            id: item.id,
+                            content: badgeContent,
+                            variant: badgeVariant,
+                            sortValue: sortValue
+                          };
+                        })
+                        .sort((a, b) => a.sortValue - b.sortValue);
+
+                      if (badgesData.length === 0) {
+                        return null;
+                      }
+
+                      if (badgesData.length === 1) {
+                        // Show single badge
+                        const badge = badgesData[0];
+                        return (
+                          <div>
+                            <Badge 
+                              variant={badge.variant}
+                              className="text-xs"
+                            >
+                              {badge.content}
+                            </Badge>
+                          </div>
+                        );
+                      }
+
+                      // Multiple badges - show first one with expandable details
+                      return (
+                        <div className="space-y-1">
+                          <Badge 
+                            variant={badgesData[0].variant}
+                            className="text-xs"
+                          >
+                            {badgesData[0].content}
+                          </Badge>
+                          <details className="text-xs">
+                            <summary className="cursor-pointer hover:text-blue-600 text-muted-foreground">
+                              +{badgesData.length - 1} more
+                            </summary>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {badgesData.slice(1).map((badge) => (
+                                <Badge 
+                                  key={`mobile-${badge.id}`}
+                                  variant={badge.variant}
+                                  className="text-xs"
+                                >
+                                  {badge.content}
+                                </Badge>
+                              ))}
+                            </div>
+                          </details>
+                        </div>
+                      );
+                    })()
                   )}
                 </div>
                 
@@ -1016,7 +1130,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                 )}
               </TableHead>
               <TableHead>Customer</TableHead>
-              <TableHead className="hidden md:table-cell">Phone</TableHead>
+              <TableHead className="hidden md:table-cell whitespace-nowrap">Serial/Pre-Order</TableHead>
               <TableHead>Items</TableHead>
               <TableHead className="hidden xl:table-cell">Type</TableHead>
               <TableHead className="hidden lg:table-cell">Payment</TableHead>
@@ -1085,7 +1199,93 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted }) =
                     <TableCell className="font-mono text-sm">{customId}</TableCell>
                     <TableCell className="whitespace-nowrap">{formatDateInTimezone(sale.sale_date || sale.date)}</TableCell>
                     <TableCell>{sale.customer_name || <span className="text-gray-400 italic">No name</span>}</TableCell>
-                    <TableCell className="hidden md:table-cell">{sale.customer_phone || <span className="text-gray-400 italic">No phone</span>}</TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {sale.items && sale.items.length > 0 ? (
+                        (() => {
+                          // Create sorted badges data
+                          const badgesData = sale.items
+                            .filter((item: any) => item?.variant)
+                            .map((item: any) => {
+                              const isPreorderItem = (item.variant as any).type === 'Pre-order';
+                              const isDownpaymentItem = (item.variant as any).type === 'downpayment';
+                              
+                              let badgeContent;
+                              let badgeVariant: "default" | "secondary" | "destructive" | "outline" = "outline";
+                              let sortValue = 0;
+                              
+                              if (isPreorderItem || isDownpaymentItem) {
+                                const preOrderMatch = (item.variant as any).notes?.match(/pre-order #(\d+)/);
+                                const preOrderNo = preOrderMatch?.[1] || '0';
+                                badgeContent = `PO #${preOrderNo}`;
+                                badgeVariant = "secondary";
+                                sortValue = parseInt(preOrderNo, 10) || 0;
+                              } else {
+                                const serialNo = item.variant.serialNumber || item.variant.serial_number || 'N/A';
+                                badgeContent = `SN: ${serialNo}`;
+                                badgeVariant = "outline";
+                                // Try to extract numeric part for sorting
+                                const numMatch = String(serialNo).match(/\d+/);
+                                sortValue = numMatch ? parseInt(numMatch[0], 10) : 999999;
+                              }
+                              
+                              return {
+                                id: item.id,
+                                content: badgeContent,
+                                variant: badgeVariant,
+                                sortValue: sortValue
+                              };
+                            })
+                            .sort((a, b) => a.sortValue - b.sortValue);
+
+                          if (badgesData.length === 0) {
+                            return <span className="text-gray-400 italic text-xs">No items</span>;
+                          }
+
+                          if (badgesData.length === 1) {
+                            // Show single badge
+                            const badge = badgesData[0];
+                            return (
+                              <Badge 
+                                variant={badge.variant}
+                                className="text-xs"
+                              >
+                                {badge.content}
+                              </Badge>
+                            );
+                          }
+
+                          // Multiple badges - show first one with expandable details
+                          return (
+                            <div className="space-y-1">
+                              <Badge 
+                                variant={badgesData[0].variant}
+                                className="text-xs"
+                              >
+                                {badgesData[0].content}
+                              </Badge>
+                              <details className="text-xs">
+                                <summary className="cursor-pointer hover:text-blue-600 text-muted-foreground">
+                                  +{badgesData.length - 1} more
+                                </summary>
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {badgesData.slice(1).map((badge) => (
+                                    <Badge 
+                                      key={badge.id}
+                                      variant={badge.variant}
+                                      className="text-xs"
+                                    >
+                                      {badge.content}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </details>
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        <span className="text-gray-400 italic text-xs">No items</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {sale.items && sale.items.length > 0 ? (
                         <div className="text-sm">
