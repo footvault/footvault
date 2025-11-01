@@ -468,6 +468,13 @@ export function CheckoutClientWrapper({
     fetchPayments();
   }, []);
 
+  // Auto-disable shipping mode when pre-orders are in cart
+  useEffect(() => {
+    if (selectedPreorders.length > 0 && shippingMode) {
+      setShippingMode(false);
+    }
+  }, [selectedPreorders.length, shippingMode]);
+
   // Add new payment type via API
   const handleAddPaymentType = async () => {
     if (!newPaymentName.trim()) return;
@@ -2202,14 +2209,22 @@ export function CheckoutClientWrapper({
                 {/* Shipping Toggle */}
                 <div className="border-t pt-4">
                   <div className="flex items-center justify-between mb-4">
-                    <Label htmlFor="shipping-toggle" className="text-sm font-medium">
-                      Shipping Order
-                    </Label>
+                    <div className="flex flex-col">
+                      <Label htmlFor="shipping-toggle" className="text-sm font-medium">
+                        Shipping Order
+                      </Label>
+                      {selectedPreorders.length > 0 && (
+                        <span className="text-xs text-orange-600 mt-1">
+                          Shipping not available with pre-orders in cart
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center space-x-2">
                       <Switch
                         id="shipping-toggle"
                         checked={shippingMode}
                         onCheckedChange={setShippingMode}
+                        disabled={selectedPreorders.length > 0}
                       />
                     </div>
                   </div>
