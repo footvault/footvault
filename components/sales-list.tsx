@@ -699,10 +699,15 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
         throw new Error('Authentication required');
       }
 
-      // Get the sale details
+      // Get the sale details with sale items
       const { data: sale, error: saleError } = await supabase
         .from('sales')
-        .select('*')
+        .select(`
+          *,
+          sale_items (
+            variant_id
+          )
+        `)
         .eq('id', saleId)
         .single();
 
@@ -729,6 +734,26 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
         .eq('id', saleId);
 
       if (updateError) throw updateError;
+
+      // Update all variants in this sale to "Sold" status
+      if (sale.sale_items && sale.sale_items.length > 0) {
+        const variantIds = sale.sale_items.map((item: any) => item.variant_id).filter(Boolean);
+        
+        if (variantIds.length > 0) {
+          const { error: variantError } = await supabase
+            .from('variants')
+            .update({ 
+              status: 'Sold',
+              date_sold: new Date().toISOString().split('T')[0] // Set today's date as sold date
+            })
+            .in('id', variantIds);
+
+          if (variantError) {
+            console.error('Error updating variant statuses:', variantError);
+            // Don't fail the entire operation if variant update fails
+          }
+        }
+      }
 
       toast({
         title: "Sale Completed",

@@ -27,6 +27,8 @@ interface ProfitDistributionCalculatorProps {
   isRecordingSale: boolean
   shippingMode?: boolean
   downPaymentAmount?: number
+  isShippingValid?: boolean
+  shippingValidationErrors?: string[]
 }
 
 export function ProfitDistributionCalculator({
@@ -37,6 +39,8 @@ export function ProfitDistributionCalculator({
   isRecordingSale,
   shippingMode = false,
   downPaymentAmount = 0,
+  isShippingValid = true,
+  shippingValidationErrors = [],
 }: ProfitDistributionCalculatorProps) {
   console.log('ProfitDistributionCalculator: profitTemplates', profitTemplates)
   const [distributionType, setDistributionType] = useState<"default" | "manual" | "template">("default")
@@ -338,13 +342,29 @@ export function ProfitDistributionCalculator({
           )}
         </div>
 
+        {/* Shipping validation errors display */}
+        {shippingMode && !isShippingValid && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <p className="text-sm font-medium text-red-800 mb-2">Shipping details incomplete:</p>
+            <ul className="text-sm text-red-700 space-y-1">
+              {shippingValidationErrors.map((error, index) => (
+                <li key={index} className="flex items-start">
+                  <span className="text-red-500 mr-2">•</span>
+                  {error}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <Button
           className="w-full"
           onClick={handleRecordSaleClick}
           disabled={
             isRecordingSale ||
             (distributionType === "manual" && manualDistribution.length === 0) ||
-            totalDistributedPercentage !== 100
+            totalDistributedPercentage !== 100 ||
+            (shippingMode && !isShippingValid)
           }
         >
           {isRecordingSale ? (

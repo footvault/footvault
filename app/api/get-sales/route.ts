@@ -58,7 +58,13 @@ interface DatabaseSale {
   payment_type?: string | null;
   sale_items: DatabaseSaleItem[];
   sale_profit_distributions: DatabaseProfitDistribution[];
-  status?: string; // <-- add status field
+  status?: string;
+  shipping_address?: string | null;
+  shipping_city?: string | null;
+  shipping_state?: string | null;
+  shipping_zip?: string | null;
+  shipping_country?: string | null;
+  shipping_notes?: string | null;
 }
 
 export async function GET(request: Request) {
@@ -115,6 +121,12 @@ export async function GET(request: Request) {
         sales_no,
         payment_type,
         status,
+        shipping_address,
+        shipping_city,
+        shipping_state,
+        shipping_zip,
+        shipping_country,
+        shipping_notes,
         sale_items (
           id,
           sold_price,
@@ -183,6 +195,12 @@ export async function GET(request: Request) {
       sales_no: sale.sales_no ?? null,
       payment_type: sale.payment_type ?? null,
       status: sale.status || 'completed',
+      shipping_address: sale.shipping_address || null,
+      shipping_city: sale.shipping_city || null,
+      shipping_state: sale.shipping_state || null,
+      shipping_zip: sale.shipping_zip || null,
+      shipping_country: sale.shipping_country || null,
+      shipping_notes: sale.shipping_notes || null,
       items: (sale.sale_items || []).map((item: DatabaseSaleItem) => {
         const variant = item.variant;
         const product = variant && variant.product;

@@ -116,10 +116,10 @@ async function calculateAvatarProfits(sales: any[], avatars: any[]) {
     });
   });
 
-  // Filter out refunded sales
-  const nonRefundedSales = sales.filter(sale => sale.status !== 'refunded');
+  // Filter out refunded and pending sales
+  const completedSales = sales.filter(sale => sale.status !== 'refunded' && sale.status !== 'pending');
 
-  nonRefundedSales.forEach(sale => {
+  completedSales.forEach(sale => {
     (sale.sale_profit_distributions || []).forEach((dist: any) => {
       const currentProfit = avatarProfits.get(dist.avatar?.id);
       if (currentProfit && dist.amount) {

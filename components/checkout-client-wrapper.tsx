@@ -1058,6 +1058,45 @@ export function CheckoutClientWrapper({
     })
   }
 
+  // Shipping validation function
+  const getShippingValidationErrors = (): string[] => {
+    const errors: string[] = [];
+    
+    if (!shippingMode) return errors; // No validation needed if shipping is disabled
+    
+    if (shippingDetails.downPaymentAmount <= 0) {
+      errors.push("Down payment amount is required for shipping orders");
+    }
+    
+    if (!shippingDetails.customerName.trim()) {
+      errors.push("Customer name is required for shipping orders");
+    }
+    
+    if (!shippingDetails.customerPhone.trim()) {
+      errors.push("Customer phone is required for shipping orders");
+    }
+    
+    if (!shippingDetails.address.trim()) {
+      errors.push("Shipping address is required");
+    }
+    
+    if (!shippingDetails.city.trim()) {
+      errors.push("City is required for shipping orders");
+    }
+    
+    if (!shippingDetails.country.trim()) {
+      errors.push("Country is required for shipping orders");
+    }
+    
+    if (shippingDetails.downPaymentAmount > totalAmount) {
+      errors.push("Down payment cannot exceed the total amount");
+    }
+    
+    return errors;
+  };
+
+  const isShippingValid = shippingMode ? getShippingValidationErrors().length === 0 : true;
+
   // Add this new function before the return statement
   const handleRecordSaleClick = (profitDistribution: { avatarId: string; percentage: number; amount: number }[]) => {
     const totalDistributedPercentage = profitDistribution.reduce((sum, item) => sum + item.percentage, 0)
@@ -2325,6 +2364,8 @@ export function CheckoutClientWrapper({
               isRecordingSale={isConfirmingSale}
               shippingMode={shippingMode}
               downPaymentAmount={shippingDetails.downPaymentAmount}
+              isShippingValid={isShippingValid}
+              shippingValidationErrors={getShippingValidationErrors()}
             />
           </div>
         </div>

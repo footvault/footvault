@@ -41,31 +41,21 @@ export async function GET(request: Request) {
     const fromDate = searchParams.get('from');
     const toDate = searchParams.get('to');
 
-    // Build the query to include sale items and variants to check for downpayment types
-    let query = authenticatedSupabase
+    // Optimized query - get sales without expensive joins
+    let baseQuery = authenticatedSupabase
       .from('sales')
-      .select(`
-        total_amount, 
-        net_profit, 
-        sale_date, 
-        status,
-        sale_items!inner (
-          variant:variants!inner (
-            type
-          )
-        )
-      `)
+      .select('id, total_amount, net_profit, sale_date, status')
       .eq('user_id', user.id)
       .neq('status', 'refunded'); // Exclude refunded sales
 
     if (fromDate) {
-      query = query.gte('sale_date', fromDate.split('T')[0]);
+      baseQuery = baseQuery.gte('sale_date', fromDate.split('T')[0]);
     }
     if (toDate) {
-      query = query.lte('sale_date', toDate.split('T')[0]);
+      baseQuery = baseQuery.lte('sale_date', toDate.split('T')[0]);
     }
 
-    const { data: salesData, error: salesError } = await query;
+    const { data: salesData, error: salesError } = await baseQuery;
 
     if (salesError) {
       console.error('Error fetching sales:', salesError);
@@ -75,37 +65,50 @@ export async function GET(request: Request) {
       }, { status: 500 });
     }
 
-    console.log('Sales data received:', JSON.stringify(salesData, null, 2));
+    // For downpayment detection, we need to check if any sale items have downpayment type
+    // But we'll do this with a separate, more efficient query only for completed sales
+    let downpaymentSaleIds: string[] = [];
+    
+    if (salesData && salesData.length > 0) {
+      const completedSaleIds = salesData
+        .filter((sale: any) => sale.status === 'completed')
+        .map((sale: any) => sale.id);
 
-    // Filter sales by status and type
-    const completedSales = salesData?.filter((sale: any) => {
-      // Only include completed sales (exclude pending, voided, etc.) and exclude downpayment types
-      const hasDownpaymentVariant = sale.sale_items?.some((item: any) => 
-        item.variant?.type === 'downpayment'
-      );
-      return sale.status === 'completed' && !hasDownpaymentVariant;
-    }) || [];
+      if (completedSaleIds.length > 0) {
+        // Only check for downpayment types in completed sales
+        const { data: downpaymentCheck } = await authenticatedSupabase
+          .from('sale_items')
+          .select('sale_id, variants!inner(type)')
+          .in('sale_id', completedSaleIds)
+          .eq('variants.type', 'downpayment');
 
-    // Calculate pending amounts (from pending sales only, including downpayment types)
+        downpaymentSaleIds = downpaymentCheck?.map((item: any) => item.sale_id) || [];
+      }
+    }
+
+    // Filter sales by status and exclude downpayment sales
+    const completedSales = salesData?.filter((sale: any) => 
+      sale.status === 'completed' && !downpaymentSaleIds.includes(sale.id)
+    ) || [];
+
+    // Calculate pending amounts (from pending sales only)
     const pendingSales = salesData?.filter((sale: any) => sale.status === 'pending') || [];
     const totalPendingAmount = pendingSales.reduce((sum: number, sale: any) => sum + (sale.total_amount || 0), 0);
 
-    // For profit calculation, include all non-refunded sales regardless of status (but exclude voided)
-    const profitableSales = salesData?.filter((sale: any) => 
-      sale.status !== 'refunded' && sale.status !== 'voided'
-    ) || [];
+    // For profit calculation, only include completed sales (same as main stats)
+    const profitableSales = completedSales;
 
     console.log('Completed sales (for main stats):', completedSales.length);
     console.log('Pending sales amount:', totalPendingAmount);
-    console.log('All profitable sales net profit:', profitableSales.reduce((sum: number, sale: any) => sum + (sale.net_profit || 0), 0));
+    console.log('Completed sales net profit (excluding pending):', profitableSales.reduce((sum: number, sale: any) => sum + (sale.net_profit || 0), 0));
 
-    // Calculate stats: main stats only include completed non-downpayment sales
+    // Calculate stats: all main stats only include completed non-downpayment sales
     const stats = {
       success: true,
       totalSalesAmount: completedSales.reduce((sum: number, sale: any) => sum + (sale.total_amount || 0), 0), // Only completed non-downpayment sales
-      totalNetProfit: profitableSales.reduce((sum: number, sale: any) => sum + (sale.net_profit || 0), 0), // Include completed, pending, and downpayment profits (exclude refunded/voided)
+      totalNetProfit: profitableSales.reduce((sum: number, sale: any) => sum + (sale.net_profit || 0), 0), // Only completed non-downpayment sales (same as totalSalesAmount)
       numberOfSales: completedSales.length, // Only count completed non-downpayment sales
-      totalPendingAmount: totalPendingAmount // New field for pending amounts
+      totalPendingAmount: totalPendingAmount // Separate field for pending amounts
     };
 
     return NextResponse.json(stats);

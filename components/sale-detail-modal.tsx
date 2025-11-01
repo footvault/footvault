@@ -3,7 +3,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DollarSign, Package, Users, Calendar } from "lucide-react" // Added User and Phone icons
+import { DollarSign, Package, Users, Calendar, MapPin } from "lucide-react" // Added MapPin for shipping
 import Image from "next/image"
 import { useCurrency } from "@/context/CurrencyContext"
 import { useTimezone } from "@/context/TimezoneContext"
@@ -28,6 +28,12 @@ interface ApiSale {
   updated_at: string
   status?: string
   payment_type?: any
+  shipping_address?: string | null
+  shipping_city?: string | null
+  shipping_state?: string | null
+  shipping_zip?: string | null
+  shipping_country?: string | null
+  shipping_notes?: string | null
   items?: Array<{
     id: string
     sold_price: number
@@ -178,6 +184,41 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
               </div>
             </CardContent>
           </Card>
+
+          {/* Shipping Information - Only show if shipping details exist */}
+          {(sale.shipping_address || sale.shipping_city || sale.shipping_country || sale.shipping_notes) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <MapPin className="h-5 w-5" /> Shipping Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {sale.shipping_address && (
+                  <div className="flex justify-between text-sm">
+                    <span>Address:</span>
+                    <span className="font-medium text-right max-w-[60%]">{sale.shipping_address}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span>Location:</span>
+                  <span className="font-medium text-right">
+                    {[sale.shipping_city, sale.shipping_state, sale.shipping_zip, sale.shipping_country]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </span>
+                </div>
+                {sale.shipping_notes && (
+                  <div className="text-sm">
+                    <span className="font-medium">Notes:</span>
+                    <div className="mt-1 p-2 bg-gray-50 rounded text-gray-700">
+                      {sale.shipping_notes}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Sold Items */}
           <Card>

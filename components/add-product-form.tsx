@@ -1808,21 +1808,34 @@ export function AddProductForm({
           </div>
         </div>
 
-        <DialogFooter className="flex justify-end gap-2 py-4">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="px-6"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            className={cn("px-6", isSubmitting && "opacity-50 cursor-not-allowed")}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : "Save Product"}
-          </Button>
+        <DialogFooter className="flex flex-col gap-2 py-4">
+          {/* Size validation error message */}
+          {(!newVariant.size || !productForm.sizeCategory) && (
+            <p className="text-red-500 text-sm text-center">
+              Please select a size before saving the product.
+            </p>
+          )}
+          
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="px-6"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              className={cn(
+                "px-6", 
+                isSubmitting && "opacity-50 cursor-not-allowed",
+                (!newVariant.size || !productForm.sizeCategory) && "opacity-50 cursor-not-allowed"
+              )}
+              disabled={isSubmitting || !newVariant.size || !productForm.sizeCategory}
+            >
+              {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : "Save Product"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
