@@ -12,6 +12,7 @@ import { useState, useEffect, useRef } from "react" // Import useRef
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { useCurrency } from "@/context/CurrencyContext"
 import { formatCurrency } from "@/lib/utils/currency"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface SalesStats {
   totalSalesAmount: number
@@ -24,6 +25,7 @@ interface SalesStatsCardProps {
   stats?: SalesStats // Make stats optional
   onDateRangeChange: (startDate: Date | null, endDate: Date | null) => void
   avatarProfits?: { avatarUrl: string; name: string; profit: number }[] // New prop
+  isLoading?: boolean // New loading prop
 }
 
 type DateRangeOption = "today" | "this-month" | "this-year" | "custom"
@@ -32,6 +34,7 @@ export function SalesStatsCard({
   stats = { totalSalesAmount: 0, totalNetProfit: 0, numberOfSales: 0, totalPendingAmount: 0 },
   onDateRangeChange,
   avatarProfits, // Destructure new prop
+  isLoading = false, // Destructure loading prop
 }: SalesStatsCardProps) {
   const { currency } = useCurrency()
   const [dateRangeOption, setDateRangeOption] = useState<DateRangeOption>("this-month")
@@ -167,29 +170,37 @@ export function SalesStatsCard({
             </PopoverContent>
           </Popover>
         )}
-        <div className={`grid grid-cols-1 gap-4 ${(stats.totalPendingAmount || 0) > 0 ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'}`}>
+        <div className={`grid grid-cols-1 gap-4 ${(isLoading || (stats.totalPendingAmount || 0) > 0) ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'}`}>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Completed Sales</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold"> {formatCurrency(stats.totalSalesAmount, currency)}</div>
+              {isLoading ? (
+                <Skeleton className="h-8 w-32 mb-2" />
+              ) : (
+                <div className="text-2xl font-bold"> {formatCurrency(stats.totalSalesAmount, currency)}</div>
+              )}
               <p className="text-xs text-muted-foreground">Revenue from completed sales</p>
             </CardContent>
           </Card>
 
-          {/* Only show Amount Pending card if there is a pending amount */}
-          {(stats.totalPendingAmount || 0) > 0 && (
+          {/* Only show Amount Pending card if there is a pending amount or loading */}
+          {(isLoading || (stats.totalPendingAmount || 0) > 0) && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Amount Pending</CardTitle>
                 <CalendarIcon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-yellow-600">
-                  {formatCurrency(stats.totalPendingAmount || 0, currency)}
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-32 mb-2" />
+                ) : (
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {formatCurrency(stats.totalPendingAmount || 0, currency)}
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">Outstanding from pending sales</p>
               </CardContent>
             </Card>
@@ -201,9 +212,13 @@ export function SalesStatsCard({
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${stats.totalNetProfit < 0 ? "text-red-600" : "text-green-600"}`}>
-                {formatCurrency(stats.totalNetProfit, currency)}
-              </div>
+              {isLoading ? (
+                <Skeleton className="h-8 w-32 mb-2" />
+              ) : (
+                <div className={`text-2xl font-bold ${stats.totalNetProfit < 0 ? "text-red-600" : "text-green-600"}`}>
+                  {formatCurrency(stats.totalNetProfit, currency)}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">Profit after cost of goods sold</p>
             </CardContent>
           </Card>
@@ -214,35 +229,50 @@ export function SalesStatsCard({
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.numberOfSales}</div>
+              {isLoading ? (
+                <Skeleton className="h-8 w-16 mb-2" />
+              ) : (
+                <div className="text-2xl font-bold">{stats.numberOfSales}</div>
+              )}
               <p className="text-xs text-muted-foreground">Completed transactions</p>
             </CardContent>
           </Card>
         </div>
 
         {/* New section for avatar profits */}
-        {avatarProfits && avatarProfits.length > 0 && (
+        {(isLoading || (avatarProfits && avatarProfits.length > 0)) && (
           <div className="mt-6">
             <h3 className="text-lg font-semibold mb-4">Profit Distribution by Avatar</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {avatarProfits.map((avatar) => (
-                <Card key={avatar.name} className="flex flex-col items-center p-4">
-                  <Avatar className="h-16 w-16 mb-2">
-                    <AvatarImage
-                      src={
-                        
-                        `https://avatar-placeholder.iran.liara.run/api?name=${encodeURIComponent(avatar.name)}&background=random`
-                      }
-                      alt={avatar.name}
-                    />
-                    <AvatarFallback>{avatar.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <p className="text-sm font-medium text-center">{avatar.name}</p>
-                  <p className={`text-lg font-bold ${avatar.profit < 0 ? "text-red-600" : "text-green-600"}`}>
-                    {formatCurrency(avatar.profit, currency)}
-                  </p>
-                </Card>
-              ))}
+              {isLoading ? (
+                // Show skeleton loading cards
+                Array.from({ length: 4 }).map((_, index) => (
+                  <Card key={index} className="flex flex-col items-center p-4">
+                    <Skeleton className="h-16 w-16 rounded-full mb-2" />
+                    <Skeleton className="h-4 w-20 mb-1" />
+                    <Skeleton className="h-5 w-16" />
+                  </Card>
+                ))
+              ) : (
+                avatarProfits?.map((avatar) => (
+                  <Card key={avatar.name} className="flex flex-col items-center p-4">
+                    <Avatar className="h-16 w-16 mb-2">
+                      <AvatarImage
+                        src={
+                          
+                          `https://avatar-placeholder.iran.liara.run/api?name=${encodeURIComponent(avatar.name)}&background=random`
+                        }
+                        alt={avatar.name}
+                      />
+                      <AvatarFallback>{avatar.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <p className="text-sm font-medium text-center">{avatar.name}</p>
+                    <p className={`text-lg font-bold ${avatar.profit < 0 ? "text-red-600" : "text-green-600"}`}>
+                      {formatCurrency(avatar.profit, currency)}
+                    </p>
+                  </Card>
+                ))
+              )}
             </div>
           </div>
         )}

@@ -60,6 +60,7 @@ export function SalesClientWrapper({
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [lastStatsCache, setLastStatsCache] = useState<number>(0);
   const [lastSalesCache, setLastSalesCache] = useState<number>(0);
+  const [isPageVisible, setIsPageVisible] = useState<boolean>(true);
 
   // Function to calculate avatar profits from sales data
   const calculateAvatarProfits = (salesData: Sale[], avatarData: Avatar[]) => {
@@ -99,12 +100,34 @@ export function SalesClientWrapper({
 
   useEffect(() => {
     const fetchStats = async () => {
-      // Only fetch if it's been more than 30 seconds since last fetch
       const now = Date.now();
-      if (now - lastStatsCache < 30000 && !dateRange.from && !dateRange.to) return;
+      
+      // Create cache key based on date range
+      const cacheKey = `${dateRange.from?.toISOString() || 'no-from'}-${dateRange.to?.toISOString() || 'no-to'}`;
+      const lastFetchTime = lastStatsCache;
+      
+      // Only fetch if:
+      // 1. Page is visible
+      // 2. More than 60 seconds since last fetch (increased from 30s)
+      // 3. OR date range has changed (different cache key)
+      // 4. OR never fetched before (lastFetchTime is 0)
+      if (!isPageVisible) {
+        console.log('Skipping stats fetch - page not visible');
+        return;
+      }
+      
+      if (now - lastFetchTime < 60000 && lastFetchTime > 0) {
+        console.log('Skipping stats fetch - cache still valid', { 
+          timeSinceLastFetch: now - lastFetchTime,
+          cacheKey 
+        });
+        return;
+      }
       
       startFetchingStatsTransition(async () => {
         console.time('fetchSalesStats');
+        console.log('Fetching sales stats...', { cacheKey, timeSinceLastFetch: now - lastFetchTime });
+        
         try {
           const { data: { session }, error: sessionError } = await supabase.auth.getSession()
           
@@ -153,18 +176,40 @@ export function SalesClientWrapper({
       })
     };
     
-    // Debounce the stats fetch
-    const timeoutId = setTimeout(fetchStats, 1000);
+    // Longer debounce to prevent rapid successive calls
+    const timeoutId = setTimeout(fetchStats, 2000);
     return () => clearTimeout(timeoutId);
-  }, [dateRange, lastStatsCache])
+  }, [dateRange.from, dateRange.to]) // Removed lastStatsCache from dependencies to prevent loop
 
-  // Fetch sales from API with session token (with caching)
+  // Page visibility listener to pause fetching when page is not visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setIsPageVisible(!document.hidden);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  // Fetch sales from API with session token (with improved caching)
   const fetchSalesFromApi = async (forceRefresh = false) => {
-    // Only fetch if it's been more than 30 seconds since last fetch, or forced
+    // Only fetch if page is visible and cache is expired, or forced
     const now = Date.now();
-    if (!forceRefresh && now - lastSalesCache < 30000) {
-      console.log('Skipping sales fetch due to cache');
-      return;
+    if (!forceRefresh) {
+      if (!isPageVisible) {
+        console.log('Skipping sales fetch - page not visible');
+        return;
+      }
+      
+      if (now - lastSalesCache < 60000) {
+        console.log('Skipping sales fetch due to cache', { 
+          timeSinceLastFetch: now - lastSalesCache,
+          forceRefresh 
+        });
+        return;
+      }
     }
 
     console.time('fetchSalesFromApi');
@@ -343,7 +388,7 @@ export function SalesClientWrapper({
       </div>
 
       <div className="mb-6">
-        <SalesStatsCard stats={salesStats} onDateRangeChange={handleDateRangeChange} avatarProfits={avatarProfits} />
+        <SalesStatsCard stats={salesStats} onDateRangeChange={handleDateRangeChange} avatarProfits={avatarProfits} isLoading={isFetchingStats} />
       </div>
 
       <Card>
