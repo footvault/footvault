@@ -52,15 +52,14 @@ export async function GET(request: Request) {
       .from('sales')
       .select(`
         *,
-        sale_items (
+        users!inner(username, receipt_address, receipt_more_info),
+        sale_items!inner(
           *,
-          variants (
-            id,
-            product_name,
-            brand,
+          variants!inner(
             size,
+            size_label,
             serial_number,
-            product_sku
+            products!inner(name, brand, sku)
           )
         )
       `)
@@ -84,44 +83,30 @@ export async function GET(request: Request) {
       }, { status: 400 });
     }
 
-    // Fetch user profile for business information
-    const { data: profileData, error: profileError } = await authenticatedSupabase
-      .from('profiles')
-      .select('username, business_name, business_address, business_phone')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError) {
-      console.error('Error fetching profile:', profileError);
-      // Continue without profile data - use fallback
-    }
-
     // Format the data for the shipping label
     const labelData = {
       saleId: saleData.id,
       userInfo: {
-        username: profileData?.username || user.email || 'Store',
-        businessName: profileData?.business_name,
-        businessAddress: profileData?.business_address,
-        businessPhone: profileData?.business_phone,
+        username: saleData.users?.username || user.email || 'Store',
+        businessAddress: saleData.users?.receipt_address,
+        businessInfo: saleData.users?.receipt_more_info,
       },
       shippingInfo: {
-        customerName: saleData.shipping_customer_name || saleData.customer_name || 'Customer',
+        customerName: saleData.customer_name || 'Customer',
         address: saleData.shipping_address,
         city: saleData.shipping_city || '',
         state: saleData.shipping_state || '',
-        zipCode: saleData.shipping_zip_code || '',
+        zipCode: saleData.shipping_zip || '',
         country: saleData.shipping_country || 'Philippines',
-        phone: saleData.shipping_customer_phone || saleData.customer_phone,
-        email: saleData.shipping_customer_email,
+        phone: saleData.customer_phone,
         notes: saleData.shipping_notes,
       },
       saleInfo: {
         invoiceNumber: saleData.sales_no ? `#${saleData.sales_no.toString().padStart(3, '0')}` : `#${saleData.id.slice(-6)}`,
         date: new Date(saleData.sale_date).toLocaleDateString(),
         items: saleData.sale_items?.map((item: any) => ({
-          productName: item.variants?.product_name || 'Unknown Product',
-          brand: item.variants?.brand || '',
+          productName: item.variants?.products?.name || 'Unknown Product',
+          brand: item.variants?.products?.brand || '',
           size: item.variants?.size || '',
           serialNumber: item.variants?.serial_number,
         })) || [],
