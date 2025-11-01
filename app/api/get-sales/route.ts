@@ -93,8 +93,14 @@ export async function GET(request: Request) {
       }, { status: 401 });
     }
 
-    // Get sales with all related data
-    const { data: sales, error: salesError } = await authenticatedSupabase
+    // Parse the URL to get query parameters for optimization
+    const { searchParams } = new URL(request.url);
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 1000; // Default limit
+    const fromDate = searchParams.get('from');
+    const toDate = searchParams.get('to');
+
+    // Build query with optional filters for better performance
+    let query = authenticatedSupabase
       .from('sales')
       .select(`
         id,
@@ -142,7 +148,18 @@ export async function GET(request: Request) {
         )
       `)
       .eq('user_id', user.id)
-      .order('sale_date', { ascending: false });
+      .order('sale_date', { ascending: false })
+      .limit(limit);
+
+    // Add date filters if provided
+    if (fromDate) {
+      query = query.gte('sale_date', fromDate.split('T')[0]);
+    }
+    if (toDate) {
+      query = query.lte('sale_date', toDate.split('T')[0]);
+    }
+
+    const { data: sales, error: salesError } = await query;
 
     if (salesError) {
       console.error("Error fetching sales:", salesError);

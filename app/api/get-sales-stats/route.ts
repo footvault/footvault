@@ -77,25 +77,35 @@ export async function GET(request: Request) {
 
     console.log('Sales data received:', JSON.stringify(salesData, null, 2));
 
-    // Separate filtering for sales amount vs profit calculation
-    const nonDownpaymentSales = salesData?.filter((sale: any) => {
-      // Check if any sale item has a variant with type 'downpayment'
+    // Filter sales by status and type
+    const completedSales = salesData?.filter((sale: any) => {
+      // Only include completed sales (exclude pending, voided, etc.) and exclude downpayment types
       const hasDownpaymentVariant = sale.sale_items?.some((item: any) => 
         item.variant?.type === 'downpayment'
       );
-      console.log(`Sale ${sale.id}: hasDownpaymentVariant = ${hasDownpaymentVariant}`);
-      return !hasDownpaymentVariant; // Exclude sales with downpayment variants
+      return sale.status === 'completed' && !hasDownpaymentVariant;
     }) || [];
 
-    console.log('Non-downpayment sales:', nonDownpaymentSales.length);
-    console.log('All sales net profit:', (salesData || []).reduce((sum: number, sale: any) => sum + (sale.net_profit || 0), 0));
+    // Calculate pending amounts (from pending sales only, including downpayment types)
+    const pendingSales = salesData?.filter((sale: any) => sale.status === 'pending') || [];
+    const totalPendingAmount = pendingSales.reduce((sum: number, sale: any) => sum + (sale.total_amount || 0), 0);
 
-    // Calculate stats: exclude downpayment sales from total amount, but include their profit
+    // For profit calculation, include all non-refunded sales regardless of status (but exclude voided)
+    const profitableSales = salesData?.filter((sale: any) => 
+      sale.status !== 'refunded' && sale.status !== 'voided'
+    ) || [];
+
+    console.log('Completed sales (for main stats):', completedSales.length);
+    console.log('Pending sales amount:', totalPendingAmount);
+    console.log('All profitable sales net profit:', profitableSales.reduce((sum: number, sale: any) => sum + (sale.net_profit || 0), 0));
+
+    // Calculate stats: main stats only include completed non-downpayment sales
     const stats = {
       success: true,
-      totalSalesAmount: nonDownpaymentSales.reduce((sum: number, sale: any) => sum + (sale.total_amount || 0), 0), // Only non-downpayment sales
-      totalNetProfit: (salesData || []).reduce((sum: number, sale: any) => sum + (sale.net_profit || 0), 0), // Include all sales (including downpayment profits)
-      numberOfSales: nonDownpaymentSales.length // Only count non-downpayment sales
+      totalSalesAmount: completedSales.reduce((sum: number, sale: any) => sum + (sale.total_amount || 0), 0), // Only completed non-downpayment sales
+      totalNetProfit: profitableSales.reduce((sum: number, sale: any) => sum + (sale.net_profit || 0), 0), // Include completed, pending, and downpayment profits (exclude refunded/voided)
+      numberOfSales: completedSales.length, // Only count completed non-downpayment sales
+      totalPendingAmount: totalPendingAmount // New field for pending amounts
     };
 
     return NextResponse.json(stats);

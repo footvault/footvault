@@ -17,6 +17,7 @@ interface SalesStats {
   totalSalesAmount: number
   totalNetProfit: number
   numberOfSales: number
+  totalPendingAmount?: number // New optional field
 }
 
 interface SalesStatsCardProps {
@@ -28,7 +29,7 @@ interface SalesStatsCardProps {
 type DateRangeOption = "today" | "this-month" | "this-year" | "custom"
 
 export function SalesStatsCard({
-  stats = { totalSalesAmount: 0, totalNetProfit: 0, numberOfSales: 0 },
+  stats = { totalSalesAmount: 0, totalNetProfit: 0, numberOfSales: 0, totalPendingAmount: 0 },
   onDateRangeChange,
   avatarProfits, // Destructure new prop
 }: SalesStatsCardProps) {
@@ -166,17 +167,33 @@ export function SalesStatsCard({
             </PopoverContent>
           </Popover>
         )}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className={`grid grid-cols-1 gap-4 ${(stats.totalPendingAmount || 0) > 0 ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'}`}>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Sales Amount</CardTitle>
+              <CardTitle className="text-sm font-medium">Completed Sales</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold"> {formatCurrency(stats.totalSalesAmount, currency)}</div>
-              <p className="text-xs text-muted-foreground">Gross revenue from sales</p>
+              <p className="text-xs text-muted-foreground">Revenue from completed sales</p>
             </CardContent>
           </Card>
+
+          {/* Only show Amount Pending card if there is a pending amount */}
+          {(stats.totalPendingAmount || 0) > 0 && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Amount Pending</CardTitle>
+                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-yellow-600">
+                  {formatCurrency(stats.totalPendingAmount || 0, currency)}
+                </div>
+                <p className="text-xs text-muted-foreground">Outstanding from pending sales</p>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -198,7 +215,7 @@ export function SalesStatsCard({
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.numberOfSales}</div>
-              <p className="text-xs text-muted-foreground">Total transactions</p>
+              <p className="text-xs text-muted-foreground">Completed transactions</p>
             </CardContent>
           </Card>
         </div>

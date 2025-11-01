@@ -44,7 +44,7 @@ export function SalesClientWrapper({
   const [sales, setSales] = useState<Sale[]>(initialSales)
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
-  const [salesStats, setSalesStats] = useState<SalesStats>({ totalSalesAmount: 0, totalNetProfit: 0, numberOfSales: 0 })
+  const [salesStats, setSalesStats] = useState<SalesStats>({ totalSalesAmount: 0, totalNetProfit: 0, numberOfSales: 0, totalPendingAmount: 0 })
   const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({ from: null, to: null })
   const [isFetchingStats, startFetchingStatsTransition] = useTransition()
   const [avatars, setAvatars] = useState<Avatar[]>(initialAvatars)
@@ -59,6 +59,7 @@ export function SalesClientWrapper({
   const [userPlan, setUserPlan] = useState<string | null>(null);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [lastStatsCache, setLastStatsCache] = useState<number>(0);
+  const [lastSalesCache, setLastSalesCache] = useState<number>(0);
 
   // Function to calculate avatar profits from sales data
   const calculateAvatarProfits = (salesData: Sale[], avatarData: Avatar[]) => {
@@ -140,7 +141,8 @@ export function SalesClientWrapper({
           setSalesStats({
             totalSalesAmount: data.totalSalesAmount || 0,
             totalNetProfit: data.totalNetProfit || 0,
-            numberOfSales: data.numberOfSales || 0
+            numberOfSales: data.numberOfSales || 0,
+            totalPendingAmount: data.totalPendingAmount || 0
           })
           setLastStatsCache(now);
         } catch (error) {
@@ -156,12 +158,24 @@ export function SalesClientWrapper({
     return () => clearTimeout(timeoutId);
   }, [dateRange, lastStatsCache])
 
-  // Fetch sales from API with session token
-  const fetchSalesFromApi = async () => {
+  // Fetch sales from API with session token (with caching)
+  const fetchSalesFromApi = async (forceRefresh = false) => {
+    // Only fetch if it's been more than 30 seconds since last fetch, or forced
+    const now = Date.now();
+    if (!forceRefresh && now - lastSalesCache < 30000) {
+      console.log('Skipping sales fetch due to cache');
+      return;
+    }
+
     console.time('fetchSalesFromApi');
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch('/api/get-sales', {
+      
+      // Add query parameters for optimization
+      const queryParams = new URLSearchParams();
+      queryParams.set('limit', '500'); // Limit to recent 500 sales for better performance
+      
+      const response = await fetch(`/api/get-sales?${queryParams.toString()}`, {
         headers: {
           Authorization: `Bearer ${session?.access_token || ''}`
         }
@@ -172,6 +186,7 @@ export function SalesClientWrapper({
         // Recalculate avatar profits with the updated sales data
         const updatedAvatarProfits = calculateAvatarProfits(result.data, avatars);
         setAvatarProfits(updatedAvatarProfits);
+        setLastSalesCache(now);
       } else {
         console.error('Failed to fetch sales:', result.error);
       }
@@ -184,7 +199,7 @@ export function SalesClientWrapper({
 
   // Initial load: fetch latest sales from API
   useEffect(() => {
-    fetchSalesFromApi();
+    fetchSalesFromApi(true); // Force refresh on initial load
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -235,33 +250,8 @@ export function SalesClientWrapper({
         console.error("Failed to refresh profit templates:", templateError)
       }
 
-      // Also refresh sales data as avatars/templates might affect how sales are displayed
-      let refreshedSales = null;
-      let salesError = null;
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        const response = await fetch('/api/get-sales', {
-          headers: {
-            Authorization: `Bearer ${session?.access_token || ''}`
-          }
-        })
-        const result = await response.json()
-        if (result.success && result.data) {
-          refreshedSales = result.data
-        } else {
-          salesError = result.error
-        }
-      } catch (err) {
-        salesError = err
-      }
-      if (refreshedSales) {
-        setSales(refreshedSales)
-        // Recalculate avatar profits with updated sales data
-        const updatedAvatarProfits = calculateAvatarProfits(refreshedSales, avatars);
-        setAvatarProfits(updatedAvatarProfits);
-      } else {
-        console.error("Failed to refresh sales after management data update:", salesError)
-      }
+      // Refresh sales data more efficiently
+      await fetchSalesFromApi(true);
     })
   }
 
@@ -375,10 +365,10 @@ export function SalesClientWrapper({
             <div className="overflow-x-auto">
               
               <SalesList sales={filteredSales}
-              onRefunded={fetchSalesFromApi}
-              onDeleted={fetchSalesFromApi}
-              onCompleted={fetchSalesFromApi}
-              onVoided={fetchSalesFromApi}
+              onRefunded={() => fetchSalesFromApi(true)}
+              onDeleted={() => fetchSalesFromApi(true)}
+              onCompleted={() => fetchSalesFromApi(true)}
+              onVoided={() => fetchSalesFromApi(true)}
               // @ts-ignore
               onSelectSale={handleViewDetails} />
             </div>

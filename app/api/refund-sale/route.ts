@@ -63,6 +63,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 
+    // After successful refund, update variant statuses back to Available
+    const { data: saleItems } = await authenticatedSupabase
+      .from('sale_items')
+      .select('variant_id')
+      .eq('sale_id', saleId);
+
+    if (saleItems && saleItems.length > 0) {
+      for (const item of saleItems) {
+        if (item.variant_id) {
+          await authenticatedSupabase
+            .from('variants')
+            .update({ status: 'Available' })
+            .eq('id', item.variant_id);
+        }
+      }
+    }
+
     // Fetch the updated sale to return in response
     const { data: updatedSale } = await authenticatedSupabase
       .from('sales')

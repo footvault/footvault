@@ -983,13 +983,16 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
               paymentTypeName = typeof sale.payment_type === "string" ? sale.payment_type : "Cash";
             }
             
+            // Check if sale should be struck through (voided or refunded)
+            const shouldStrikeThrough = sale.status === 'voided' || sale.status === 'refunded';
+
             return (
-              <div key={sale.id} className="border rounded-lg p-4 bg-card space-y-3">
+              <div key={sale.id} className={`border rounded-lg p-4 bg-card space-y-3 ${shouldStrikeThrough ? "opacity-60" : ""}`}>
                 {/* Header with Sale # and Actions Menu */}
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <div className="font-semibold text-base">Sale {formatSalesNo(sale.sales_no)}</div>
-                    <div className="text-sm text-muted-foreground mt-1">
+                    <div className={`font-semibold text-base ${shouldStrikeThrough ? "line-through" : ""}`}>Sale {formatSalesNo(sale.sales_no)}</div>
+                    <div className={`text-sm text-muted-foreground mt-1 ${shouldStrikeThrough ? "line-through" : ""}`}>
                       {formatDateInTimezone(sale.sale_date || sale.date)}
                     </div>
                   </div>
@@ -1059,7 +1062,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                 
                 {/* Customer info */}
                 <div className="space-y-1">
-                  <div className="text-sm">
+                  <div className={`text-sm ${shouldStrikeThrough ? "line-through" : ""}`}>
                     <span className="font-medium text-gray-600">Customer:</span>{" "}
                     {sale.customer_name || <span className="text-gray-400 italic">No name</span>}
                   </div>
@@ -1264,13 +1267,13 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                   <div className="flex justify-between items-center">
                     <div className="text-left">
                       <div className="text-sm text-muted-foreground">Total</div>
-                      <div className="text-lg font-bold">
+                      <div className={`text-lg font-bold ${shouldStrikeThrough ? "line-through text-gray-500" : ""}`}>
                         {formatCurrency((sale.total_amount || sale.total || 0), currency)}
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm text-muted-foreground">Profit</div>
-                      <div className="text-lg font-semibold text-green-600">
+                      <div className={`text-lg font-semibold text-green-600 ${shouldStrikeThrough ? "line-through text-gray-500" : ""}`}>
                         {formatCurrency((sale.net_profit || sale.profit || 0), currency)}
                       </div>
                     </div>
@@ -1369,12 +1372,15 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                 const hasDownpaymentType = sale.items && sale.items.some((item: any) => 
                   item.variant && item.variant.type === 'downpayment'
                 );
+
+                // Check if sale should be struck through (voided or refunded)
+                const shouldStrikeThrough = sale.status === 'voided' || sale.status === 'refunded';
                 
                 return (
-                  <TableRow key={sale.id}>
-                    <TableCell className="font-mono text-sm">{customId}</TableCell>
-                    <TableCell className="whitespace-nowrap">{formatDateInTimezone(sale.sale_date || sale.date)}</TableCell>
-                    <TableCell>{sale.customer_name || <span className="text-gray-400 italic">No name</span>}</TableCell>
+                  <TableRow key={sale.id} className={shouldStrikeThrough ? "opacity-60" : ""}>
+                    <TableCell className={`font-mono text-sm ${shouldStrikeThrough ? "line-through" : ""}`}>{customId}</TableCell>
+                    <TableCell className={`whitespace-nowrap ${shouldStrikeThrough ? "line-through" : ""}`}>{formatDateInTimezone(sale.sale_date || sale.date)}</TableCell>
+                    <TableCell className={shouldStrikeThrough ? "line-through" : ""}>{sale.customer_name || <span className="text-gray-400 italic">No name</span>}</TableCell>
                     <TableCell className="hidden md:table-cell">
                       {sale.items && sale.items.length > 0 ? (
                         (() => {
@@ -1610,11 +1616,11 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                       )}
                     </TableCell>
                     <TableCell className="text-right font-medium">
-                      <span className={hasDownpaymentType ? "line-through text-gray-500" : ""}>
+                      <span className={hasDownpaymentType || shouldStrikeThrough ? "line-through text-gray-500" : ""}>
                         {formatCurrency(sale.total_amount || sale.total || 0, currency)}
                       </span>
                     </TableCell>
-                    <TableCell className={`text-right font-medium ${sale.net_profit < 0 ? "text-red-600" : "text-green-600"}`}>
+                    <TableCell className={`text-right font-medium ${sale.net_profit < 0 ? "text-red-600" : "text-green-600"} ${shouldStrikeThrough ? "line-through" : ""}`}>
                       {formatCurrency(sale.net_profit || sale.profit || 0, currency)}
                     </TableCell>
                     <TableCell className="text-right">

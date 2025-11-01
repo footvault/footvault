@@ -124,6 +124,7 @@ export type SalesStats = {
   totalSalesAmount: number
   totalNetProfit: number
   numberOfSales: number
+  totalPendingAmount?: number // New optional field
 }
 
 export type ProfitDistributionEntry = {
