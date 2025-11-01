@@ -912,10 +912,6 @@ export function ShoesVariantsTable() {
                       <Package className="mr-2 h-4 w-4" />
                       Inventory Label
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleGeneratePdfWithType(variant, 'shipping')}>
-                      <Truck className="mr-2 h-4 w-4" />
-                      Shipping Label
-                    </DropdownMenuItem>
                     {/* Only show consignment label for consignment variants */}
                     {variant.owner_type !== 'store' && variant.owner_type && variant.consignor_id && (
                       <DropdownMenuItem onClick={() => handleGeneratePdfWithType(variant, 'consignment')}>

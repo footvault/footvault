@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
-import { MoreHorizontal, Eye, Trash2, RotateCcw, Filter, X, Search, Printer, Download, Star, Lock, Check } from "lucide-react"
+import { MoreHorizontal, Eye, Trash2, RotateCcw, Filter, X, Search, Printer, Download, Star, Lock, Check, Truck } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils"
 import type { Sale } from "@/lib/types"
 import { SaleDetailModal } from "./sale-detail-modal"
 import { ConfirmationModal } from "./confirmation-modal"
+import { ShippingLabelGenerator } from "./shipping-label-generator"
 import { ReceiptGenerator } from "./receipt-generator"
 import { formatCurrency } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
@@ -64,6 +65,10 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
   // Receipt generation state
   const [receiptSaleId, setReceiptSaleId] = useState<string | null>(null)
   const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false)
+  
+  // Shipping label generation state
+  const [shippingLabelSaleId, setShippingLabelSaleId] = useState<string | null>(null)
+  const [isGeneratingShippingLabel, setIsGeneratingShippingLabel] = useState(false)
   
   // Filter states
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<string>("all")
@@ -587,6 +592,27 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
     setIsGeneratingReceipt(false)
   }
 
+  const handlePrintShippingLabel = (saleId: string) => {
+    setShippingLabelSaleId(saleId)
+    setIsGeneratingShippingLabel(true)
+  }
+
+  const handleShippingLabelComplete = () => {
+    setShippingLabelSaleId(null)
+    setIsGeneratingShippingLabel(false)
+  }
+
+  const handleShippingLabelError = (error: string) => {
+    console.error("Shipping label generation error:", error)
+    setShippingLabelSaleId(null)
+    setIsGeneratingShippingLabel(false)
+    toast({
+      title: "Shipping Label Error",
+      description: error,
+      variant: "destructive",
+    })
+  }
+
   const handleConfirmDelete = async () => {
     if (!saleToDelete) return
     setIsDeleting(true)
@@ -1038,6 +1064,17 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                         <Printer className="mr-2 h-4 w-4" />
                         Print Receipt
                       </DropdownMenuItem>
+                      
+                      {/* Show Print Shipping Label if sale has shipping info */}
+                      {(sale as any).shipping_address && (
+                        <DropdownMenuItem 
+                          onClick={() => handlePrintShippingLabel(sale.id)}
+                          disabled={isGeneratingShippingLabel && shippingLabelSaleId === sale.id}
+                        >
+                          <Truck className="mr-2 h-4 w-4" />
+                          {isGeneratingShippingLabel && shippingLabelSaleId === sale.id ? "Generating..." : "Print Shipping Label"}
+                        </DropdownMenuItem>
+                      )}
                       
                       {/* Show Complete Sale for pending sales */}
                       {sale.status === 'pending' && (
@@ -1668,6 +1705,17 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                             {isGeneratingReceipt && receiptSaleId === sale.id ? "Generating..." : "Print Receipt"}
                           </DropdownMenuItem>
                           
+                          {/* Show Print Shipping Label if sale has shipping info */}
+                          {(sale as any).shipping_address && (
+                            <DropdownMenuItem 
+                              onClick={() => handlePrintShippingLabel(sale.id)}
+                              disabled={isGeneratingShippingLabel && shippingLabelSaleId === sale.id}
+                            >
+                              <Truck className="h-4 w-4 mr-2" />
+                              {isGeneratingShippingLabel && shippingLabelSaleId === sale.id ? "Generating..." : "Print Shipping Label"}
+                            </DropdownMenuItem>
+                          )}
+                          
                           {/* Show Complete Sale for pending sales */}
                           {sale.status === 'pending' && (
                             <DropdownMenuItem
@@ -1786,6 +1834,15 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
           saleId={receiptSaleId || undefined}
           onComplete={handleReceiptComplete}
           onError={handleReceiptError}
+        />
+      )}
+
+      {/* Shipping Label Generator */}
+      {shippingLabelSaleId && (
+        <ShippingLabelGenerator
+          saleId={shippingLabelSaleId || undefined}
+          onComplete={handleShippingLabelComplete}
+          onError={handleShippingLabelError}
         />
       )}
 

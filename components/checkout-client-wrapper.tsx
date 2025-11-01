@@ -24,6 +24,7 @@ import { Avatar, ProfitDistributionTemplateDetail } from "@/lib/types"
 import { ConfirmationModal } from "@/components/confirmation-modal"
 import { SaleSuccessModal } from "@/components/sale-success-modal"
 import { ReceiptGenerator } from "@/components/receipt-generator"
+import { ShippingLabelGenerator } from "@/components/shipping-label-generator"
 import { useRouter } from "next/navigation"
 import { useCurrency } from "@/context/CurrencyContext"
 import { formatCurrency } from "@/lib/utils/currency"
@@ -150,6 +151,7 @@ export function CheckoutClientWrapper({
   const [showSaleSuccessModal, setShowSaleSuccessModal] = useState(false)
   const [completedSaleId, setCompletedSaleId] = useState<string | null>(null)
   const [isPrintingReceipt, setIsPrintingReceipt] = useState(false)
+  const [isPrintingShippingLabel, setIsPrintingShippingLabel] = useState(false)
   const [pendingProfitDistribution, setPendingProfitDistribution] = useState<
     { avatarId: string; percentage: number; amount: number }[]
   >([])
@@ -169,6 +171,7 @@ export function CheckoutClientWrapper({
     shippingNotes: ''
   })
   const [showShippingForm, setShowShippingForm] = useState(false)
+  const [localShippingDetails, setLocalShippingDetails] = useState(shippingDetails)
   
   const router = useRouter()
 
@@ -474,6 +477,13 @@ export function CheckoutClientWrapper({
       setShippingMode(false);
     }
   }, [selectedPreorders.length, shippingMode]);
+
+  // Sync local shipping details when form opens
+  useEffect(() => {
+    if (showShippingForm) {
+      setLocalShippingDetails(shippingDetails);
+    }
+  }, [showShippingForm, shippingDetails]);
 
   // Add new payment type via API
   const handleAddPaymentType = async () => {
@@ -1234,9 +1244,16 @@ export function CheckoutClientWrapper({
         onOpenChange={setShowSaleSuccessModal}
         saleId={completedSaleId || undefined}
         isPrintingReceipt={isPrintingReceipt}
+        hasShipping={shippingMode && Boolean(shippingDetails.address)}
+        isPrintingShippingLabel={isPrintingShippingLabel}
         onPrintReceipt={() => {
           if (completedSaleId) {
             setIsPrintingReceipt(true)
+          }
+        }}
+        onPrintShippingLabel={() => {
+          if (completedSaleId) {
+            setIsPrintingShippingLabel(true)
           }
         }}
       />
@@ -1249,6 +1266,18 @@ export function CheckoutClientWrapper({
           onError={(error) => {
             setIsPrintingReceipt(false)
             console.error("Receipt generation error:", error)
+          }}
+        />
+      )}
+
+      {/* Shipping Label Generator (invisible, auto-generates PDF) */}
+      {isPrintingShippingLabel && completedSaleId && (
+        <ShippingLabelGenerator
+          saleId={completedSaleId}
+          onComplete={() => setIsPrintingShippingLabel(false)}
+          onError={(error) => {
+            setIsPrintingShippingLabel(false)
+            console.error("Shipping label generation error:", error)
           }}
         />
       )}
@@ -2405,8 +2434,8 @@ export function CheckoutClientWrapper({
                 <Label htmlFor="ship-name">Full Name</Label>
                 <Input
                   id="ship-name"
-                  value={shippingDetails.customerName}
-                  onChange={(e) => setShippingDetails(prev => ({ 
+                  value={localShippingDetails.customerName}
+                  onChange={(e) => setLocalShippingDetails(prev => ({ 
                     ...prev, 
                     customerName: e.target.value 
                   }))}
@@ -2417,8 +2446,8 @@ export function CheckoutClientWrapper({
                 <Label htmlFor="ship-phone">Phone Number</Label>
                 <Input
                   id="ship-phone"
-                  value={shippingDetails.customerPhone}
-                  onChange={(e) => setShippingDetails(prev => ({ 
+                  value={localShippingDetails.customerPhone}
+                  onChange={(e) => setLocalShippingDetails(prev => ({ 
                     ...prev, 
                     customerPhone: e.target.value 
                   }))}
@@ -2432,8 +2461,8 @@ export function CheckoutClientWrapper({
               <Input
                 id="ship-email"
                 type="email"
-                value={shippingDetails.customerEmail}
-                onChange={(e) => setShippingDetails(prev => ({ 
+                value={localShippingDetails.customerEmail}
+                onChange={(e) => setLocalShippingDetails(prev => ({ 
                   ...prev, 
                   customerEmail: e.target.value 
                 }))}
@@ -2445,8 +2474,8 @@ export function CheckoutClientWrapper({
               <Label htmlFor="ship-address">Street Address</Label>
               <Input
                 id="ship-address"
-                value={shippingDetails.address}
-                onChange={(e) => setShippingDetails(prev => ({ 
+                value={localShippingDetails.address}
+                onChange={(e) => setLocalShippingDetails(prev => ({ 
                   ...prev, 
                   address: e.target.value 
                 }))}
@@ -2459,8 +2488,8 @@ export function CheckoutClientWrapper({
                 <Label htmlFor="ship-city">City</Label>
                 <Input
                   id="ship-city"
-                  value={shippingDetails.city}
-                  onChange={(e) => setShippingDetails(prev => ({ 
+                  value={localShippingDetails.city}
+                  onChange={(e) => setLocalShippingDetails(prev => ({ 
                     ...prev, 
                     city: e.target.value 
                   }))}
@@ -2471,8 +2500,8 @@ export function CheckoutClientWrapper({
                 <Label htmlFor="ship-state">State/Province</Label>
                 <Input
                   id="ship-state"
-                  value={shippingDetails.state}
-                  onChange={(e) => setShippingDetails(prev => ({ 
+                  value={localShippingDetails.state}
+                  onChange={(e) => setLocalShippingDetails(prev => ({ 
                     ...prev, 
                     state: e.target.value 
                   }))}
@@ -2486,8 +2515,8 @@ export function CheckoutClientWrapper({
                 <Label htmlFor="ship-zip">Zip Code</Label>
                 <Input
                   id="ship-zip"
-                  value={shippingDetails.zipCode}
-                  onChange={(e) => setShippingDetails(prev => ({ 
+                  value={localShippingDetails.zipCode}
+                  onChange={(e) => setLocalShippingDetails(prev => ({ 
                     ...prev, 
                     zipCode: e.target.value 
                   }))}
@@ -2498,8 +2527,8 @@ export function CheckoutClientWrapper({
                 <Label htmlFor="ship-country">Country</Label>
                 <Input
                   id="ship-country"
-                  value={shippingDetails.country}
-                  onChange={(e) => setShippingDetails(prev => ({ 
+                  value={localShippingDetails.country}
+                  onChange={(e) => setLocalShippingDetails(prev => ({ 
                     ...prev, 
                     country: e.target.value 
                   }))}
@@ -2512,8 +2541,8 @@ export function CheckoutClientWrapper({
               <Label htmlFor="ship-notes">Shipping Notes (Optional)</Label>
               <Textarea
                 id="ship-notes"
-                value={shippingDetails.shippingNotes}
-                onChange={(e) => setShippingDetails(prev => ({ 
+                value={localShippingDetails.shippingNotes}
+                onChange={(e) => setLocalShippingDetails(prev => ({ 
                   ...prev, 
                   shippingNotes: e.target.value 
                 }))}
@@ -2524,7 +2553,11 @@ export function CheckoutClientWrapper({
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowShippingForm(false)}>
+            <Button variant="outline" onClick={() => {
+              // Reset local changes on cancel
+              setLocalShippingDetails(shippingDetails);
+              setShowShippingForm(false);
+            }}>
               Cancel
             </Button>
             {selectedCustomer && (
@@ -2545,14 +2578,14 @@ export function CheckoutClientWrapper({
                       },
                       body: JSON.stringify({
                         id: selectedCustomer.id,
-                        name: shippingDetails.customerName,
-                        phone: shippingDetails.customerPhone,
-                        email: shippingDetails.customerEmail,
-                        address: shippingDetails.address,
-                        city: shippingDetails.city,
-                        state: shippingDetails.state,
-                        zip_code: shippingDetails.zipCode,
-                        country: shippingDetails.country,
+                        name: localShippingDetails.customerName,
+                        phone: localShippingDetails.customerPhone,
+                        email: localShippingDetails.customerEmail,
+                        address: localShippingDetails.address,
+                        city: localShippingDetails.city,
+                        state: localShippingDetails.state,
+                        zip_code: localShippingDetails.zipCode,
+                        country: localShippingDetails.country,
                         customer_type: selectedCustomer.customer_type
                       }),
                     });
@@ -2566,13 +2599,19 @@ export function CheckoutClientWrapper({
                   } catch (error) {
                     console.error('Error updating customer:', error);
                   }
+                  // Save local changes to main state
+                  setShippingDetails(localShippingDetails);
                   setShowShippingForm(false);
                 }}
               >
                 Save & Update Customer
               </Button>
             )}
-            <Button onClick={() => setShowShippingForm(false)}>
+            <Button onClick={() => {
+              // Save local changes to main state
+              setShippingDetails(localShippingDetails);
+              setShowShippingForm(false);
+            }}>
               Save Shipping Details
             </Button>
           </DialogFooter>

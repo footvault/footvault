@@ -2,7 +2,7 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { CheckCircle, FileText, ShoppingCart, Loader2 } from "lucide-react"
+import { CheckCircle, FileText, ShoppingCart, Loader2, Truck } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 interface SaleSuccessModalProps {
@@ -11,6 +11,9 @@ interface SaleSuccessModalProps {
   saleId?: string
   onPrintReceipt?: () => void
   isPrintingReceipt?: boolean
+  hasShipping?: boolean
+  onPrintShippingLabel?: () => void
+  isPrintingShippingLabel?: boolean
 }
 
 export function SaleSuccessModal({
@@ -19,6 +22,9 @@ export function SaleSuccessModal({
   saleId,
   onPrintReceipt,
   isPrintingReceipt = false,
+  hasShipping = false,
+  onPrintShippingLabel,
+  isPrintingShippingLabel = false,
 }: SaleSuccessModalProps) {
   const router = useRouter()
 
@@ -30,6 +36,12 @@ export function SaleSuccessModal({
   const handlePrintReceipt = () => {
     if (onPrintReceipt) {
       onPrintReceipt()
+    }
+  }
+
+  const handlePrintShippingLabel = () => {
+    if (onPrintShippingLabel) {
+      onPrintShippingLabel()
     }
   }
 
@@ -59,6 +71,21 @@ export function SaleSuccessModal({
               )}
               {isPrintingReceipt ? "Generating Receipt..." : "Print Receipt"}
             </Button>
+            {hasShipping && (
+              <Button
+                onClick={handlePrintShippingLabel}
+                variant="outline"
+                className="flex items-center gap-2"
+                disabled={isPrintingShippingLabel}
+              >
+                {isPrintingShippingLabel ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Truck className="h-4 w-4" />
+                )}
+                {isPrintingShippingLabel ? "Generating Label..." : "Print Shipping Label"}
+              </Button>
+            )}
             <Button
               onClick={handleMakeSale}
               className="flex items-center gap-2"
