@@ -2,23 +2,24 @@ import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
+import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency";
 
 // Label generation functions (same as single variant route)
 function generateStoreDisplayLabel(doc: jsPDF, v: any, qrUrl: string) {
   const LABEL_WIDTH = 90;
   const LABEL_HEIGHT = 54;
   const MARGIN_LEFT = 6;
-  const QR_SIZE = 20;
-  const QR_X = 64;
-  const QR_Y = 8;
-  const USERNAME_MAX_WIDTH = 48;
-  const CONTENT_MAX_WIDTH = 52;
+  const QR_SIZE = 15;
+  const QR_X = 70;
+  const QR_Y = 6;
+  const USERNAME_MAX_WIDTH = 60;
+  const CONTENT_MAX_WIDTH = 62;
 
-  const hasSerialNumber = v.serial_number !== null && v.serial_number !== undefined;
-  const labelSerial = hasSerialNumber ? String(v.serial_number) : "-----";
   const sku = v.product?.sku || "-";
   const name = v.product?.name || "-";
   const salePrice = v.product?.sale_price || 0;
+  const userCurrency = v.user?.currency || "USD";
+  const currencySymbol = getCurrencySymbol(userCurrency);
 
   // Store name/brand at top
   const labelBrand = v.user?.username || "FOOTVAULT";
@@ -38,12 +39,6 @@ function generateStoreDisplayLabel(doc: jsPDF, v: any, qrUrl: string) {
   doc.text(productLines, MARGIN_LEFT, currentY);
   currentY += productLines.length * 4;
 
-  // Sale price prominently displayed
-  currentY += 2;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text(`$${salePrice.toFixed(2)}`, MARGIN_LEFT, currentY);
-
   // Size info
   currentY += 6;
   doc.setFont("helvetica", "normal");
@@ -51,13 +46,65 @@ function generateStoreDisplayLabel(doc: jsPDF, v: any, qrUrl: string) {
   const sizeLabel = v.size_label || "US";
   doc.text(`Size: ${sizeLabel} ${v.size || "-"}`, MARGIN_LEFT, currentY);
 
-  // Serial number at bottom
+  // Sale price at bottom right corner
   doc.setFont("helvetica", "bold");
-  let serialFontSize = 48;
-  if (labelSerial.length >= 6) serialFontSize = 36;
-  doc.setFontSize(serialFontSize);
-  const serialX = (LABEL_WIDTH - doc.getTextWidth(labelSerial)) / 2;
-  doc.text(labelSerial, serialX, LABEL_HEIGHT - 8);
+  doc.setFontSize(20); // Bigger for better customer visibility
+  
+  // Use currency symbols that are known to work in jsPDF's Helvetica font
+  let currencyDisplay = "$"; // Default fallback
+  try {
+    switch (userCurrency) {
+      case "USD":
+      case "CAD":
+      case "AUD":
+        currencyDisplay = "$";
+        break;
+      case "EUR":
+        // Try the euro symbol, fall back to text if it doesn't work
+        currencyDisplay = "\u20AC"; // Unicode euro symbol
+        break;
+      case "GBP":
+        // Try the pound symbol
+        currencyDisplay = "\u00A3"; // Unicode pound symbol
+        break;
+      case "JPY":
+        // Try the yen symbol
+        currencyDisplay = "\u00A5"; // Unicode yen symbol
+        break;
+      case "PHP":
+        // PHP peso symbol might not work, use text
+        currencyDisplay = "PHP ";
+        break;
+      default:
+        currencyDisplay = "$";
+    }
+  } catch (e) {
+    // Fallback if there's any encoding issue
+    currencyDisplay = "$";
+  }
+  
+  const priceText = `${currencyDisplay}${salePrice.toFixed(2)}`;
+  const priceWidth = doc.getTextWidth(priceText);
+  
+  // Better positioning to prevent overflow
+  const rightMargin = 6; // 6mm from right edge
+  const leftMargin = 6;  // 6mm from left edge minimum
+  const maxWidth = LABEL_WIDTH - rightMargin - leftMargin;
+  
+  // If price is too wide, adjust font size
+  if (priceWidth > maxWidth) {
+    doc.setFontSize(16);
+    const newPriceWidth = doc.getTextWidth(priceText);
+    const priceX = Math.max(leftMargin, LABEL_WIDTH - rightMargin - newPriceWidth);
+    const priceY = LABEL_HEIGHT - 8;
+    doc.text(priceText, priceX, priceY);
+  } else {
+    const priceX = LABEL_WIDTH - rightMargin - priceWidth;
+    const priceY = LABEL_HEIGHT - 8;
+    doc.text(priceText, priceX, priceY);
+  }
+
+  // Note: Serial number removed for store display as requested
 }
 
 function generateInventoryLabel(doc: jsPDF, v: any, qrUrl: string) {
@@ -74,6 +121,8 @@ function generateInventoryLabel(doc: jsPDF, v: any, qrUrl: string) {
   const sku = v.product?.sku || "-";
   const name = v.product?.name || "-";
   const costPrice = v.cost_price || 0;
+  const userCurrency = v.user?.currency || "USD";
+  const currencySymbol = getCurrencySymbol(userCurrency);
 
   // Title
   doc.setFont("helvetica", "bold");
@@ -101,7 +150,37 @@ function generateInventoryLabel(doc: jsPDF, v: any, qrUrl: string) {
   currentY += 2;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  doc.text(`Cost: $${costPrice.toFixed(2)}`, MARGIN_LEFT, currentY);
+  
+  // Use currency symbols that are known to work in jsPDF's Helvetica font
+  let currencyDisplay = "$"; // Default fallback
+  try {
+    switch (userCurrency) {
+      case "USD":
+      case "CAD":
+      case "AUD":
+        currencyDisplay = "$";
+        break;
+      case "EUR":
+        currencyDisplay = "\u20AC"; // Unicode euro symbol
+        break;
+      case "GBP":
+        currencyDisplay = "\u00A3"; // Unicode pound symbol
+        break;
+      case "JPY":
+        currencyDisplay = "\u00A5"; // Unicode yen symbol
+        break;
+      case "PHP":
+        currencyDisplay = "PHP ";
+        break;
+      default:
+        currencyDisplay = "$";
+    }
+  } catch (e) {
+    // Fallback if there's any encoding issue
+    currencyDisplay = "$";
+  }
+  
+  doc.text(`Cost: ${currencyDisplay}${costPrice.toFixed(2)}`, MARGIN_LEFT, currentY);
 
   // Location
   currentY += 4;
@@ -113,64 +192,6 @@ function generateInventoryLabel(doc: jsPDF, v: any, qrUrl: string) {
   currentY += 3;
   const sizeLabel = v.size_label || "US";
   doc.text(`Size: ${sizeLabel} ${v.size || "-"}`, MARGIN_LEFT, currentY);
-
-  // Serial number at bottom
-  doc.setFont("helvetica", "bold");
-  let serialFontSize = 48;
-  if (labelSerial.length >= 6) serialFontSize = 36;
-  doc.setFontSize(serialFontSize);
-  const serialX = (LABEL_WIDTH - doc.getTextWidth(labelSerial)) / 2;
-  doc.text(labelSerial, serialX, LABEL_HEIGHT - 8);
-}
-
-function generateShippingLabel(doc: jsPDF, v: any, qrUrl: string) {
-  const LABEL_WIDTH = 90;
-  const LABEL_HEIGHT = 54;
-  const MARGIN_LEFT = 6;
-  const QR_SIZE = 20;
-  const QR_X = 64;
-  const QR_Y = 8;
-  const CONTENT_MAX_WIDTH = 52;
-
-  const hasSerialNumber = v.serial_number !== null && v.serial_number !== undefined;
-  const labelSerial = hasSerialNumber ? String(v.serial_number) : "-----";
-  const sku = v.product?.sku || "-";
-  const name = v.product?.name || "-";
-
-  // Title
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text("SHIPPING LABEL", MARGIN_LEFT, 10);
-
-  // QR code top right
-  doc.addImage(qrUrl, "PNG", QR_X, QR_Y, QR_SIZE, QR_SIZE);
-
-  // Item details
-  let currentY = 18;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.text(`Item: ${sku}`, MARGIN_LEFT, currentY);
-
-  currentY += 3;
-  const productLines = doc.splitTextToSize(name, CONTENT_MAX_WIDTH);
-  doc.text(productLines, MARGIN_LEFT, currentY);
-  currentY += productLines.length * 3;
-
-  // Size
-  currentY += 2;
-  const sizeLabel = v.size_label || "US";
-  doc.text(`Size: ${sizeLabel} ${v.size || "-"}`, MARGIN_LEFT, currentY);
-
-  // Ship from
-  currentY += 4;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.text("FROM:", MARGIN_LEFT, currentY);
-  currentY += 3;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
-  const storeName = v.user?.username || "FOOTVAULT";
-  doc.text(storeName.toUpperCase(), MARGIN_LEFT, currentY);
 
   // Serial number at bottom
   doc.setFont("helvetica", "bold");
@@ -261,7 +282,7 @@ export async function GET(req: NextRequest) {
     .select(`
       *,
       product:products (id, name, brand, sku, sale_price, original_price),
-      user:users (username),
+      user:users (username, currency),
       consignor:consignors (name)
     `)
     .in("id", ids);
@@ -329,9 +350,6 @@ export async function GET(req: NextRequest) {
         break;
       case "inventory":
         generateInventoryLabel(doc, v, qrUrl);
-        break;
-      case "shipping":
-        generateShippingLabel(doc, v, qrUrl);
         break;
       case "consignment":
         generateConsignmentLabel(doc, v, qrUrl);

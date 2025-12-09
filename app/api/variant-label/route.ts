@@ -9,11 +9,11 @@ function generateStoreDisplayLabel(doc: jsPDF, v: any, qrUrl: string) {
   const LABEL_WIDTH = 90;
   const LABEL_HEIGHT = 54;
   const MARGIN_LEFT = 6;
-  const QR_SIZE = 20;
-  const QR_X = 64;
-  const QR_Y = 8;
-  const USERNAME_MAX_WIDTH = 48;
-  const CONTENT_MAX_WIDTH = 52;
+  const QR_SIZE = 15;
+  const QR_X = 70;
+  const QR_Y = 6;
+  const USERNAME_MAX_WIDTH = 60;
+  const CONTENT_MAX_WIDTH = 62;
 
   const sku = v.product?.sku || "-";
   const name = v.product?.name || "-";
@@ -48,7 +48,7 @@ function generateStoreDisplayLabel(doc: jsPDF, v: any, qrUrl: string) {
 
   // Sale price at bottom right corner
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(14); // Slightly smaller to prevent overflow
+  doc.setFontSize(20); // Bigger for better customer visibility
   
   // Use currency symbols that are known to work in jsPDF's Helvetica font
   let currencyDisplay = "$"; // Default fallback
