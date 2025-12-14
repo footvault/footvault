@@ -1,6 +1,7 @@
 "use client"
 import { createClient } from "@/lib/supabase/client";
 import { Variant, Product } from "@/lib/types";
+import { fetchCustomLocations, CustomLocation } from "@/lib/fetchCustomLocations";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
@@ -39,9 +40,10 @@ function EditVariantModal({ open, onClose, variant, product, onSave }: EditVaria
   const [location, setLocation] = useState(variant?.location || "");
   
   // Location management state
-  const [customLocations, setCustomLocations] = useState<string[]>([]);
+  const [customLocations, setCustomLocations] = useState<CustomLocation[]>([]);
   const [showAddLocationInput, setShowAddLocationInput] = useState(false);
   const [newLocation, setNewLocation] = useState("");
+  const [selectedLocationId, setSelectedLocationId] = useState<string | undefined>(undefined);
   
   const { currency } = useCurrency(); // Get the user's selected currency
   const currencySymbol = getCurrencySymbol(currency);
@@ -55,25 +57,23 @@ function EditVariantModal({ open, onClose, variant, product, onSave }: EditVaria
     if (!open) return;
     
     const fetchLocations = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      const { data, error } = await supabase
-        .from("custom_locations")
-        .select("name")
-        .eq("user_id", user.id);
+      const response = await fetchCustomLocations();
+      if (response.success && response.data) {
+        setCustomLocations(response.data);
         
-      let locs = (data || []).map((row: any) => row.name);
-      // Add default locations if not present
-      const defaultLocations = ["Warehouse A", "Warehouse B", "Warehouse C"];
-      defaultLocations.forEach((defaultLoc: string) => {
-        if (!locs.includes(defaultLoc)) locs.push(defaultLoc);
-      });
-      setCustomLocations(locs);
+        // Set selectedLocationId from variant's location_id
+        if (variant?.location) {
+          setSelectedLocationId(variant.location);
+        } else if (variant?.location) {
+          // Fallback: find location by name if only text location exists
+          const matchingLoc = response.data.find(loc => loc.name === variant.location);
+          if (matchingLoc) setSelectedLocationId(matchingLoc.id);
+        }
+      }
     };
     
     fetchLocations();
-  }, [open, supabase]);
+  }, [open, variant]);
   
   // Update state when variant or product changes
   useEffect(() => {
@@ -100,13 +100,17 @@ function EditVariantModal({ open, onClose, variant, product, onSave }: EditVaria
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("custom_locations")
-        .insert({ name: newLocation.trim(), user_id: user.id });
+        .insert({ name: newLocation.trim(), user_id: user.id })
+        .select()
+        .single();
 
-      if (!error) {
-        setCustomLocations(prev => [...prev, newLocation.trim()]);
-        setLocation(newLocation.trim());
+      if (!error && data) {
+        const newLoc: CustomLocation = data;
+        setCustomLocations(prev => [...prev, newLoc]);
+        setLocation(newLoc.name);
+        setSelectedLocationId(newLoc.id);
         setNewLocation("");
         setShowAddLocationInput(false);
       }
@@ -185,11 +189,13 @@ function EditVariantModal({ open, onClose, variant, product, onSave }: EditVaria
                   </Button>
                 </div>
               ) : (
-                <Select value={location} onValueChange={(value) => {
+                <Select value={selectedLocationId} onValueChange={(value) => {
                   if (value === "__add_new__") {
                     setShowAddLocationInput(true);
                   } else {
-                    setLocation(value);
+                    setSelectedLocationId(value);
+                    const loc = customLocations.find(l => l.id === value);
+                    if (loc) setLocation(loc.name);
                   }
                 }}>
                   <SelectTrigger>
@@ -197,8 +203,8 @@ function EditVariantModal({ open, onClose, variant, product, onSave }: EditVaria
                   </SelectTrigger>
                   <SelectContent>
                     {customLocations.map((loc) => (
-                      <SelectItem key={loc} value={loc}>
-                        {loc}
+                      <SelectItem key={loc.id} value={loc.id}>
+                        {loc.name}
                       </SelectItem>
                     ))}
                     <SelectItem value="__add_new__" className="border-t">
@@ -220,7 +226,8 @@ function EditVariantModal({ open, onClose, variant, product, onSave }: EditVaria
             cost_price: cost, // Use cost_price to match database schema
             sale_price: price, 
             size_category: sizeCategory, 
-            location,
+            location, // Keep for backward compatibility
+            location_id: selectedLocationId, // New: use location ID
             original_price: cost // Also include original_price for product update
           })}>Save</Button>
         </DialogFooter>
@@ -285,6 +292,10 @@ export default function ProductVariantsBySizePage({ params }: Props) {
           consignor:consignors (
             id,
             name
+          ),
+          custom_locations!location_id (
+            id,
+            name
           )
         `)
         .eq("product_id", productId)
@@ -345,7 +356,8 @@ export default function ProductVariantsBySizePage({ params }: Props) {
       status: data.status,
       // Use cost_price as it's the column name in the variants table
       cost_price: data.cost_price !== undefined ? Number(data.cost_price) : undefined,
-      location: data.location,
+      location: data.location, // Keep for backward compatibility
+      location_id: data.location_id, // New: use location ID
     }).eq("id", editModal.variant.id);
     
     if (variantError) {

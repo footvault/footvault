@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getTimezoneList, useTimezone } from "@/context/TimezoneContext"
+import { LocationManagementCard } from "@/components/location-management-card"
 
 interface SettingsFormProps {
   user: {
@@ -229,6 +230,9 @@ export function SettingsForm({ user }: SettingsFormProps) {
           </Link>
         </CardFooter>
       </Card>
+
+      {/* Location Management */}
+      <LocationManagementCard />
     </div>
   )
 }

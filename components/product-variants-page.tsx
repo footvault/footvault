@@ -56,6 +56,7 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import { Variant, Product } from "@/lib/types"
 import { insertVariantsWithUniqueSerials } from "@/lib/utils/serial-number-generator"
+import { fetchCustomLocations, CustomLocation } from "@/lib/fetchCustomLocations"
 import Image from "next/image"
 import { EditVariantModal } from "@/components/edit-variant-modal"
 import { ConfirmationModal } from "@/components/confirmation-modal"
@@ -98,9 +99,10 @@ function AddVariantsModal({
   const [sizeLabel, setSizeLabel] = useState("US");
   
   // For location management
-  const [customLocations, setCustomLocations] = useState<string[]>([]);
+  const [customLocations, setCustomLocations] = useState<CustomLocation[]>([]);
   const [showAddLocationInput, setShowAddLocationInput] = useState(false);
   const [newLocation, setNewLocation] = useState("");
+  const [selectedLocationId, setSelectedLocationId] = useState<string | undefined>(undefined);
   
   const supabase = createClient();
 
@@ -109,24 +111,14 @@ function AddVariantsModal({
     if (!open) return;
     
     const fetchLocations = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      const { data, error } = await supabase
-        .from("custom_locations")
-        .select("name")
-        .eq("user_id", user.id);
-        
-      let locs = (data || []).map((row: any) => row.name);
-      // Add default locations if not present
-      ["Warehouse A", "Warehouse B", "Warehouse C"].forEach(defaultLoc => {
-        if (!locs.includes(defaultLoc)) locs.push(defaultLoc);
-      });
-      setCustomLocations(locs);
+      const result = await fetchCustomLocations();
+      if (result.success && result.data) {
+        setCustomLocations(result.data);
+      }
     };
     
     fetchLocations();
-  }, [open, supabase]);
+  }, [open]);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -135,6 +127,7 @@ function AddVariantsModal({
       setQuantity(1);
       setStatus("Available");
       setLocation("");
+      setSelectedLocationId(undefined);
       setSizeSearch("");
       setSizeLabel("US");
       setShowAddLocationInput(false);
@@ -194,13 +187,17 @@ function AddVariantsModal({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("custom_locations")
-        .insert({ name: newLocation.trim(), user_id: user.id });
+        .insert({ name: newLocation.trim(), user_id: user.id })
+        .select()
+        .single();
 
-      if (!error) {
-        setCustomLocations(prev => [...prev, newLocation.trim()]);
-        setLocation(newLocation.trim());
+      if (!error && data) {
+        const newLoc: CustomLocation = data;
+        setCustomLocations(prev => [...prev, newLoc]);
+        setLocation(newLoc.name);
+        setSelectedLocationId(newLoc.id);
         setNewLocation("");
         setShowAddLocationInput(false);
       }
@@ -234,6 +231,9 @@ function AddVariantsModal({
       try {
         console.log('🔍 Creating variants with utility function...');
         
+        // Find the location_id from the selected location name
+        const selectedLocation = customLocations.find(loc => loc.name === location);
+        
         // Create variants for each selected size
         const variantsToCreate = [];
         
@@ -245,7 +245,8 @@ function AddVariantsModal({
               product_id: product.id,
               size: size,
               status: status,
-              location: location,
+              location: location, // Keep for backward compatibility
+              location_id: selectedLocation?.id, // New: use location ID
               date_added: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
               variant_sku: `${product.sku || 'SKU'}-${size}`, // Generate variant SKU
               cost_price: product.original_price || 0.00, // Set cost_price from product's original_price
@@ -420,7 +421,7 @@ function AddVariantsModal({
                   </SelectTrigger>
                   <SelectContent>
                     {customLocations.map((loc) => (
-                      <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                      <SelectItem key={loc.id} value={loc.name}>{loc.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -543,7 +544,7 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
         setProduct(productData)
       }
 
-      // Fetch variants for this product
+      // Fetch variants for this product with location JOIN
       const { data: variantsData, error: variantsError } = await supabase
         .from('variants')
         .select(`
@@ -565,6 +566,10 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
           consignor:consignors (
             id,
             name
+          ),
+          custom_locations!location_id (
+            id,
+            name
           )
         `)
         .eq('product_id', productId)
@@ -576,6 +581,10 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
         console.error('Error fetching variants:', variantsError)
       } else {
         console.log('Variants loaded:', variantsData?.length, 'variants')
+        console.log('🔍 DEBUG: First variant structure:', variantsData?.[0])
+        console.log('🔍 DEBUG: First variant location_id:', variantsData?.[0]?.location_id)
+        console.log('🔍 DEBUG: First variant custom_locations:', variantsData?.[0]?.custom_locations)
+        console.log('🔍 DEBUG: First variant location text:', variantsData?.[0]?.location)
         setVariants(variantsData || [])
       }
     } catch (error) {
@@ -592,8 +601,21 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
   // Compute unique filter options
   const locationOptions = useMemo(() => {
     const set = new Set<string>()
-    variants.forEach(v => { if (v.location) set.add(v.location) })
-    return ["all", ...Array.from(set)]
+    variants.forEach((v: any) => {
+      // Use custom_locations name from JOIN, fallback to text field
+      const locationName = v.custom_locations?.name || v.location
+      console.log('🔍 DEBUG Filter Options:', {
+        variant_id: v.id,
+        location_id: v.location_id,
+        custom_locations: v.custom_locations,
+        location_text: v.location,
+        extracted_name: locationName
+      })
+      if (locationName) set.add(locationName)
+    })
+    const options = ["all", ...Array.from(set)]
+    console.log('🔍 DEBUG Final location options:', options)
+    return options
   }, [variants])
 
   const sizeOptions = useMemo(() => {
@@ -635,8 +657,10 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
 
   // Filtered variants
   const filteredVariants = useMemo(() => {
-    let result = variants.filter(v => {
-      const locationMatch = locationFilter === "all" || v.location === locationFilter
+    let result = variants.filter((v: any) => {
+      // Use joined location name with fallback to text field
+      const variantLocation = v.custom_locations?.name || v.location
+      const locationMatch = locationFilter === "all" || variantLocation === locationFilter
       const sizeMatch = sizeFilter.length === 0 || sizeFilter.includes(String(v.size))
       const statusMatch = statusFilter === "all" || v.status === statusFilter
       
@@ -649,7 +673,9 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
       result = result.filter(v => {
         const serial = String((v as any).serial_number ?? "").toLowerCase()
         const size = String(v.size ?? "").toLowerCase()
-        const location = String(v.location ?? "").toLowerCase()
+        // Use joined location name with fallback to text field
+        const locationName = (v as any).custom_locations?.name || v.location
+        const location = String(locationName ?? "").toLowerCase()
         const variantSku = String(v.variant_sku ?? "").toLowerCase()
         return serial.includes(search) || size.includes(search) || location.includes(search) || variantSku.includes(search)
       })
@@ -803,7 +829,10 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
       },
     }),
     // Location
-    columnHelper.accessor('location', {
+    columnHelper.accessor((row: any) => {
+      // Use joined custom_locations name, fallback to text field
+      return row.custom_locations?.name || row.location || ''
+    }, {
       id: "location",
       header: ({ column }) => (
         <Button
@@ -817,6 +846,13 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
       ),
       cell: (info) => {
         const location = info.getValue() as string
+        const variant = info.row.original as any
+        console.log('🔍 DEBUG Location Cell:', {
+          displayLocation: location,
+          location_id: variant.location_id,
+          custom_locations: variant.custom_locations,
+          location_text: variant.location
+        })
         return <div>{location || '-'}</div>
       },
       enableSorting: true,

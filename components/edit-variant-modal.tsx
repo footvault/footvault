@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { createClient } from "@/lib/supabase/client"
 import { Variant } from "@/lib/types"
 import { MapPin, Plus } from "lucide-react"
+import { fetchCustomLocations, type CustomLocation } from "@/lib/fetchCustomLocations"
 
 interface EditVariantModalProps {
   open: boolean
@@ -25,9 +26,10 @@ export function EditVariantModal({ open, variant, onClose }: EditVariantModalPro
   const [saving, setSaving] = useState(false)
   
   // Location management state
-  const [customLocations, setCustomLocations] = useState<string[]>([])
+  const [customLocations, setCustomLocations] = useState<CustomLocation[]>([])
   const [showAddLocationInput, setShowAddLocationInput] = useState(false)
   const [newLocation, setNewLocation] = useState("")
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null)
   
   const supabase = createClient()
 
@@ -35,26 +37,15 @@ export function EditVariantModal({ open, variant, onClose }: EditVariantModalPro
   useEffect(() => {
     if (!open) return
     
-    const fetchLocations = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      
-      const { data, error } = await supabase
-        .from("custom_locations")
-        .select("name")
-        .eq("user_id", user.id)
-        
-      let locs = (data || []).map((row: any) => row.name)
-      // Add default locations if not present
-      const defaultLocations = ["Warehouse A", "Warehouse B", "Warehouse C"]
-      defaultLocations.forEach((defaultLoc: string) => {
-        if (!locs.includes(defaultLoc)) locs.push(defaultLoc)
-      })
-      setCustomLocations(locs)
+    const fetchLocs = async () => {
+      const { success, data } = await fetchCustomLocations()
+      if (success && data) {
+        setCustomLocations(data)
+      }
     }
     
-    fetchLocations()
-  }, [open, supabase])
+    fetchLocs()
+  }, [open])
 
   // Update form fields when variant changes
   useEffect(() => {
@@ -63,6 +54,8 @@ export function EditVariantModal({ open, variant, onClose }: EditVariantModalPro
       setSalePrice((variant as any).product?.sale_price?.toString() || "")
       setStatus(variant.status || "Available")
       setLocation(variant.location || "")
+      // Set location ID if available
+      setSelectedLocationId((variant as any).location_id || null)
       setDateSold((variant as any).date_sold ? new Date((variant as any).date_sold).toISOString().split('T')[0] : "")
     }
   }, [variant])
@@ -82,13 +75,17 @@ export function EditVariantModal({ open, variant, onClose }: EditVariantModalPro
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("custom_locations")
         .insert({ name: newLocation.trim(), user_id: user.id })
+        .select()
+        .single()
 
-      if (!error) {
-        setCustomLocations(prev => [...prev, newLocation.trim()])
-        setLocation(newLocation.trim())
+      if (!error && data) {
+        const newLoc: CustomLocation = data as CustomLocation
+        setCustomLocations(prev => [...prev, newLoc])
+        setLocation(newLoc.name)
+        setSelectedLocationId(newLoc.id)
         setNewLocation("")
         setShowAddLocationInput(false)
       }
@@ -108,7 +105,8 @@ export function EditVariantModal({ open, variant, onClose }: EditVariantModalPro
         .update({
           cost_price: parseFloat(costPrice) || 0,
           status,
-          location,
+          location_id: selectedLocationId, // Use location_id (UUID)
+          location, // Keep text for backward compatibility
           date_sold: dateSold || null,
         })
         .eq('id', variant.id)
@@ -210,11 +208,15 @@ export function EditVariantModal({ open, variant, onClose }: EditVariantModalPro
                   </Button>
                 </div>
               ) : (
-                <Select value={location} onValueChange={(value) => {
+                <Select value={selectedLocationId || undefined} onValueChange={(value) => {
                   if (value === "__add_new__") {
                     setShowAddLocationInput(true)
                   } else {
-                    setLocation(value)
+                    const loc = customLocations.find(l => l.id === value)
+                    if (loc) {
+                      setSelectedLocationId(loc.id)
+                      setLocation(loc.name)
+                    }
                   }
                 }}>
                   <SelectTrigger>
@@ -222,10 +224,15 @@ export function EditVariantModal({ open, variant, onClose }: EditVariantModalPro
                   </SelectTrigger>
                   <SelectContent>
                     {customLocations.map((loc) => (
-                      <SelectItem key={loc} value={loc}>
-                        {loc}
+                      <SelectItem key={loc.id} value={loc.id}>
+                        {loc.name}
                       </SelectItem>
                     ))}
+                    {customLocations.length === 0 && (
+                      <SelectItem value="" disabled className="text-xs text-muted-foreground italic">
+                        No locations yet - add one below
+                      </SelectItem>
+                    )}
                     <SelectItem value="__add_new__" className="border-t">
                       <div className="flex items-center gap-2 text-blue-600">
                         <Plus className="h-4 w-4" />

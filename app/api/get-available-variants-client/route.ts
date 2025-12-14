@@ -26,6 +26,7 @@ export async function GET(request: Request) {
         size,
         size_label,
         location,
+        location_id,
         status,
         serial_number,
         cost_price,
@@ -49,6 +50,10 @@ export async function GET(request: Request) {
           payout_method,
           fixed_markup,
           markup_percentage
+        ),
+        custom_locations!location_id (
+          id,
+          name
         )
       `)
       .eq('status', 'Available');
@@ -60,13 +65,20 @@ export async function GET(request: Request) {
       // Always use the first element if products is an array (PostgREST join returns array)
       const product = Array.isArray(variant.products) ? variant.products[0] : variant.products;
       const consignor = Array.isArray(variant.consignors) ? variant.consignors[0] : variant.consignors;
+      const customLocation = Array.isArray(variant.custom_locations) ? variant.custom_locations[0] : variant.custom_locations;
+      
       if (!product) return null;
+      
+      // Use location name from custom_locations JOIN, fallback to text field for backward compatibility
+      const locationName = customLocation?.name || variant.location || '';
+      
       return {
         id: variant.id,
         variantSku: variant.variant_sku,
         size: variant.size,
         sizeLabel: variant.size_label,
-        location: variant.location,
+        location: locationName, // Now uses location_id JOIN
+        locationId: variant.location_id, // Include location_id for editing
         status: variant.status,
         serialNumber: variant.serial_number,
         costPrice: variant.cost_price,

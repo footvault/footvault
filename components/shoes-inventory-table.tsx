@@ -60,6 +60,7 @@ import { EditVariantModal } from "@/components/edit-variant-modal"
 import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency"
 import { insertVariantsWithUniqueSerials } from "@/lib/utils/serial-number-generator"
 import { useCurrency } from "@/context/CurrencyContext"
+import { fetchCustomLocations, CustomLocation } from "@/lib/fetchCustomLocations"
 import { Badge } from "@/components/ui/badge"
 
 import { InventoryStatsCard } from "@/components/inventory-stats-card";
@@ -118,7 +119,13 @@ async function fetchAllVariants(productIds: number[], supabase: any): Promise<Re
   console.time('fetchAllVariants');
   const { data, error } = await supabase
     .from('variants')
-    .select('*')
+    .select(`
+      *,
+      custom_locations!location_id (
+        id,
+        name
+      )
+    `)
     .in('product_id', productIds);
   console.timeEnd('fetchAllVariants');
   
@@ -1442,9 +1449,10 @@ function AddVariantsModal({
   const [sizeLabel, setSizeLabel] = useState("US");
   
   // For location management
-  const [customLocations, setCustomLocations] = useState<string[]>([]);
+  const [customLocations, setCustomLocations] = useState<CustomLocation[]>([]);
   const [showAddLocationInput, setShowAddLocationInput] = useState(false);
   const [newLocation, setNewLocation] = useState("");
+  const [selectedLocationId, setSelectedLocationId] = useState<string | undefined>(undefined);
   
   const supabase = createClient(undefined);
 
@@ -1453,24 +1461,14 @@ function AddVariantsModal({
     if (!open) return;
     
     const fetchLocations = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      const { data, error } = await supabase
-        .from("custom_locations")
-        .select("name")
-        .eq("user_id", user.id);
-        
-      let locs = (data || []).map((row: any) => row.name);
-      // Add default locations if not present
-      ["Warehouse A", "Warehouse B", "Warehouse C"].forEach(defaultLoc => {
-        if (!locs.includes(defaultLoc)) locs.push(defaultLoc);
-      });
-      setCustomLocations(locs);
+      const result = await fetchCustomLocations();
+      if (result.success && result.data) {
+        setCustomLocations(result.data);
+      }
     };
     
     fetchLocations();
-  }, [open, supabase]);
+  }, [open]);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -1479,6 +1477,7 @@ function AddVariantsModal({
       setQuantity(1);
       setStatus("Available");
       setLocation("");
+      setSelectedLocationId(undefined);
       setSizeSearch("");
       setSizeLabel("US");
       setShowAddLocationInput(false);
@@ -1566,13 +1565,17 @@ function AddVariantsModal({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("custom_locations")
-        .insert({ name: newLocation.trim(), user_id: user.id });
+        .insert({ name: newLocation.trim(), user_id: user.id })
+        .select()
+        .single();
 
-      if (!error) {
-        setCustomLocations(prev => [...prev, newLocation.trim()]);
-        setLocation(newLocation.trim());
+      if (!error && data) {
+        const newLoc: CustomLocation = data;
+        setCustomLocations(prev => [...prev, newLoc]);
+        setLocation(newLoc.name);
+        setSelectedLocationId(newLoc.id);
         setNewLocation("");
         setShowAddLocationInput(false);
       }
@@ -1606,6 +1609,9 @@ function AddVariantsModal({
       try {
         console.log('🔍 Creating variants with sequential serial numbers...');
         
+        // Find the location_id from the selected location name
+        const selectedLocation = customLocations.find(loc => loc.name === location);
+        
         // Create variants for each selected size
         const variantsToCreate = [];
         
@@ -1617,7 +1623,8 @@ function AddVariantsModal({
               product_id: product.id,
               size: size,
               status: status,
-              location: location,
+              location: location, // Keep for backward compatibility
+              location_id: selectedLocation?.id, // New: use location ID
               date_added: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
               variant_sku: `${product.sku || 'SKU'}-${size}`, // Generate variant SKU
               cost_price: product.original_price || 0.00, // Set cost_price from product's original_price
@@ -1796,7 +1803,7 @@ function AddVariantsModal({
                   </SelectTrigger>
                   <SelectContent>
                     {customLocations.map((loc) => (
-                      <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                      <SelectItem key={loc.id} value={loc.name}>{loc.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

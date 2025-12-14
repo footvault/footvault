@@ -250,6 +250,10 @@ export function ShoesVariantsTable() {
           consignor:consignors (
             id,
             name
+          ),
+          locationData:custom_locations!location_id (
+            id,
+            name
           )
         `)
         .eq('user_id', user.id)
@@ -262,6 +266,8 @@ export function ShoesVariantsTable() {
         console.error('Error fetching variants:', error)
       } else {
         console.log('Variants loaded:', data?.length, 'variants');
+        console.log('First variant locationData:', data?.[0]?.locationData);
+        console.log('First variant location text:', data?.[0]?.location);
         setVariants(data || [])
       }
     } catch (error) {
@@ -287,7 +293,11 @@ export function ShoesVariantsTable() {
   // Compute unique filter options
   const locationOptions = useMemo(() => {
     const set = new Set<string>()
-    variants.forEach(v => { if (v.location) set.add(v.location) })
+    variants.forEach((v: any) => {
+      // Use joined location name from locationData, fallback to text field
+      const locationName = v.locationData?.name || v.location
+      if (locationName) set.add(locationName)
+    })
     return ["all", ...Array.from(set)]
   }, [variants])
   const sizeOptions = useMemo(() => {
@@ -440,11 +450,13 @@ export function ShoesVariantsTable() {
 
   // Filtered variants (all filters except status, which is handled by table column filter)
   const filteredVariants = useMemo(() => {
-    let result = variants.filter(v => {
-      const brand = (v as any).product_brand || (v as any).product?.brand;
-      const sizeCategory = (v as any).product?.size_category;
+    let result = variants.filter((v: any) => {
+      const brand = v.product_brand || v.product?.brand;
+      const sizeCategory = v.product?.size_category;
+      // Use joined location name from locationData, fallback to text field
+      const variantLocation = v.locationData?.name || v.location;
       return (
-        (locationFilter === "all" || v.location === locationFilter) &&
+        (locationFilter === "all" || variantLocation === locationFilter) &&
         (sizeFilter.length === 0 || sizeFilter.includes(v.size || "")) &&
         (brandFilter === "all" || brand === brandFilter) &&
         (sizeCategoryFilter === "all" || sizeCategory === sizeCategoryFilter)
@@ -854,7 +866,11 @@ export function ShoesVariantsTable() {
     }),
     
     // Location
-    columnHelper.accessor("location", {
+    columnHelper.accessor((row: any) => {
+      // Use joined location name from locationData, fallback to text field
+      return row.locationData?.name || row.location || 'Unknown'
+    }, {
+      id: "location_display",
       header: ({ column }) => {
         return (
           <Button

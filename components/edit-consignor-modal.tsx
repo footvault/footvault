@@ -414,10 +414,75 @@ export function EditConsignorModal({ open, consignor, onOpenChange, onConsignorU
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  The percentage your store keeps from each sale
+                  The percentage your store keeps (only used for percentage_split method)
                 </p>
               </div>
             </div>
+
+            {/* Payout Method Section */}
+            <div className="space-y-2">
+              <Label htmlFor="payout_method">Payout Method *</Label>
+              <Select 
+                value={formData.payout_method || 'percentage_split'} 
+                onValueChange={(value) => handleInputChange('payout_method', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select payout method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="percentage_split">Percentage Split (Traditional)</SelectItem>
+                  <SelectItem value="cost_price">Cost Price Only</SelectItem>
+                  <SelectItem value="cost_plus_fixed">Cost + Fixed Markup</SelectItem>
+                  <SelectItem value="cost_plus_percentage">Cost + Percentage Markup</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {formData.payout_method === 'percentage_split' && 'Consignor gets sale price minus commission'}
+                {formData.payout_method === 'cost_price' && 'Consignor gets only their cost price'}
+                {formData.payout_method === 'cost_plus_fixed' && 'Consignor gets cost + fixed dollar amount'}
+                {formData.payout_method === 'cost_plus_percentage' && 'Consignor gets cost + markup percentage'}
+              </p>
+            </div>
+
+            {/* Fixed Markup Field (only for cost_plus_fixed) */}
+            {formData.payout_method === 'cost_plus_fixed' && (
+              <div className="space-y-2">
+                <Label htmlFor="fixed_markup">Fixed Markup Amount ($) *</Label>
+                <Input
+                  id="fixed_markup"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.fixed_markup || 0}
+                  onChange={(e) => handleInputChange('fixed_markup', parseFloat(e.target.value) || 0)}
+                  placeholder="e.g., 50"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Consignor gets cost price + this fixed amount
+                </p>
+              </div>
+            )}
+
+            {/* Markup Percentage Field (only for cost_plus_percentage) */}
+            {formData.payout_method === 'cost_plus_percentage' && (
+              <div className="space-y-2">
+                <Label htmlFor="markup_percentage">Markup Percentage (%) *</Label>
+                <Input
+                  id="markup_percentage"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.markup_percentage || 0}
+                  onChange={(e) => handleInputChange('markup_percentage', parseFloat(e.target.value) || 0)}
+                  placeholder="e.g., 40"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Consignor gets cost price + this percentage
+                </p>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
