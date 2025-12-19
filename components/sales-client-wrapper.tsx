@@ -61,6 +61,7 @@ export function SalesClientWrapper({
   const [lastStatsCache, setLastStatsCache] = useState<number>(0);
   const [lastSalesCache, setLastSalesCache] = useState<number>(0);
   const [isPageVisible, setIsPageVisible] = useState<boolean>(true);
+  const [statsRefreshTrigger, setStatsRefreshTrigger] = useState<number>(0);
 
   // Function to calculate avatar profits from sales data
   const calculateAvatarProfits = (salesData: Sale[], avatarData: Avatar[]) => {
@@ -100,33 +101,17 @@ export function SalesClientWrapper({
 
   useEffect(() => {
     const fetchStats = async () => {
-      const now = Date.now();
-      
-      // Create cache key based on date range
-      const cacheKey = `${dateRange.from?.toISOString() || 'no-from'}-${dateRange.to?.toISOString() || 'no-to'}`;
-      const lastFetchTime = lastStatsCache;
-      
-      // Only fetch if:
-      // 1. Page is visible
-      // 2. More than 60 seconds since last fetch (increased from 30s)
-      // 3. OR date range has changed (different cache key)
-      // 4. OR never fetched before (lastFetchTime is 0)
+      // Always fetch immediately when date range changes - no cache check
       if (!isPageVisible) {
         console.log('Skipping stats fetch - page not visible');
         return;
       }
       
-      if (now - lastFetchTime < 60000 && lastFetchTime > 0) {
-        console.log('Skipping stats fetch - cache still valid', { 
-          timeSinceLastFetch: now - lastFetchTime,
-          cacheKey 
-        });
-        return;
-      }
+      const now = Date.now();
       
       startFetchingStatsTransition(async () => {
         console.time('fetchSalesStats');
-        console.log('Fetching sales stats...', { cacheKey, timeSinceLastFetch: now - lastFetchTime });
+        console.log('Fetching sales stats...');
         
         try {
           const { data: { session }, error: sessionError } = await supabase.auth.getSession()
@@ -176,10 +161,10 @@ export function SalesClientWrapper({
       })
     };
     
-    // Longer debounce to prevent rapid successive calls
-    const timeoutId = setTimeout(fetchStats, 2000);
+    // Minimal debounce for immediate updates when date range changes
+    const timeoutId = setTimeout(fetchStats, 100);
     return () => clearTimeout(timeoutId);
-  }, [dateRange.from, dateRange.to]) // Removed lastStatsCache from dependencies to prevent loop
+  }, [dateRange.from, dateRange.to, statsRefreshTrigger]) // statsRefreshTrigger forces refresh
 
   // Page visibility listener to pause fetching when page is not visible
   useEffect(() => {
@@ -232,6 +217,12 @@ export function SalesClientWrapper({
         const updatedAvatarProfits = calculateAvatarProfits(result.data, avatars);
         setAvatarProfits(updatedAvatarProfits);
         setLastSalesCache(now);
+        
+        // If forced refresh, also trigger stats refresh
+        if (forceRefresh) {
+          setStatsRefreshTrigger(prev => prev + 1);
+          setLastStatsCache(0); // Reset stats cache to force immediate refresh
+        }
       } else {
         console.error('Failed to fetch sales:', result.error);
       }
