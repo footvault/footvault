@@ -466,6 +466,7 @@ export default function ConsignorsPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Commission</TableHead>
+                  <TableHead>Payout Method</TableHead>
                   <TableHead>Items</TableHead>
                   <TableHead>Sales</TableHead>
                   <TableHead>Pending Payout</TableHead>
@@ -476,7 +477,7 @@ export default function ConsignorsPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       Loading consignors...
                     </TableCell>
                   </TableRow>
@@ -504,6 +505,14 @@ export default function ConsignorsPage() {
                       </TableCell>
                       <TableCell>
                         {consignor.commission_rate}%
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">
+                          {consignor.payout_method === 'cost_price' && 'Cost Only'}
+                          {consignor.payout_method === 'cost_plus_fixed' && `Cost + ${currencySymbol}${consignor.fixed_markup || 0}`}
+                          {consignor.payout_method === 'cost_plus_percentage' && `Cost + ${consignor.markup_percentage || 0}%`}
+                          {(consignor.payout_method === 'percentage_split' || !consignor.payout_method) && '% Split'}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
@@ -642,6 +651,17 @@ export default function ConsignorsPage() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Commission Rate</label>
                   <p>{viewModal.consignor.commission_rate}%</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Payout Method</label>
+                  <p className="mt-1">
+                    <span className="text-sm px-2 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">
+                      {viewModal.consignor.payout_method === 'cost_price' && 'Cost Price Only'}
+                      {viewModal.consignor.payout_method === 'cost_plus_fixed' && `Cost + ${currencySymbol}${viewModal.consignor.fixed_markup || 0} Fixed`}
+                      {viewModal.consignor.payout_method === 'cost_plus_percentage' && `Cost + ${viewModal.consignor.markup_percentage || 0}% Markup`}
+                      {(viewModal.consignor.payout_method === 'percentage_split' || !viewModal.consignor.payout_method) && `${viewModal.consignor.commission_rate}% Commission Split`}
+                    </span>
+                  </p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Status</label>

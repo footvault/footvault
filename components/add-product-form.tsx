@@ -252,6 +252,10 @@ export function AddProductForm({
     owner_type: "store", // Default to store ownership
     consignor_id: null, // Default to no consignor
   })
+  // Payout method override state
+  const [payoutMethodOverride, setPayoutMethodOverride] = useState<'percentage_split' | 'cost_price' | 'cost_plus_fixed' | 'cost_plus_percentage' | null>(null)
+  const [fixedMarkupOverride, setFixedMarkupOverride] = useState<number | null>(null)
+  const [markupPercentageOverride, setMarkupPercentageOverride] = useState<number | null>(null)
   const [customLocations, setCustomLocations] = useState<CustomLocation[]>([])
   const [showCustomLocationInput, setShowCustomLocationInput] = useState(false)
   const [newCustomLocationName, setNewCustomLocationName] = useState("")
@@ -267,6 +271,9 @@ export function AddProductForm({
     id: number;
     name: string;
     commission_rate: number;
+    payout_method: 'percentage_split' | 'cost_price' | 'cost_plus_fixed' | 'cost_plus_percentage';
+    fixed_markup?: number;
+    markup_percentage?: number;
   }>>([])
   
   // Pre-order state
@@ -316,7 +323,7 @@ export function AddProductForm({
       console.log("Fetching consignors for user:", user.id);
       const { data, error } = await supabase
         .from('consignors')
-        .select('id, name, commission_rate, status')
+        .select('id, name, commission_rate, status, payout_method, fixed_markup, markup_percentage')
         .eq('user_id', user.id);
 
       console.log("Consignors query result:", { data, error });
@@ -1001,6 +1008,12 @@ export function AddProductForm({
           // Find location_id from location name
           const selectedLocation = customLocations.find(loc => loc.name === newVariant.location);
           
+          // Get payout method settings (use override if set, otherwise consignor default)
+          const selectedConsignor = consignors.find(c => c.id === newVariant.consignor_id);
+          const finalPayoutMethod = payoutMethodOverride || selectedConsignor?.payout_method || 'percentage_split';
+          const finalFixedMarkup = fixedMarkupOverride !== null ? fixedMarkupOverride : (selectedConsignor?.fixed_markup || null);
+          const finalMarkupPercentage = markupPercentageOverride !== null ? markupPercentageOverride : (selectedConsignor?.markup_percentage || null);
+
           const variants = Array.from({ length: quantityNum }, () => ({
             id: uuidv4(),
             product_id: productId,
@@ -1016,6 +1029,9 @@ export function AddProductForm({
             isArchived: false,
             owner_type: newVariant.owner_type,
             consignor_id: newVariant.owner_type === 'consignor' ? newVariant.consignor_id : null,
+            payout_method: newVariant.owner_type === 'consignor' ? finalPayoutMethod : null,
+            fixed_markup: newVariant.owner_type === 'consignor' ? finalFixedMarkup : null,
+            markup_percentage: newVariant.owner_type === 'consignor' ? finalMarkupPercentage : null,
             type: 'In Stock', // Regular inventory items are 'In Stock'
           }));
 
@@ -1779,33 +1795,111 @@ export function AddProductForm({
                         </SelectContent>
                       </Select>
                       
-                      {/* Commission Info Display */}
+                      {/* Payout Method Override Controls */}
                       {newVariant.consignor_id && (
-                        <div className="mt-2 p-2 bg-blue-50 rounded-md">
+                        <div className="mt-2 p-3 bg-blue-50 rounded-md border border-blue-200 space-y-3">
                           {(() => {
                             const selectedConsignor = consignors.find(c => c.id === newVariant.consignor_id);
                             if (!selectedConsignor) return null;
                             
-                            const salePrice = typeof productForm.salePrice === "number" ? productForm.salePrice : parseFloat(productForm.salePrice) || 0;
-                            const commissionAmount = (salePrice * selectedConsignor.commission_rate) / 100;
-                            const storeAmount = salePrice - commissionAmount;
+                            const currentMethod = payoutMethodOverride || selectedConsignor.payout_method;
+                            const currentFixedMarkup = fixedMarkupOverride !== null ? fixedMarkupOverride : (selectedConsignor.fixed_markup || 0);
+                            const currentMarkupPercentage = markupPercentageOverride !== null ? markupPercentageOverride : (selectedConsignor.markup_percentage || 0);
                             
                             return (
-                              <div className="text-xs space-y-1">
-                                <div className="font-medium text-blue-700">Commission Breakdown Sample:</div>
-                                <div className="flex justify-between">
-                                  <span>Sale Price:</span>
-                                  <span>{formatCurrency(salePrice, currency)}</span>
+                              <>
+                                <div>
+                                  <Label className="text-xs font-medium text-blue-700">Payout Method</Label>
+                                  <Select
+                                    value={currentMethod}
+                                    onValueChange={(value: any) => setPayoutMethodOverride(value)}
+                                  >
+                                    <SelectTrigger className="w-full mt-1 h-8 text-xs">
+                                      <SelectValue>
+                                        {currentMethod === 'percentage_split' && `${selectedConsignor.commission_rate}% Commission Split`}
+                                        {currentMethod === 'cost_price' && 'Cost Price Only'}
+                                        {currentMethod === 'cost_plus_fixed' && 'Cost + Fixed Markup'}
+                                        {currentMethod === 'cost_plus_percentage' && 'Cost + % Markup'}
+                                      </SelectValue>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="percentage_split">
+                                        <div className="flex flex-col">
+                                          <span>{selectedConsignor.commission_rate}% Commission Split</span>
+                                          <span className="text-xs text-gray-500">Consignor gets sale minus your commission</span>
+                                        </div>
+                                      </SelectItem>
+                                      <SelectItem value="cost_price">
+                                        <div className="flex flex-col">
+                                          <span>Cost Price Only</span>
+                                          <span className="text-xs text-gray-500">Consignor gets back only their cost</span>
+                                        </div>
+                                      </SelectItem>
+                                      <SelectItem value="cost_plus_fixed">
+                                        <div className="flex flex-col">
+                                          <span>Cost + Fixed Markup</span>
+                                          <span className="text-xs text-gray-500">Consignor gets cost + fixed amount</span>
+                                        </div>
+                                      </SelectItem>
+                                      <SelectItem value="cost_plus_percentage">
+                                        <div className="flex flex-col">
+                                          <span>Cost + % Markup</span>
+                                          <span className="text-xs text-gray-500">Consignor gets cost + percentage of cost</span>
+                                        </div>
+                                      </SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </div>
-                                <div className="flex justify-between">
-                                  <span>Consignor ({selectedConsignor.commission_rate}%):</span>
-                                  <span>{formatCurrency(commissionAmount, currency)}</span>
-                                </div>
-                                <div className="flex justify-between font-medium">
-                                  <span>Store Cut:</span>
-                                  <span>{formatCurrency(storeAmount, currency)}</span>
-                                </div>
-                              </div>
+
+                                {currentMethod === 'cost_plus_fixed' && (
+                                  <div>
+                                    <Label className="text-xs">Fixed Markup ({currency})</Label>
+                                    <Input
+                                      type="number"
+                                      value={currentFixedMarkup}
+                                      onChange={(e) => setFixedMarkupOverride(parseFloat(e.target.value) || 0)}
+                                      className="h-8 text-xs mt-1"
+                                      min="0"
+                                      step="1"
+                                    />
+                                  </div>
+                                )}
+
+                                {currentMethod === 'cost_plus_percentage' && (
+                                  <div>
+                                    <Label className="text-xs">Markup Percentage (%)</Label>
+                                    <Input
+                                      type="number"
+                                      value={currentMarkupPercentage}
+                                      onChange={(e) => setMarkupPercentageOverride(parseFloat(e.target.value) || 0)}
+                                      className="h-8 text-xs mt-1"
+                                      min="0"
+                                      max="100"
+                                      step="1"
+                                    />
+                                  </div>
+                                )}
+
+                                {currentMethod === 'percentage_split' && (
+                                  <div className="text-xs text-blue-700">
+                                    💰 Consignor gets {100 - selectedConsignor.commission_rate}% of sale
+                                  </div>
+                                )}
+
+                                {payoutMethodOverride && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPayoutMethodOverride(null);
+                                      setFixedMarkupOverride(null);
+                                      setMarkupPercentageOverride(null);
+                                    }}
+                                    className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                  >
+                                    Reset to {selectedConsignor.name}'s default
+                                  </button>
+                                )}
+                              </>
                             );
                           })()}
                         </div>

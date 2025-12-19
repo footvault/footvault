@@ -3,6 +3,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { ShoppingCart, Trash2, ChevronDown, ChevronUp, Grid, List, DollarSign, QrCode } from "lucide-react"
 import Image from "next/image"
 import { formatCurrency } from "@/lib/utils/currency"
@@ -32,6 +35,11 @@ interface TransformedVariant {
   consignorId?: string;
   consignorName?: string;
   consignorCommissionRate?: number;
+  // Variant-level payout settings (set when adding product)
+  variantPayoutMethod?: 'cost_price' | 'cost_plus_fixed' | 'cost_plus_percentage' | 'percentage_split';
+  variantFixedMarkup?: number;
+  variantMarkupPercentage?: number;
+  // Consignor default payout settings (fallback)
   consignorPayoutMethod?: 'cost_price' | 'cost_plus_fixed' | 'cost_plus_percentage' | 'percentage_split';
   consignorFixedMarkup?: number;
   consignorMarkupPercentage?: number;
@@ -83,6 +91,13 @@ interface CheckoutCartProps {
   onRemovePreorder?: (preorderId: number) => void;
   onAddVariants: (variants: TransformedVariant[]) => void;
   commissionFrom?: 'total' | 'profit';
+  // Per-variant payout settings
+  variantPayoutMethods?: Record<string, 'cost_price' | 'cost_plus_fixed' | 'cost_plus_percentage' | 'percentage_split'>;
+  variantFixedMarkups?: Record<string, number>;
+  variantMarkupPercentages?: Record<string, number>;
+  onPayoutMethodChange?: (variantId: string, method: 'cost_price' | 'cost_plus_fixed' | 'cost_plus_percentage' | 'percentage_split') => void;
+  onFixedMarkupChange?: (variantId: string, markup: number) => void;
+  onMarkupPercentageChange?: (variantId: string, percentage: number) => void;
 }
 
 export function CheckoutCart({ 
@@ -91,7 +106,13 @@ export function CheckoutCart({
   onRemove, 
   onRemovePreorder, 
   onAddVariants, 
-  commissionFrom = 'total' 
+  commissionFrom = 'total',
+  variantPayoutMethods = {},
+  variantFixedMarkups = {},
+  variantMarkupPercentages = {},
+  onPayoutMethodChange,
+  onFixedMarkupChange,
+  onMarkupPercentageChange
 }: CheckoutCartProps) {
   const { currency } = useCurrency();
   const [showAll, setShowAll] = useState(false);
@@ -422,7 +443,92 @@ export function CheckoutCart({
                               </Badge>
                             )}
                           </div>
-                          <div className="flex justify-between items-center mt-1">
+                          
+                          {/* Consignment payout method selector */}
+                          {variant.ownerType === 'consignor' && onPayoutMethodChange && (
+                            <div className="mt-3 p-3 bg-blue-50 rounded-md border border-blue-200 space-y-2">
+                              <Label className="text-xs font-semibold text-blue-900">Payout Method</Label>
+                              <Select
+                                value={variantPayoutMethods[variant.id] || variant.variantPayoutMethod || variant.consignorPayoutMethod || 'percentage_split'}
+                                onValueChange={(value: any) => onPayoutMethodChange(variant.id, value)}
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue>
+                                    {(() => {
+                                      const method = variantPayoutMethods[variant.id] || variant.variantPayoutMethod || variant.consignorPayoutMethod || 'percentage_split';
+                                      if (method === 'cost_price') return 'Cost Price Only';
+                                      if (method === 'cost_plus_fixed') return 'Cost + Fixed Markup';
+                                      if (method === 'cost_plus_percentage') return 'Cost + % Markup';
+                                      return '% Split';
+                                    })()}
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="cost_price">
+                                    <div className="flex flex-col">
+                                      <span>Cost Price Only</span>
+                                      <span className="text-xs text-gray-500">Consignor gets back only their cost</span>
+                                    </div>
+                                  </SelectItem>
+                                  <SelectItem value="cost_plus_fixed">
+                                    <div className="flex flex-col">
+                                      <span>Cost + Fixed Markup</span>
+                                      <span className="text-xs text-gray-500">Consignor gets cost + fixed amount</span>
+                                    </div>
+                                  </SelectItem>
+                                  <SelectItem value="cost_plus_percentage">
+                                    <div className="flex flex-col">
+                                      <span>Cost + % Markup</span>
+                                      <span className="text-xs text-gray-500">Consignor gets cost + percentage of cost</span>
+                                    </div>
+                                  </SelectItem>
+                                  <SelectItem value="percentage_split">
+                                    <div className="flex flex-col">
+                                      <span>% Split</span>
+                                      <span className="text-xs text-gray-500">Consignor gets sale minus your commission</span>
+                                    </div>
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                              
+                              {/* Show fixed markup input */}
+                              {(variantPayoutMethods[variant.id] || variant.variantPayoutMethod || variant.consignorPayoutMethod) === 'cost_plus_fixed' && onFixedMarkupChange && (
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-gray-600">Fixed Markup</Label>
+                                  <Input
+                                    type="number"
+                                    value={variantFixedMarkups[variant.id] !== undefined ? variantFixedMarkups[variant.id] : (variant.variantFixedMarkup ?? variant.consignorFixedMarkup ?? 0)}
+                                    onChange={(e) => onFixedMarkupChange(variant.id, parseFloat(e.target.value) || 0)}
+                                    className="h-8 text-xs"
+                                    placeholder="Enter fixed markup amount"
+                                  />
+                                </div>
+                              )}
+                              
+                              {/* Show percentage markup input */}
+                              {(variantPayoutMethods[variant.id] || variant.variantPayoutMethod || variant.consignorPayoutMethod) === 'cost_plus_percentage' && onMarkupPercentageChange && (
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-gray-600">Markup Percentage (%)</Label>
+                                  <Input
+                                    type="number"
+                                    value={variantMarkupPercentages[variant.id] !== undefined ? variantMarkupPercentages[variant.id] : (variant.variantMarkupPercentage ?? variant.consignorMarkupPercentage ?? 0)}
+                                    onChange={(e) => onMarkupPercentageChange(variant.id, parseFloat(e.target.value) || 0)}
+                                    className="h-8 text-xs"
+                                    placeholder="Enter markup percentage"
+                                  />
+                                </div>
+                              )}
+                              
+                              {/* Show commission rate for percentage split */}
+                              {(variantPayoutMethods[variant.id] || variant.variantPayoutMethod || variant.consignorPayoutMethod) === 'percentage_split' && (
+                                <div className="text-xs text-gray-600">
+                                  Store Commission: {variant.consignorCommissionRate || 20}%
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          <div className="flex justify-between items-center mt-2">
                             <p className="text-sm font-semibold">{formatCurrency(variant.productSalePrice, currency)}</p>
                           </div>
                         </div>

@@ -50,6 +50,11 @@ interface TransformedVariant {
   consignorId?: string;
   consignorName?: string;
   consignorCommissionRate?: number;
+  // Variant-level payout settings (override consignor defaults)
+  variantPayoutMethod?: 'cost_price' | 'cost_plus_fixed' | 'cost_plus_percentage' | 'percentage_split';
+  variantFixedMarkup?: number;
+  variantMarkupPercentage?: number;
+  // Consignor default payout settings (fallback)
   consignorPayoutMethod?: 'cost_price' | 'cost_plus_fixed' | 'cost_plus_percentage' | 'percentage_split';
   consignorFixedMarkup?: number;
   consignorMarkupPercentage?: number;
@@ -137,6 +142,9 @@ async function getAvailableVariants(userId: string) {
         cost_price,
         owner_type,
         consignor_id,
+        payout_method,
+        fixed_markup,
+        markup_percentage,
         products (
           id,
           name,
@@ -211,6 +219,14 @@ async function getAvailableVariants(userId: string) {
         consignorName: variant.consignors?.name,
         // @ts-ignore
         consignorCommissionRate: variant.consignors?.commission_rate,
+        // Variant-level payout settings (set when adding product)
+        // @ts-ignore
+        variantPayoutMethod: variant.payout_method,
+        // @ts-ignore
+        variantFixedMarkup: variant.fixed_markup,
+        // @ts-ignore
+        variantMarkupPercentage: variant.markup_percentage,
+        // Consignor default payout settings (fallback)
         // @ts-ignore
         consignorPayoutMethod: variant.consignors?.payout_method,
         // @ts-ignore
