@@ -9,8 +9,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Use SWC compiler for better performance and console log removal
-  swcMinify: true,
   compiler: {
     // Remove console logs in production (except error and warn)
     removeConsole: process.env.NODE_ENV === 'production' ? {

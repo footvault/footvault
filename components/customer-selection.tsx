@@ -75,7 +75,8 @@ export function CustomerSelection({
     // Filter customers based on search term and type filter
     let filtered = customers.filter(customer =>
       customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.phone.includes(searchTerm)
+      customer.phone.includes(searchTerm) ||
+      (customer.email && customer.email.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     // Apply type filter
@@ -83,8 +84,9 @@ export function CustomerSelection({
       filtered = filtered.filter(customer => customer.customer_type === customerTypeFilter);
     }
 
-    // Limit to 10 customers for performance
-    setFilteredCustomers(filtered.slice(0, 10));
+    // Limit results for performance: show 50 by default, or all if actively searching
+    const limit = searchTerm.length > 0 ? 100 : 50;
+    setFilteredCustomers(filtered.slice(0, limit));
   }, [customers, searchTerm, customerTypeFilter]);
 
   const fetchCustomers = async () => {
@@ -166,7 +168,7 @@ export function CustomerSelection({
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Search customers by name or phone..."
+                placeholder="Search customers by name, email, or phone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -223,18 +225,27 @@ export function CustomerSelection({
                   </Card>
                 ))}
               </div>
-              {customers.filter(customer => {
-                let matches = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                customer.phone.includes(searchTerm);
-                if (customerTypeFilter !== "all") {
-                  matches = matches && customer.customer_type === customerTypeFilter;
+              {(() => {
+                const totalMatches = customers.filter(customer => {
+                  let matches = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    customer.phone.includes(searchTerm) ||
+                    (customer.email && customer.email.toLowerCase().includes(searchTerm.toLowerCase()));
+                  if (customerTypeFilter !== "all") {
+                    matches = matches && customer.customer_type === customerTypeFilter;
+                  }
+                  return matches;
+                }).length;
+                const showing = filteredCustomers.length;
+                
+                if (totalMatches > showing) {
+                  return (
+                    <div className="text-center text-sm text-gray-500 py-2">
+                      Showing {showing} of {totalMatches} customers. {searchTerm.length === 0 ? 'Use search to find specific customers.' : 'Refine your search to see more specific results.'}
+                    </div>
+                  );
                 }
-                return matches;
-              }).length > 10 && (
-                <div className="text-center text-sm text-gray-500 py-2">
-                  Showing first 10 results. Use search or filter to narrow down.
-                </div>
-              )}
+                return null;
+              })()}
             </>
           )}
         </div>
