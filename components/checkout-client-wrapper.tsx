@@ -424,12 +424,10 @@ export function CheckoutClientWrapper({
   const [newPaymentName, setNewPaymentName] = useState("");
   const [newFeeType, setNewFeeType] = useState("percent");
   const [newFeeValue, setNewFeeValue] = useState(0);
-  const [newAppliesTo, setNewAppliesTo] = useState("profit");
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [editPaymentName, setEditPaymentName] = useState("");
   const [editFeeType, setEditFeeType] = useState("percent");
   const [editFeeValue, setEditFeeValue] = useState(0);
-  const [editAppliesTo, setEditAppliesTo] = useState("profit");
   const [loadingPayments, setLoadingPayments] = useState(false);
         // For delete confirmation modal
         const [deleteModalId, setDeleteModalId] = useState<string | null>(null);
@@ -439,8 +437,7 @@ export function CheckoutClientWrapper({
     id: '',
     name: 'No Payment Type',
     feeType: 'none',
-    feeValue: 0,
-    appliesTo: 'profit'
+    feeValue: 0
   };
 
   // Fetch payment types from API
@@ -456,8 +453,7 @@ export function CheckoutClientWrapper({
             id: pt.id,
             name: pt.name,
             feeType: pt.fee_type,
-            feeValue: pt.fee_value,
-            appliesTo: pt.applies_to || "profit"
+            feeValue: pt.fee_value
           }));
           
           setPaymentTypes(dbPaymentTypes);
@@ -500,16 +496,15 @@ export function CheckoutClientWrapper({
   // Add new payment type via API
   const handleAddPaymentType = async () => {
     if (!newPaymentName.trim()) return;
-    const body = { name: newPaymentName.trim(), fee_type: newFeeType, fee_value: Number(newFeeValue), applies_to: newAppliesTo };
+    const body = { name: newPaymentName.trim(), fee_type: newFeeType, fee_value: Number(newFeeValue) };
     const res = await fetch("/api/payment-types", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const result = await res.json();
     if (result.data) {
-      setPaymentTypes(prev => [...prev, { id: result.data.id, name: result.data.name, feeType: result.data.fee_type, feeValue: result.data.fee_value, appliesTo: result.data.applies_to || "profit" }]);
+      setPaymentTypes(prev => [...prev, { id: result.data.id, name: result.data.name, feeType: result.data.fee_type, feeValue: result.data.fee_value }]);
       setSelectedPaymentType(result.data.id);
       setNewPaymentName("");
       setNewFeeType("percent");
       setNewFeeValue(0);
-      setNewAppliesTo("profit");
     } else {
       toast({ title: "Error", description: result.error || "Failed to add payment type.", variant: "destructive" });
     }
@@ -518,11 +513,11 @@ export function CheckoutClientWrapper({
   // Edit payment type via API
   const handleEditPaymentType = async (id: string) => {
     if (!editPaymentName.trim()) return;
-    const body = { id, name: editPaymentName.trim(), fee_type: editFeeType, fee_value: Number(editFeeValue), applies_to: editAppliesTo };
+    const body = { id, name: editPaymentName.trim(), fee_type: editFeeType, fee_value: Number(editFeeValue) };
     const res = await fetch("/api/payment-types", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const result = await res.json();
     if (result.data) {
-      setPaymentTypes(prev => prev.map(pt => pt.id === id ? { id, name: result.data.name, feeType: result.data.fee_type, feeValue: result.data.fee_value, appliesTo: result.data.applies_to || "profit" } : pt));
+      setPaymentTypes(prev => prev.map(pt => pt.id === id ? { id, name: result.data.name, feeType: result.data.fee_type, feeValue: result.data.fee_value } : pt));
       setEditingPaymentId(null);
       toast({
         title: "Success",
@@ -570,15 +565,13 @@ export function CheckoutClientWrapper({
     return variantsTotal + preordersTotal;
   }, [selectedVariants, selectedPreorders])
 
-  // Payment fee calculation
+  // Payment fee calculation (always added to customer total)
   let paymentFee = 0;
   if (selectedPayment.feeType === "percent") {
     paymentFee = subtotal * (selectedPayment.feeValue / 100);
   } else if (selectedPayment.feeType === "fixed") {
     paymentFee = selectedPayment.feeValue;
   }
-  // Applies to: profit or cost
-  const paymentFeeAppliesTo = selectedPayment.appliesTo || "profit";
 
   const calculatedDiscount = useMemo(() => {
     if (discountType === "percentage") {
@@ -589,30 +582,24 @@ export function CheckoutClientWrapper({
   }, [subtotal, discountType, discountValue])
 
 
-  // Total amount due from customer: subtotal minus discount plus additional charge (add payment fee if applies to cost)
+  // Total amount due from customer: subtotal minus discount plus additional charge plus payment fee
   const totalAmount = useMemo(() => {
-    let total = subtotal - calculatedDiscount + additionalCharge;
-    if (paymentFeeAppliesTo === "cost") {
-      total += paymentFee;
-    }
+    let total = subtotal - calculatedDiscount + additionalCharge + paymentFee;
     return total;
-  }, [subtotal, calculatedDiscount, additionalCharge, paymentFee, paymentFeeAppliesTo]);
+  }, [subtotal, calculatedDiscount, additionalCharge, paymentFee]);
 
   // Calculate change amount
   const changeAmount = useMemo(() => {
     return Math.max(0, paymentReceived - totalAmount);
   }, [paymentReceived, totalAmount]);
 
-  // Cost and profit calculations, payment fee can apply to cost or profit
+  // Cost calculation (payment fee no longer affects cost)
   const totalCost = useMemo(() => {
     let baseCost = selectedVariants.reduce((sum, variant) => sum + variant.costPrice, 0); // Use costPrice instead of productOriginalPrice
     const preordersCost = selectedPreorders.reduce((sum, preorder) => sum + preorder.cost_price, 0); // Add preorders cost
     baseCost += preordersCost;
-    if (paymentFeeAppliesTo === "cost") {
-      baseCost += paymentFee;
-    }
     return baseCost;
-  }, [selectedVariants, selectedPreorders, paymentFee, paymentFeeAppliesTo]);
+  }, [selectedVariants, selectedPreorders]);
 
   // Calculate true store profit (only commission from consigned items + full profit from store items)
   const storeProfit = useMemo(() => {
@@ -679,14 +666,11 @@ export function CheckoutClientWrapper({
       totalStoreProfit += preorderProfit;
     });
     
-    // Subtract discount and fees from store profit
+    // Subtract discount from store profit (payment fee no longer affects profit)
     totalStoreProfit -= calculatedDiscount;
-    if (paymentFeeAppliesTo === "profit") {
-      totalStoreProfit -= paymentFee;
-    }
     
     return totalStoreProfit;
-  }, [selectedVariants, selectedPreorders, paymentFee, paymentFeeAppliesTo, calculatedDiscount, customCommissionRates, customStoreAmounts]);
+  }, [selectedVariants, selectedPreorders, calculatedDiscount, customCommissionRates, customStoreAmounts]);
 
   // Calculate total consignor payouts for display
   const totalConsignorPayout = useMemo(() => {
@@ -891,8 +875,7 @@ export function CheckoutClientWrapper({
         name: selectedPayment.name,
         feeType: selectedPayment.feeType,
         feeValue: selectedPayment.feeValue,
-        feeAmount: paymentFee,
-        appliesTo: paymentFeeAppliesTo
+        feeAmount: paymentFee
       };
 
       const payload = {
@@ -1793,7 +1776,6 @@ export function CheckoutClientWrapper({
                                 setEditPaymentName(currentPayment.name);
                                 setEditFeeType(currentPayment.feeType);
                                 setEditFeeValue(currentPayment.feeValue);
-                                setEditAppliesTo(currentPayment.appliesTo || "profit");
                               }
                             }}>
                               Edit
@@ -1842,16 +1824,6 @@ export function CheckoutClientWrapper({
                           }}
                           placeholder={newFeeType === "percent" ? "%" : currency}
                         />
-                        <label className="text-xs ml-2">Affects:</label>
-                        <Select value={newAppliesTo} onValueChange={setNewAppliesTo}>
-                          <SelectTrigger className="w-[100px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="profit">Profit</SelectItem>
-                            <SelectItem value="cost">Cost</SelectItem>
-                          </SelectContent>
-                        </Select>
                         <Button size="sm" variant="default" onClick={handleAddPaymentType}>Add</Button>
                       </div>
                     </div>
@@ -1890,16 +1862,6 @@ export function CheckoutClientWrapper({
                           }}
                           placeholder={editFeeType === "percent" ? "%" : currency}
                         />
-                        <label className="text-xs ml-2">Affects:</label>
-                        <Select value={editAppliesTo} onValueChange={setEditAppliesTo}>
-                          <SelectTrigger className="w-[100px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="profit">Profit</SelectItem>
-                            <SelectItem value="cost">Cost</SelectItem>
-                          </SelectContent>
-                        </Select>
                         <div className="flex gap-2 flex-nowrap">
                           <Button size="sm" variant="default" onClick={() => handleEditPaymentType(editingPaymentId)}>Save</Button>
                           <Button size="sm" variant="outline" onClick={() => setEditingPaymentId(null)}>Cancel</Button>
@@ -2046,9 +2008,9 @@ export function CheckoutClientWrapper({
                 )}
 
                 {selectedPayment.feeType !== "none" && selectedPayment.feeValue > 0 && (
-                  <div className="flex justify-between text-sm font-medium">
-                    <span>Payment Fee ({selectedPayment.feeType === "percent" ? `${selectedPayment.feeValue}%` : formatCurrency(selectedPayment.feeValue, currency)}):</span>
-                    <span className="text-red-500">- {formatCurrency(paymentFee, currency)} <span className="text-xs">(applies to {paymentFeeAppliesTo})</span></span>
+                  <div className="flex justify-between text-sm text-blue-600 font-medium">
+                    <span>Payment Fee ({selectedPayment.feeType === "percent" ? `${selectedPayment.feeValue}%` : formatCurrency(selectedPayment.feeValue, currency)})</span>
+                    <span>+{formatCurrency(paymentFee, currency)}</span>
                   </div>
                 )}
 
