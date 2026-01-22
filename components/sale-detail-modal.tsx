@@ -242,7 +242,7 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                             : 'Serial'}
                         </TableHead>
                         <TableHead className="w-[80px]">Size</TableHead>
-                        <TableHead className="w-[120px]">Notes</TableHead>
+                        <TableHead className="min-w-[180px]">Notes</TableHead>
                         <TableHead className="text-right w-[100px]">Sold Price</TableHead>
                         <TableHead className="text-right w-[100px]">Cost Price</TableHead>
                       </TableRow>
@@ -285,9 +285,9 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                               {item.variant?.size || 'N/A'} ({item.variant?.sizeLabel || 'N/A'})
                             </div>
                           </TableCell>
-                          <TableCell className="text-xs py-3 w-[120px]">
+                          <TableCell className="text-xs py-3 min-w-[180px]">
                             {item.variant?.notes ? (
-                              <div className="truncate" title={item.variant.notes}>
+                              <div className="break-words" title={item.variant.notes}>
                                 {item.variant.notes}
                               </div>
                             ) : (

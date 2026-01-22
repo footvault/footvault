@@ -74,6 +74,10 @@ export async function POST(request: Request) {
     console.log('Creating variant without serial number for pre-order conversion');
 
     // Create the variant
+    const paymentMethodNote = preorder.down_payment_method 
+      ? ` | Down payment via ${preorder.down_payment_method}` 
+      : '';
+    
     const variantData = {
       id: uuidv4(), // Generate UUID for the variant
       user_id: user.id,
@@ -90,7 +94,7 @@ export async function POST(request: Request) {
       condition: 'New', // Default condition
       isArchived: false, // Not archived
       type: 'Pre-order', // Set the correct type
-      notes: `Created from pre-order #${preorder.pre_order_no} for customer ${preorder.customer.name}`,
+      notes: `Created from pre-order #${preorder.pre_order_no} for customer ${preorder.customer.name}${paymentMethodNote}`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };

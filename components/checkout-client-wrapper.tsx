@@ -78,6 +78,7 @@ interface Preorder {
   cost_price: number;
   total_amount: number;
   down_payment: number | null;
+  down_payment_method: string | null;
   remaining_balance: number;
   expected_delivery_date: string | null;
   completed_date: string | null;
@@ -576,13 +577,37 @@ export function CheckoutClientWrapper({
     return variantsTotal + preordersTotal;
   }, [selectedVariants, selectedPreorders])
 
-  // Payment fee calculation (always added to customer total)
-  let paymentFee = 0;
-  if (selectedPayment.feeType === "percent") {
-    paymentFee = subtotal * (selectedPayment.feeValue / 100);
-  } else if (selectedPayment.feeType === "fixed") {
-    paymentFee = selectedPayment.feeValue;
-  }
+  // Calculate total pre-order down payments
+  const totalDownPayments = useMemo(() => {
+    return selectedPreorders.reduce((sum, p) => sum + (p.down_payment || 0), 0);
+  }, [selectedPreorders]);
+
+  // Calculate remaining balance (for pre-orders) - without fee
+  const remainingBalanceBase = useMemo(() => {
+    if (selectedPreorders.length > 0) {
+      return subtotal - totalDownPayments;
+    }
+    return subtotal;
+  }, [subtotal, totalDownPayments, selectedPreorders]);
+
+  // Payment fee calculation (applies to remaining balance when pre-orders exist, otherwise applies to subtotal)
+  const paymentFee = useMemo(() => {
+    const baseAmount = selectedPreorders.length > 0 ? remainingBalanceBase : subtotal;
+    if (selectedPayment.feeType === "percent") {
+      return baseAmount * (selectedPayment.feeValue / 100);
+    } else if (selectedPayment.feeType === "fixed") {
+      return selectedPayment.feeValue;
+    }
+    return 0;
+  }, [selectedPayment, remainingBalanceBase, subtotal, selectedPreorders]);
+
+  // Remaining balance including payment fee (for pre-orders)
+  const remainingBalance = useMemo(() => {
+    if (selectedPreorders.length > 0) {
+      return remainingBalanceBase + paymentFee;
+    }
+    return remainingBalanceBase;
+  }, [remainingBalanceBase, paymentFee, selectedPreorders]);
 
   const calculatedDiscount = useMemo(() => {
     if (discountType === "percentage") {
@@ -593,11 +618,12 @@ export function CheckoutClientWrapper({
   }, [subtotal, discountType, discountValue])
 
 
-  // Total amount due from customer: subtotal minus discount plus additional charge plus payment fee
+  // Total amount due from customer
   const totalAmount = useMemo(() => {
-    let total = subtotal - calculatedDiscount + additionalCharge + paymentFee;
-    return total;
-  }, [subtotal, calculatedDiscount, additionalCharge, paymentFee]);
+    // Total is always the full sale amount: subtotal - discount + additional charge
+    // For pre-orders, payment fee is included in remaining balance, not in total
+    return subtotal - calculatedDiscount + additionalCharge;
+  }, [subtotal, calculatedDiscount, additionalCharge]);
 
   // Calculate change amount
   const changeAmount = useMemo(() => {
@@ -1763,9 +1789,62 @@ export function CheckoutClientWrapper({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="flex justify-between text-sm">
+                  <span>Subtotal ({selectedVariants.length + selectedPreorders.length} items)</span>
+                  <span>{formatCurrency(subtotal, currency)}</span>
+                </div>
+
+                {/* Pre-order Down Payment Summary */}
+                {selectedPreorders.length > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+                    <div className="text-sm font-medium text-blue-900">Pre-order Down Payments</div>
+                    {selectedPreorders.map((preorder) => (
+                      <div key={preorder.id} className="flex justify-between items-start text-xs">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-gray-700 font-medium">
+                            Pre-order #{preorder.pre_order_no}
+                          </span>
+                          {preorder.down_payment_method && (
+                            <span className="text-blue-600 text-xs">
+                              via {preorder.down_payment_method}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-green-600 font-medium">
+                          {formatCurrency(preorder.down_payment || 0, currency)}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between text-sm font-semibold text-blue-900 border-t border-blue-300 pt-2">
+                      <span>Total Down Payments</span>
+                      <span>
+                        {formatCurrency(totalDownPayments, currency)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Remaining Balance (read-only, only shown for pre-orders) */}
+                {selectedPreorders.length > 0 && (
+                  <div>
+                    <Label className="text-sm font-medium">Remaining Balance</Label>
+                    <Input
+                      type="text"
+                      value={formatCurrency(remainingBalance, currency)}
+                      disabled
+                      className="mt-1 bg-gray-100 font-semibold text-lg"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {formatCurrency(remainingBalanceBase, currency)} + {formatCurrency(paymentFee, currency)} {selectedPayment.name} fee
+                    </p>
+                  </div>
+                )}
+
                 {/* Payment Type Dropdown */}
                 <div className="mb-2">
-                  <Label className="block text-sm font-medium mb-1">Payment Type</Label>
+                  <Label className="block text-sm font-medium mb-1">
+                    Payment Type {selectedPreorders.length > 0 && <span className="text-gray-500 font-normal">(for remaining balance)</span>}
+                  </Label>
                   <div className="flex gap-2">
                     <Select value={selectedPaymentType} onValueChange={value => setSelectedPaymentType(value)}>
                       <SelectTrigger className="flex-1">
@@ -1893,11 +1972,6 @@ export function CheckoutClientWrapper({
                       </div>
                     </div>
                   )}
-                </div>
-
-                <div className="flex justify-between text-sm">
-                  <span>Subtotal ({selectedVariants.length + selectedPreorders.length} items)</span>
-                  <span>{formatCurrency(subtotal, currency)}</span>
                 </div>
 
                 <div>
@@ -2031,13 +2105,6 @@ export function CheckoutClientWrapper({
                   </div>
                 )}
 
-                {selectedPayment.feeType !== "none" && selectedPayment.feeValue > 0 && (
-                  <div className="flex justify-between text-sm text-blue-600 font-medium">
-                    <span>Payment Fee ({selectedPayment.feeType === "percent" ? `${selectedPayment.feeValue}%` : formatCurrency(selectedPayment.feeValue, currency)})</span>
-                    <span>+{formatCurrency(paymentFee, currency)}</span>
-                  </div>
-                )}
-
                 <div className="flex justify-between font-bold text-lg border-t pt-4">
                   <span>Total</span>
                   <span>{formatCurrency(totalAmount, currency)}</span>
@@ -2062,6 +2129,23 @@ export function CheckoutClientWrapper({
                   <span>Total Cost</span>
                   <span>{formatCurrency(totalCost, currency)}</span>
                 </div>
+                {selectedPreorders.length > 0 && (
+                  <>
+                    <div className="flex justify-between text-sm text-gray-700">
+                      <span>Down Payment</span>
+                      <span>{formatCurrency(totalDownPayments, currency)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-gray-700">
+                      <span>Remaining Balance</span>
+                      <span>
+                        {formatCurrency(remainingBalance, currency)}
+                        {paymentFee > 0 && (
+                          <span className="text-xs text-gray-500"> (incl. {formatCurrency(paymentFee, currency)} {selectedPayment.name} fee)</span>
+                        )}
+                      </span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between font-semibold text-base">
                   <span>Store Profit {selectedVariants.some(v => v.ownerType === 'consignor') ? '(for team distribution)' : ''}</span>
                   <span className={netProfit < 0 ? "text-red-600" : "text-green-600"}>{formatCurrency(netProfit, currency)}</span>

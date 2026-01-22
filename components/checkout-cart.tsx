@@ -59,6 +59,7 @@ interface Preorder {
   cost_price: number;
   total_amount: number;
   down_payment: number | null;
+  down_payment_method: string | null;
   remaining_balance: number;
   expected_delivery_date: string | null;
   completed_date: string | null;
@@ -265,6 +266,9 @@ export function CheckoutCart({
                           <div>
                             <div className="text-gray-500 font-medium mb-1">Down Payment</div>
                             <div className="text-green-600 font-medium">{formatCurrency(preorder.down_payment || 0, currency)}</div>
+                            {preorder.down_payment_method && (
+                              <div className="text-xs text-gray-500 mt-0.5">via {preorder.down_payment_method}</div>
+                            )}
                           </div>
                           <div>
                             <div className="text-gray-500 font-medium mb-1">Remaining</div>
@@ -386,6 +390,9 @@ export function CheckoutCart({
                                 <div className="font-medium text-green-600">
                                   {formatCurrency(preorder.down_payment || 0, currency)}
                                 </div>
+                                {preorder.down_payment_method && (
+                                  <div className="text-xs text-gray-500 mt-0.5">via {preorder.down_payment_method}</div>
+                                )}
                               </div>
                               <div>
                                 <div className="text-gray-500 font-medium mb-1">Remaining</div>

@@ -81,6 +81,7 @@ async function getAvailablePreorders(userId: string) {
         cost_price,
         total_amount,
         down_payment,
+        down_payment_method,
         remaining_balance,
         expected_delivery_date,
         completed_date,
