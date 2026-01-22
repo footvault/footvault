@@ -93,6 +93,7 @@ export function ManualAddProduct({
     customer_email: "",
     customer_phone: "",
     down_payment: "",
+    down_payment_method: "",
     expected_delivery_date: "",
     notes: ""
   });
@@ -106,6 +107,9 @@ export function ManualAddProduct({
     email: ""
   });
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
+  
+  // Payment types for down payment method
+  const [paymentTypes, setPaymentTypes] = useState<Array<{id: string, name: string}>>([]);
   
   // Customer dropdown state
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
@@ -152,6 +156,26 @@ export function ManualAddProduct({
     fetchLocations();
     fetchConsignors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch payment types for down payment method
+  useEffect(() => {
+    const fetchPaymentTypes = async () => {
+      try {
+        const res = await fetch("/api/payment-types");
+        const result = await res.json();
+        if (result.data && result.data.length > 0) {
+          const types = result.data.map((pt: any) => ({
+            id: pt.id,
+            name: pt.name
+          }));
+          setPaymentTypes(types);
+        }
+      } catch (error) {
+        console.error("Error fetching payment types:", error);
+      }
+    };
+    fetchPaymentTypes();
   }, []);
 
   // Fetch variant limits on mount
@@ -506,15 +530,13 @@ export function ManualAddProduct({
             setIsSaving(false);
             return;
           }
-          if (!preOrderForm.expected_delivery_date) {
-            toast({ title: "Missing Delivery Date", description: "Please select an expected delivery date." });
+          if (!preOrderForm.down_payment_method) {
+            toast({ title: "Missing Payment Method", description: "Please select a payment method for the down payment." });
             setIsSaving(false);
             return;
           }
-        }
-        for (let i = 0; i < variants.length; i++) {
-          const v = variants[i];
-          if (!v.size || !v.location || !v.quantity) {
+          if (!preOrderForm.expected_delivery_date) {
+            toast({ title: "Missing Delivery Date", description: "Please select an expected delivery date." });
             setIsSaving(false);
             return;
           }
@@ -700,6 +722,8 @@ export function ManualAddProduct({
             size_label: sizeLabel,
             product_price: parseFloat(product.salePrice),
             down_payment: parseFloat(preOrderForm.down_payment),
+            down_payment_method: preOrderForm.down_payment_method,
+            cost_price: 0, // Cost will be entered at checkout
             expected_delivery_date: preOrderForm.expected_delivery_date,
             notes: preOrderForm.notes,
             user_id: user.id,
@@ -728,6 +752,7 @@ export function ManualAddProduct({
           customer_email: "",
           customer_phone: "",
           down_payment: "",
+          down_payment_method: "",
           expected_delivery_date: "",
           notes: ""
         });
@@ -1306,6 +1331,34 @@ export function ManualAddProduct({
                       />
                       {showRequired && isPreOrder && !preOrderForm.down_payment && (
                         <span className="text-xs text-red-500 mt-1">Down payment is required</span>
+                      )}
+                    </div>
+
+                    {/* Down Payment Method */}
+                    <div>
+                      <Label htmlFor="downPaymentMethod" className="text-sm">
+                        Payment Method *
+                      </Label>
+                      <Select
+                        value={preOrderForm.down_payment_method}
+                        onValueChange={(value) => setPreOrderForm(prev => ({
+                          ...prev,
+                          down_payment_method: value
+                        }))}
+                      >
+                        <SelectTrigger className="text-sm mt-1">
+                          <SelectValue placeholder="Select payment method" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {paymentTypes.map(pt => (
+                            <SelectItem key={pt.id} value={pt.name}>
+                              {pt.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {showRequired && isPreOrder && !preOrderForm.down_payment_method && (
+                        <span className="text-xs text-red-500 mt-1">Payment method is required</span>
                       )}
                     </div>
 

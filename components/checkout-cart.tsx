@@ -98,6 +98,9 @@ interface CheckoutCartProps {
   onPayoutMethodChange?: (variantId: string, method: 'cost_price' | 'cost_plus_fixed' | 'cost_plus_percentage' | 'percentage_split') => void;
   onFixedMarkupChange?: (variantId: string, markup: number) => void;
   onMarkupPercentageChange?: (variantId: string, percentage: number) => void;
+  // Pre-order cost management
+  preorderCosts?: Record<number, number>;
+  onPreorderCostChange?: (preorderId: number, cost: number) => void;
 }
 
 export function CheckoutCart({ 
@@ -112,7 +115,9 @@ export function CheckoutCart({
   variantMarkupPercentages = {},
   onPayoutMethodChange,
   onFixedMarkupChange,
-  onMarkupPercentageChange
+  onMarkupPercentageChange,
+  preorderCosts = {},
+  onPreorderCostChange
 }: CheckoutCartProps) {
   const { currency } = useCurrency();
   const [showAll, setShowAll] = useState(false);
@@ -355,8 +360,22 @@ export function CheckoutCart({
                           <div className="mt-2 p-2 bg-white rounded border border-gray-200">
                             <div className="grid grid-cols-2 gap-4 text-sm">
                               <div>
-                                <div className="text-gray-500 font-medium mb-1">Cost Price</div>
-                                <div className="font-medium">{formatCurrency(preorder.cost_price, currency)}</div>
+                                <div className="text-gray-500 font-medium mb-1">Cost Price *</div>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={preorderCosts[preorder.id] ?? preorder.cost_price ?? ''}
+                                  onChange={(e) => {
+                                    const value = parseFloat(e.target.value) || 0;
+                                    if (onPreorderCostChange) {
+                                      onPreorderCostChange(preorder.id, value);
+                                    }
+                                  }}
+                                  placeholder="Enter cost"
+                                  className="h-8 text-sm"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Enter actual cost</p>
                               </div>
                               <div>
                                 <div className="text-gray-500 font-medium mb-1">Total Amount</div>
@@ -381,11 +400,11 @@ export function CheckoutCart({
                               <div className="flex justify-between text-xs">
                                 <span className="text-gray-600">Expected Profit:</span>
                                 <span className={`font-bold ${
-                                  (preorder.total_amount - preorder.cost_price) >= 0 
+                                  (preorder.total_amount - (preorderCosts[preorder.id] ?? preorder.cost_price ?? 0)) >= 0 
                                     ? 'text-green-600' 
                                     : 'text-red-600'
                                 }`}>
-                                  {formatCurrency(preorder.total_amount - preorder.cost_price, currency)}
+                                  {formatCurrency(preorder.total_amount - (preorderCosts[preorder.id] ?? preorder.cost_price ?? 0), currency)}
                                 </span>
                               </div>
                             </div>

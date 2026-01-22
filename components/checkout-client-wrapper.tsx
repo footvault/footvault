@@ -153,6 +153,9 @@ export function CheckoutClientWrapper({
   const [variantFixedMarkups, setVariantFixedMarkups] = useState<Record<string, number>>({})
   const [variantMarkupPercentages, setVariantMarkupPercentages] = useState<Record<string, number>>({})
   
+  // Pre-order cost overrides at checkout
+  const [preorderCosts, setPreorderCosts] = useState<Record<number, number>>({})
+  
   const [avatars] = useState<Avatar[]>(initialAvatars) // Avatars are static after initial load
   const [profitTemplates] = useState<ProfitDistributionTemplateDetail[]>(initialProfitTemplates) // Use imported type
   const [isRecordingSale, startSaleTransition] = useTransition()
@@ -345,7 +348,15 @@ export function CheckoutClientWrapper({
   const handleAddVariantToCart = (variant: TransformedVariant) => {
     if (variant.isPreorder && variant.preorderData) {
       // Handle pre-order selection
-      setSelectedPreorders((prev) => [...prev, variant.preorderData!])
+      const preorder = variant.preorderData;
+      setSelectedPreorders((prev) => [...prev, preorder])
+      
+      // Initialize cost in state (use 0 if not set in database)
+      setPreorderCosts(prev => ({
+        ...prev,
+        [preorder.id]: preorder.cost_price ?? 0
+      }));
+      
       setSearchTerm("") // Clear search after adding
       
       // Auto-populate customer info from pre-order if cart is empty
@@ -593,13 +604,17 @@ export function CheckoutClientWrapper({
     return Math.max(0, paymentReceived - totalAmount);
   }, [paymentReceived, totalAmount]);
 
-  // Cost calculation (payment fee no longer affects cost)
+  // Cost calculation (use checkout overrides for pre-orders)
   const totalCost = useMemo(() => {
     let baseCost = selectedVariants.reduce((sum, variant) => sum + variant.costPrice, 0); // Use costPrice instead of productOriginalPrice
-    const preordersCost = selectedPreorders.reduce((sum, preorder) => sum + preorder.cost_price, 0); // Add preorders cost
+    const preordersCost = selectedPreorders.reduce((sum, preorder) => {
+      // Use the cost from checkout state if available, otherwise use database value
+      const cost = preorderCosts[preorder.id] ?? preorder.cost_price ?? 0;
+      return sum + cost;
+    }, 0);
     baseCost += preordersCost;
     return baseCost;
-  }, [selectedVariants, selectedPreorders]);
+  }, [selectedVariants, selectedPreorders, preorderCosts]);
 
   // Calculate true store profit (only commission from consigned items + full profit from store items)
   const storeProfit = useMemo(() => {
@@ -660,9 +675,10 @@ export function CheckoutClientWrapper({
       }
     });
     
-    // Add pre-orders profit (total_amount - cost_price for each pre-order)
+    // Add pre-orders profit (total_amount - cost_price for each pre-order, use checkout overrides)
     selectedPreorders.forEach(preorder => {
-      const preorderProfit = preorder.total_amount - preorder.cost_price;
+      const cost = preorderCosts[preorder.id] ?? preorder.cost_price ?? 0;
+      const preorderProfit = preorder.total_amount - cost;
       totalStoreProfit += preorderProfit;
     });
     
@@ -670,7 +686,7 @@ export function CheckoutClientWrapper({
     totalStoreProfit -= calculatedDiscount;
     
     return totalStoreProfit;
-  }, [selectedVariants, selectedPreorders, calculatedDiscount, customCommissionRates, customStoreAmounts]);
+  }, [selectedVariants, selectedPreorders, calculatedDiscount, customCommissionRates, customStoreAmounts, preorderCosts]);
 
   // Calculate total consignor payouts for display
   const totalConsignorPayout = useMemo(() => {
@@ -745,6 +761,9 @@ export function CheckoutClientWrapper({
           const supabase = createClient()
           const { data: { session } } = await supabase.auth.getSession()
           
+          // Use the updated cost from checkout state
+          const updatedCost = preorderCosts[preorder.id] ?? preorder.cost_price ?? 0;
+          
           const response = await fetch("/api/create-variant-from-preorder", {
             method: "POST",
             headers: {
@@ -753,6 +772,7 @@ export function CheckoutClientWrapper({
             },
             body: JSON.stringify({
               preorderId: preorder.id,
+              costPrice: updatedCost, // Send the updated cost price
               status: 'Sold' // Mark as Sold immediately since it's being converted
             }),
           });
@@ -762,7 +782,7 @@ export function CheckoutClientWrapper({
             preorderVariantItems.push({
               variantId: result.variantId,
               soldPrice: preorder.total_amount, // Use total_amount as the sale price
-              costPrice: preorder.cost_price,
+              costPrice: updatedCost, // Use updated cost
               quantity: 1,
             });
 
@@ -1729,6 +1749,10 @@ export function CheckoutClientWrapper({
               }}
               onMarkupPercentageChange={(variantId, percentage) => {
                 setVariantMarkupPercentages(prev => ({ ...prev, [variantId]: percentage }))
+              }}
+              preorderCosts={preorderCosts}
+              onPreorderCostChange={(preorderId, cost) => {
+                setPreorderCosts(prev => ({ ...prev, [preorderId]: cost }))
               }}
             />
 

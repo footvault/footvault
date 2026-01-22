@@ -287,6 +287,7 @@ export function AddProductForm({
   const [preOrderForm, setPreOrderForm] = useState({
     customer_id: "",
     down_payment: "",
+    down_payment_method: "",
     expected_delivery_date: "",
     notes: ""
   })
@@ -304,6 +305,9 @@ export function AddProductForm({
   // Customer dropdown state
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false)
   const [customerSearchValue, setCustomerSearchValue] = useState("")
+  
+  // Payment types for down payment method
+  const [paymentTypes, setPaymentTypes] = useState<Array<{id: string, name: string}>>([])
   
   // Removed editingVariantId and editingVariantValues; only single variant input is used
   // Serial number state removed (auto-assigned)
@@ -410,6 +414,24 @@ export function AddProductForm({
     fetchVariantLimits();
     fetchConsignors();
     fetchCustomers();
+    
+    // Fetch payment types for down payment method
+    const fetchPaymentTypes = async () => {
+      try {
+        const res = await fetch("/api/payment-types");
+        const result = await res.json();
+        if (result.data && result.data.length > 0) {
+          const types = result.data.map((pt: any) => ({
+            id: pt.id,
+            name: pt.name
+          }));
+          setPaymentTypes(types);
+        }
+      } catch (error) {
+        console.error("Error fetching payment types:", error);
+      }
+    };
+    fetchPaymentTypes();
   }, [open])
 
   useEffect(() => {
@@ -504,6 +526,7 @@ export function AddProductForm({
       setPreOrderForm({
         customer_id: "",
         down_payment: "",
+        down_payment_method: "",
         expected_delivery_date: "",
         notes: ""
       });
@@ -914,9 +937,10 @@ export function AddProductForm({
           variant_id: null, // UUID field, keeping as null
           size: newVariant.size,
           size_label: newVariant.sizeLabel,
-          cost_price: typeof productForm.originalPrice === 'number' ? productForm.originalPrice : parseFloat(productForm.originalPrice) || 0,
+          cost_price: 0, // Cost will be entered at checkout
           total_amount: typeof productForm.salePrice === 'number' ? productForm.salePrice : parseFloat(productForm.salePrice) || 0,
           down_payment: preOrderForm.down_payment ? parseNumberFromCommaSeparated(preOrderForm.down_payment) : 0,
+          down_payment_method: preOrderForm.down_payment_method,
           // remaining_balance is a generated column - don't insert it
           status: 'pending',
           pre_order_date: new Date().toISOString().split('T')[0], // Add required pre_order_date field
@@ -974,9 +998,10 @@ export function AddProductForm({
             variant_id: null,
             size: newVariant.size,
             size_label: newVariant.sizeLabel,
-            cost_price: typeof productForm.originalPrice === 'number' ? productForm.originalPrice : parseFloat(productForm.originalPrice) || 0,
+            cost_price: 0, // Cost will be entered at checkout
             total_amount: typeof productForm.salePrice === 'number' ? productForm.salePrice : parseFloat(productForm.salePrice) || 0,
             down_payment: preOrderForm.down_payment ? parseNumberFromCommaSeparated(preOrderForm.down_payment) : 0,
+            down_payment_method: preOrderForm.down_payment_method,
             // remaining_balance is a generated column - don't insert it
             status: 'pending',
             pre_order_date: new Date().toISOString().split('T')[0],
@@ -1201,20 +1226,23 @@ export function AddProductForm({
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="originalPrice">Cost Price ({currencySymbol})</Label>
-                <Input
-                  id="originalPrice"
-                  type="text"
-                  value={displayPrices.originalPrice}
-                  onChange={handleProductFormChange}
-                  onFocus={() => handlePriceFocus("originalPrice")}
-                  onBlur={() => handlePriceBlur("originalPrice")}
-                  placeholder="0"
-                  max={99999}
-                />
-              </div>
-              <div>
+              {/* Only show Cost Price if NOT a pre-order */}
+              {!isPreOrder && (
+                <div>
+                  <Label htmlFor="originalPrice">Cost Price ({currencySymbol})</Label>
+                  <Input
+                    id="originalPrice"
+                    type="text"
+                    value={displayPrices.originalPrice}
+                    onChange={handleProductFormChange}
+                    onFocus={() => handlePriceFocus("originalPrice")}
+                    onBlur={() => handlePriceBlur("originalPrice")}
+                    placeholder="0"
+                    max={99999}
+                  />
+                </div>
+              )}
+              <div className={isPreOrder ? "col-span-2" : ""}>
                 <Label htmlFor="salePrice">Sale Price ({currencySymbol})</Label>
                 <Input
                   id="salePrice"
@@ -1470,6 +1498,30 @@ export function AddProductForm({
                       placeholder="0"
                       className="text-xs"
                     />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="down_payment_method" className="text-xs">
+                      Payment Method
+                    </Label>
+                    <Select
+                      value={preOrderForm.down_payment_method}
+                      onValueChange={(value) => setPreOrderForm(prev => ({
+                        ...prev,
+                        down_payment_method: value
+                      }))}
+                    >
+                      <SelectTrigger className="text-xs">
+                        <SelectValue placeholder="Select payment method" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {paymentTypes.map(pt => (
+                          <SelectItem key={pt.id} value={pt.name}>
+                            {pt.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div>

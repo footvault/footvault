@@ -19,6 +19,7 @@ interface Preorder {
   cost_price: number;
   total_amount: number;
   down_payment: number | null;
+  down_payment_method: string | null;
   remaining_balance: number;
   expected_delivery_date: string | null;
   completed_date: string | null;
