@@ -307,7 +307,14 @@ export function AddProductForm({
   const [customerSearchValue, setCustomerSearchValue] = useState("")
   
   // Payment types for down payment method
-  const [paymentTypes, setPaymentTypes] = useState<Array<{id: string, name: string}>>([])
+  const [paymentTypes, setPaymentTypes] = useState<Array<{id: string, name: string, feeType?: string, feeValue?: number}>>([])
+  const [newPaymentName, setNewPaymentName] = useState("")
+  const [newFeeType, setNewFeeType] = useState<"percent" | "fixed">("percent")
+  const [newFeeValue, setNewFeeValue] = useState(0)
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null)
+  const [editPaymentName, setEditPaymentName] = useState("")
+  const [editFeeType, setEditFeeType] = useState<"percent" | "fixed">("percent")
+  const [editFeeValue, setEditFeeValue] = useState(0)
   
   // Removed editingVariantId and editingVariantValues; only single variant input is used
   // Serial number state removed (auto-assigned)
@@ -423,7 +430,9 @@ export function AddProductForm({
         if (result.data && result.data.length > 0) {
           const types = result.data.map((pt: any) => ({
             id: pt.id,
-            name: pt.name
+            name: pt.name,
+            feeType: pt.fee_type,
+            feeValue: pt.fee_value
           }));
           setPaymentTypes(types);
         }
@@ -433,6 +442,50 @@ export function AddProductForm({
     };
     fetchPaymentTypes();
   }, [open])
+
+  // Add new payment type via API
+  const handleAddPaymentType = async () => {
+    if (!newPaymentName.trim()) return;
+    const body = { name: newPaymentName.trim(), fee_type: newFeeType, fee_value: Number(newFeeValue) };
+    const res = await fetch("/api/payment-types", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const result = await res.json();
+    if (result.data) {
+      setPaymentTypes(prev => [...prev, { id: result.data.id, name: result.data.name, feeType: result.data.fee_type, feeValue: result.data.fee_value }]);
+      setNewPaymentName("");
+      setNewFeeType("percent");
+      setNewFeeValue(0);
+      toast({ title: "Success", description: "Payment method added successfully." });
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to add payment method.", variant: "destructive" });
+    }
+  };
+
+  // Edit payment type via API
+  const handleEditPaymentType = async (id: string) => {
+    if (!editPaymentName.trim()) return;
+    const body = { id, name: editPaymentName.trim(), fee_type: editFeeType, fee_value: Number(editFeeValue) };
+    const res = await fetch("/api/payment-types", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const result = await res.json();
+    if (result.data) {
+      setPaymentTypes(prev => prev.map(pt => pt.id === id ? { id, name: result.data.name, feeType: result.data.fee_type, feeValue: result.data.fee_value } : pt));
+      setEditingPaymentId(null);
+      toast({ title: "Success", description: "Payment method updated successfully." });
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to update payment method.", variant: "destructive" });
+    }
+  };
+
+  // Delete payment type via API
+  const handleDeletePaymentType = async (id: string) => {
+    const res = await fetch("/api/payment-types", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    const result = await res.json();
+    if (result.success) {
+      setPaymentTypes(prev => prev.filter(pt => pt.id !== id));
+      toast({ title: "Success", description: "Payment method deleted successfully." });
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to delete payment method.", variant: "destructive" });
+    }
+  };
 
   useEffect(() => {
     if (isAddingToExistingProduct) {
@@ -1520,6 +1573,38 @@ export function AddProductForm({
                             {pt.name}
                           </SelectItem>
                         ))}
+                        <div className="p-2 border-t mt-1">
+                          <Label className="text-[10px] font-semibold mb-2 block">Add Payment Method</Label>
+                          <div className="space-y-2">
+                            <Input
+                              placeholder="Name"
+                              value={newPaymentName}
+                              onChange={(e) => setNewPaymentName(e.target.value)}
+                              className="text-xs h-7"
+                            />
+                            <div className="flex gap-1">
+                              <Select value={newFeeType} onValueChange={(v: "percent" | "fixed") => setNewFeeType(v)}>
+                                <SelectTrigger className="text-xs h-7">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="percent">%</SelectItem>
+                                  <SelectItem value="fixed">Fixed</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                type="number"
+                                placeholder="Fee"
+                                value={newFeeValue}
+                                onChange={(e) => setNewFeeValue(Number(e.target.value))}
+                                className="text-xs h-7"
+                              />
+                              <Button onClick={handleAddPaymentType} size="sm" className="h-7 px-2 text-xs">
+                                <Plus className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
                       </SelectContent>
                     </Select>
                   </div>

@@ -30,6 +30,9 @@ interface ReceiptData {
     paymentReceived: number
     changeAmount: number
     paymentType: string
+    downPayment?: number
+    remainingBalance?: number
+    paymentFee?: number
   }
 }
 
@@ -583,6 +586,21 @@ export function ReceiptGenerator({ saleId, onComplete, onError }: ReceiptGenerat
       
       // Total line
       addTotalLine('TOTAL', formatAmount(data.saleInfo.total), true)
+      
+      // Show down payment and remaining balance for pre-orders
+      if (data.saleInfo.downPayment != null && data.saleInfo.downPayment > 0) {
+        y += 3
+        addTotalLine('DOWN PAYMENT', formatAmount(data.saleInfo.downPayment))
+        if (data.saleInfo.remainingBalance != null) {
+          addTotalLine('REMAINING\nBALANCE', formatAmount(data.saleInfo.remainingBalance))
+        }
+      }
+      
+      // Show payment fee if present
+      if (data.saleInfo.paymentFee != null && data.saleInfo.paymentFee > 0) {
+        addTotalLine('PAYMENT FEE', formatAmount(data.saleInfo.paymentFee))
+      }
+      
       y += 3 // More space before separator
       
       // Separator line

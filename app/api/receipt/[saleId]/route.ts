@@ -90,7 +90,24 @@ export async function GET(request: Request, { params }: { params: { saleId: stri
         total: saleData.total_amount,
         paymentReceived: saleData.payment_received || saleData.total_amount,
         changeAmount: saleData.change_amount || 0,
-        paymentType: saleData.payment_type?.name || 'Cash'
+        paymentType: saleData.payment_type?.name || 'Cash',
+        downPayment: saleData.down_payment || undefined,
+        remainingBalance: saleData.remaining_balance || undefined,
+        paymentFee: (() => {
+          // Calculate payment fee if payment type has fee information
+          if (saleData.payment_type?.feeType && saleData.payment_type?.feeValue) {
+            const baseAmount = saleData.down_payment != null && saleData.down_payment > 0 
+              ? (saleData.remaining_balance || 0) 
+              : saleData.total_amount;
+            
+            if (saleData.payment_type.feeType === 'percent') {
+              return (saleData.payment_type.feeValue / 100) * baseAmount;
+            } else if (saleData.payment_type.feeType === 'fixed') {
+              return saleData.payment_type.feeValue;
+            }
+          }
+          return undefined;
+        })()
       }
     }
 

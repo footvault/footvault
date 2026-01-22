@@ -158,9 +158,18 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                         ({sale.payment_type.feeType === 'percent' ? `${sale.payment_type.feeValue}%` : `₱${sale.payment_type.feeValue}`} fee)
                       </span>
                       <div className="text-xs text-gray-500 mt-1">
-                        Fee Amount: {sale.payment_type.feeType === 'percent'
-                          ? `${((sale.payment_type.feeValue / 100) * sale.total_amount).toLocaleString(undefined, { style: 'currency', currency: currency })}`
-                          : `${formatCurrency(sale.payment_type.feeValue, currency)}`}
+                        Fee Amount: {(() => {
+                          // For pre-orders, calculate fee on remaining balance instead of total amount
+                          const baseAmount = sale.down_payment != null && sale.down_payment > 0 
+                            ? (sale.remaining_balance || 0) 
+                            : sale.total_amount;
+                          
+                          if (sale.payment_type.feeType === 'percent') {
+                            return formatCurrency((sale.payment_type.feeValue / 100) * baseAmount, currency);
+                          } else {
+                            return formatCurrency(sale.payment_type.feeValue, currency);
+                          }
+                        })()}
                       </div>
                     </>
                   )}
@@ -185,14 +194,19 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                     <span>Down Payment:</span>
                     <span className="font-medium">{formatCurrency(sale.down_payment, currency)}</span>
                   </div>
-                  {sale.remaining_balance != null && (
+                  {(sale.remaining_balance != null && sale.remaining_balance > 0) || sale.status === 'completed' ? (
                     <div className={`flex justify-between text-sm text-gray-700 p-2 rounded ${sale.status === 'completed' ? 'bg-green-50' : 'bg-yellow-50'}`}>
                       <span>Remaining Balance {sale.status === 'completed' && '(Paid)'}:</span>
                       <span className={`font-medium ${sale.status === 'completed' ? 'line-through' : ''}`}>
-                        {formatCurrency(sale.remaining_balance, currency)}
+                        {formatCurrency(
+                          sale.status === 'completed' 
+                            ? (sale.total_amount - sale.down_payment) // Calculate original remaining balance
+                            : sale.remaining_balance, 
+                          currency
+                        )}
                       </span>
                     </div>
-                  )}
+                  ) : null}
                 </>
               )}
               <div className="flex justify-between font-semibold text-base">
