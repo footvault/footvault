@@ -389,12 +389,12 @@ export function ManualAddProduct({
         break
       case "Toddlers": // TD
         if (sizeLabel === "US" || sizeLabel === "TD")
-          generateRange(2, 10, 0.5) // Nike/Adidas standard: 2C-10C
+          generateRange(2, 13, 0.5) // Nike/Adidas standard: 2C-13C
         else if (sizeLabel === "UK")
-          generateRange(1.5, 9.5, 0.5) // UK toddler sizes
+          generateRange(1.5, 12.5, 0.5) // UK toddler sizes
         else if (sizeLabel === "EU")
-          generateRange(17, 27, 0.5) // EU toddler sizes
-        else if (sizeLabel === "CM") generateRange(9, 16, 0.5) // CM toddler sizes
+          generateRange(17, 32, 0.5) // EU toddler sizes
+        else if (sizeLabel === "CM") generateRange(9, 20, 0.5) // CM toddler sizes
         break
       case "T-Shirts":
         if (sizeLabel === "Clothing") {

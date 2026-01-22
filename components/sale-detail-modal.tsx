@@ -200,8 +200,8 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                       <span className={`font-medium ${sale.status === 'completed' ? 'line-through' : ''}`}>
                         {formatCurrency(
                           sale.status === 'completed' 
-                            ? (sale.total_amount - sale.down_payment) // Calculate original remaining balance
-                            : sale.remaining_balance, 
+                            ? (sale.total_amount - (sale.down_payment ?? 0)) // Calculate original remaining balance
+                            : (sale.remaining_balance ?? 0), 
                           currency
                         )}
                       </span>
