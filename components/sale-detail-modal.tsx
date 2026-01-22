@@ -34,6 +34,8 @@ interface ApiSale {
   shipping_zip?: string | null
   shipping_country?: string | null
   shipping_notes?: string | null
+  down_payment?: number | null
+  remaining_balance?: number | null
   items?: Array<{
     id: string
     sold_price: number
@@ -176,6 +178,23 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
                 <span>Total Amount:</span>
                 <span>{formatCurrency(sale.total_amount, currency)}</span>
               </div>
+              {/* Show down payment and remaining balance for pre-orders/COD */}
+              {sale.down_payment != null && sale.down_payment > 0 && (
+                <>
+                  <div className="flex justify-between text-sm text-gray-700 bg-blue-50 p-2 rounded">
+                    <span>Down Payment:</span>
+                    <span className="font-medium">{formatCurrency(sale.down_payment, currency)}</span>
+                  </div>
+                  {sale.remaining_balance != null && (
+                    <div className={`flex justify-between text-sm text-gray-700 p-2 rounded ${sale.status === 'completed' ? 'bg-green-50' : 'bg-yellow-50'}`}>
+                      <span>Remaining Balance {sale.status === 'completed' && '(Paid)'}:</span>
+                      <span className={`font-medium ${sale.status === 'completed' ? 'line-through' : ''}`}>
+                        {formatCurrency(sale.remaining_balance, currency)}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
               <div className="flex justify-between font-semibold text-base">
                 <span>Net Profit:</span>
                 <span className={sale.net_profit < 0 ? "text-red-600" : "text-green-600"}>

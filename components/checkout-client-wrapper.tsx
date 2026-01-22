@@ -491,13 +491,6 @@ export function CheckoutClientWrapper({
     fetchPayments();
   }, []);
 
-  // Auto-disable shipping mode when pre-orders are in cart
-  useEffect(() => {
-    if (selectedPreorders.length > 0 && shippingMode) {
-      setShippingMode(false);
-    }
-  }, [selectedPreorders.length, shippingMode]);
-
   // Sync local shipping details when form opens
   useEffect(() => {
     if (showShippingForm) {
@@ -855,13 +848,57 @@ export function CheckoutClientWrapper({
       const finalCustomerPhone = shippingMode 
         ? shippingDetails.customerPhone 
         : (preorderCustomerInfo?.phone || selectedCustomer?.phone || customerPhone || null);
-      let finalCustomerId = selectedCustomer?.id || null;
+      
+      // If there are selected preorders, use the customer_id from the first preorder
+      let finalCustomerId = selectedPreorders.length > 0 
+        ? selectedPreorders[0].customer_id 
+        : (selectedCustomer?.id || null);
 
       // If we don't have a selected customer but we have customer data (manual entry or shipping details),
-      // create the customer first so we can link the sale to that customer.
+      // Update existing customer (if from preorder) or create new one
+      const needsCustomerUpdate = finalCustomerId && shippingMode && shippingDetails.customerName.trim();
       const needsCustomerCreation = !finalCustomerId && (customerDataForSaving || (shippingMode && shippingDetails.customerName.trim()));
       
-      if (needsCustomerCreation) {
+      if (needsCustomerUpdate) {
+        try {
+          // Update existing customer with shipping details
+          const customerUpdateData = {
+            id: finalCustomerId,
+            name: shippingDetails.customerName,
+            phone: shippingDetails.customerPhone || null,
+            email: shippingDetails.customerEmail || null,
+            address: shippingDetails.address || null,
+            city: shippingDetails.city || null,
+            state: shippingDetails.state || null,
+            zip_code: shippingDetails.zipCode || null,
+            country: shippingDetails.country || 'Philippines',
+          };
+
+          console.log('Updating existing customer:', customerUpdateData);
+          const { createClient } = await import("@/lib/supabase/client");
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+
+          const updateRes = await fetch('/api/customers/list', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session?.access_token || ""}`,
+            },
+            body: JSON.stringify(customerUpdateData),
+          });
+
+          if (updateRes.ok) {
+            const updated = await updateRes.json();
+            console.log('Updated customer before sale:', updated);
+          } else {
+            const txt = await updateRes.text();
+            console.error('Failed to update customer before sale:', txt);
+          }
+        } catch (err) {
+          console.error('Error updating customer before sale:', err);
+        }
+      } else if (needsCustomerCreation) {
         try {
           // Prepare customer data for creation
           const customerData = customerDataForSaving || {
@@ -935,9 +972,17 @@ export function CheckoutClientWrapper({
         customerPhone: finalCustomerPhone, // Use pre-order customer phone if available
         customerId: finalCustomerId, // now created (if needed) before sale
         paymentType: paymentTypeJson, // Save as JSONB
-        paymentReceived: shippingMode ? shippingDetails.downPaymentAmount : paymentReceived,
+        paymentReceived: shippingMode 
+          ? (selectedPreorders.length > 0 ? totalDownPayments : shippingDetails.downPaymentAmount)
+          : paymentReceived,
         changeAmount: shippingMode ? 0 : changeAmount,
         additionalCharge,
+        // Include down payment and remaining balance for pre-orders (COD or shipping)
+        ...(selectedPreorders.length > 0 && {
+          downPayment: totalDownPayments,
+          remainingBalance: remainingBalance,
+          status: shippingMode ? 'pending' : 'completed'
+        }),
         // Shipping-related fields
         ...(shippingMode && {
           status: 'pending',
@@ -947,8 +992,10 @@ export function CheckoutClientWrapper({
           shippingZip: shippingDetails.zipCode,
           shippingCountry: shippingDetails.country,
           shippingNotes: shippingDetails.shippingNotes,
-          downPayment: shippingDetails.downPaymentAmount,
-          remainingBalance: totalAmount - shippingDetails.downPaymentAmount
+          ...(!selectedPreorders.length && {
+            downPayment: shippingDetails.downPaymentAmount,
+            remainingBalance: totalAmount - shippingDetails.downPaymentAmount
+          })
         })
       }
 
@@ -1050,10 +1097,11 @@ export function CheckoutClientWrapper({
             }
           }
 
+          const actualDownPayment = selectedPreorders.length > 0 ? totalDownPayments : shippingDetails.downPaymentAmount;
           toast({
             title: shippingMode ? "Down Payment Recorded!" : "Sale Recorded Successfully!",
             description: shippingMode 
-              ? `Down payment of ${formatCurrency(shippingDetails.downPaymentAmount, currency)} recorded. Sale is pending completion.`
+              ? `Down payment of ${formatCurrency(actualDownPayment, currency)} recorded. Sale is pending completion.`
               : `Sale of ${formatCurrency(totalAmount, currency)} completed.`,
           })
           setCompletedSaleId(result.saleId) // Store the sale ID
@@ -1155,7 +1203,8 @@ export function CheckoutClientWrapper({
     
     if (!shippingMode) return errors; // No validation needed if shipping is disabled
     
-    if (shippingDetails.downPaymentAmount <= 0) {
+    // For regular sales, down payment is required. For pre-orders, skip this check (already paid)
+    if (selectedPreorders.length === 0 && shippingDetails.downPaymentAmount <= 0) {
       errors.push("Down payment amount is required for shipping orders");
     }
     
@@ -1179,7 +1228,8 @@ export function CheckoutClientWrapper({
       errors.push("Country is required for shipping orders");
     }
     
-    if (shippingDetails.downPaymentAmount > totalAmount) {
+    // For regular sales, validate down payment doesn't exceed total
+    if (selectedPreorders.length === 0 && shippingDetails.downPaymentAmount > totalAmount) {
       errors.push("Down payment cannot exceed the total amount");
     }
     
@@ -1204,7 +1254,8 @@ export function CheckoutClientWrapper({
 
     // Validate shipping mode requirements
     if (shippingMode) {
-      if (shippingDetails.downPaymentAmount <= 0) {
+      // For regular sales, down payment is required. For pre-orders, skip this check (already paid)
+      if (selectedPreorders.length === 0 && shippingDetails.downPaymentAmount <= 0) {
         toast({
           title: "Down Payment Required",
           description: "Please enter a valid down payment amount for shipping orders.",
@@ -1231,7 +1282,8 @@ export function CheckoutClientWrapper({
         return
       }
 
-      if (shippingDetails.downPaymentAmount > totalAmount) {
+      // For regular sales, validate down payment doesn't exceed total
+      if (selectedPreorders.length === 0 && shippingDetails.downPaymentAmount > totalAmount) {
         toast({
           title: "Invalid Down Payment",
           description: "Down payment cannot exceed the total amount.",
@@ -1307,8 +1359,14 @@ export function CheckoutClientWrapper({
       <ConfirmationModal
         open={showConfirmSaleModal}
         onOpenChange={setShowConfirmSaleModal}
-        title="Confirm Sale"
-        description="Are you sure you want to complete this sale?"
+        title={shippingMode && selectedPreorders.length > 0 ? "Confirm COD Order" : "Confirm Sale"}
+        description={
+          shippingMode && selectedPreorders.length > 0
+            ? "This will record the pre-order with COD. The remaining balance will be collected on delivery."
+            : shippingMode
+            ? "This will record the down payment. The remaining balance will be collected on delivery."
+            : "Are you sure you want to complete this sale?"
+        }
         onConfirm={() => handleConfirmSale(pendingProfitDistribution)}
         isConfirming={isConfirmingSale}
       />
@@ -2156,20 +2214,19 @@ export function CheckoutClientWrapper({
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex flex-col">
                       <Label htmlFor="shipping-toggle" className="text-sm font-medium">
-                        Shipping Order
+                        Shipping Order / COD
                       </Label>
-                      {selectedPreorders.length > 0 && (
-                        <span className="text-xs text-orange-600 mt-1">
-                          Shipping not available with pre-orders in cart
-                        </span>
-                      )}
+                      <span className="text-xs text-gray-500 mt-1">
+                        {selectedPreorders.length > 0 
+                          ? 'Customer pays remaining balance on delivery'
+                          : 'Customer pays down payment now, remaining on delivery'}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Switch
                         id="shipping-toggle"
                         checked={shippingMode}
                         onCheckedChange={setShippingMode}
-                        disabled={selectedPreorders.length > 0}
                       />
                     </div>
                   </div>
@@ -2178,7 +2235,9 @@ export function CheckoutClientWrapper({
                     <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                       <div className="flex justify-between items-start">
                         <p className="text-sm text-blue-700 font-medium">
-                          Shipping Mode: Customer will pay down payment now, remaining balance on delivery
+                          {selectedPreorders.length > 0 
+                            ? 'COD: Customer will pay remaining balance on delivery'
+                            : 'Shipping Mode: Customer will pay down payment now, remaining balance on delivery'}
                         </p>
                         {selectedCustomer && (
                           <Badge variant="secondary" className="text-xs">
@@ -2187,29 +2246,46 @@ export function CheckoutClientWrapper({
                         )}
                       </div>
                       
-                      {/* Down Payment Input */}
-                      <div>
-                        <Label htmlFor="down-payment" className="text-sm">
-                          Down Payment Amount
-                        </Label>
-                        <Input
-                          id="down-payment"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max={totalAmount}
-                          value={shippingDetails.downPaymentAmount || ""}
-                          onChange={(e) => setShippingDetails(prev => ({ 
-                            ...prev, 
-                            downPaymentAmount: parseFloat(e.target.value) || 0 
-                          }))}
-                          placeholder="Enter down payment amount"
-                          className="mt-1"
-                        />
-                        <p className="text-xs text-gray-600 mt-1">
-                          Remaining: {formatCurrency(totalAmount - shippingDetails.downPaymentAmount, currency)}
-                        </p>
-                      </div>
+                      {/* Down Payment Input or Remaining Balance Display */}
+                      {selectedPreorders.length > 0 ? (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-gray-700">Amount to collect on delivery:</span>
+                            <span className="text-lg font-bold text-green-700">{formatCurrency(remainingBalance, currency)}</span>
+                          </div>
+                          {paymentFee > 0 && (
+                            <p className="text-xs text-gray-600 mt-1">
+                              Includes {formatCurrency(paymentFee, currency)} {selectedPayment.name} payment fee
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-500 mt-1">
+                            Down payment of {formatCurrency(totalDownPayments, currency)} already received
+                          </p>
+                        </div>
+                      ) : (
+                        <div>
+                          <Label htmlFor="down-payment" className="text-sm">
+                            Down Payment Amount
+                          </Label>
+                          <Input
+                            id="down-payment"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max={totalAmount}
+                            value={shippingDetails.downPaymentAmount || ""}
+                            onChange={(e) => setShippingDetails(prev => ({ 
+                              ...prev, 
+                              downPaymentAmount: parseFloat(e.target.value) || 0 
+                            }))}
+                            placeholder="Enter down payment amount"
+                            className="mt-1"
+                          />
+                          <p className="text-xs text-gray-600 mt-1">
+                            Remaining: {formatCurrency(totalAmount - shippingDetails.downPaymentAmount, currency)}
+                          </p>
+                        </div>
+                      )}
 
                       {/* Shipping Details Button */}
                       <Button
@@ -2219,7 +2295,7 @@ export function CheckoutClientWrapper({
                         className="w-full"
                       >
                         <MapPin className="h-4 w-4 mr-2" />
-                        {shippingDetails.address ? 'Edit' : 'Add'} Shipping Details
+                        {shippingDetails.address ? 'Edit' : 'Add'} Delivery Address
                       </Button>
                       
                       {shippingDetails.address && (
@@ -2372,6 +2448,7 @@ export function CheckoutClientWrapper({
               downPaymentAmount={shippingDetails.downPaymentAmount}
               isShippingValid={isShippingValid}
               shippingValidationErrors={getShippingValidationErrors()}
+              hasPreorders={selectedPreorders.length > 0}
             />
           </div>
         </div>

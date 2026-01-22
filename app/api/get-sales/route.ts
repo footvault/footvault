@@ -127,6 +127,8 @@ export async function GET(request: Request) {
         shipping_zip,
         shipping_country,
         shipping_notes,
+        down_payment,
+        remaining_balance,
         sale_items (
           id,
           sold_price,
@@ -201,6 +203,8 @@ export async function GET(request: Request) {
       shipping_zip: sale.shipping_zip || null,
       shipping_country: sale.shipping_country || null,
       shipping_notes: sale.shipping_notes || null,
+      down_payment: (sale as any).down_payment ?? null,
+      remaining_balance: (sale as any).remaining_balance ?? null,
       items: (sale.sale_items || []).map((item: DatabaseSaleItem) => {
         const variant = item.variant;
         const product = variant && variant.product;

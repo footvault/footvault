@@ -99,6 +99,9 @@ export async function POST(request: Request) {
       change_amount: changeAmount || 0,
       additional_charge: additionalCharge || 0,
       status: status || 'completed',
+      // Include down payment and remaining balance (for COD/pre-orders)
+      ...(downPayment != null && { down_payment: downPayment }),
+      ...(remainingBalance != null && { remaining_balance: remainingBalance }),
       // Shipping fields (only included if shipping mode)
       ...(shippingAddress && {
         shipping_address: shippingAddress,
@@ -106,9 +109,7 @@ export async function POST(request: Request) {
         shipping_state: shippingState,
         shipping_zip: shippingZip,
         shipping_country: shippingCountry,
-        shipping_notes: shippingNotes,
-        down_payment: downPayment,
-        remaining_balance: remainingBalance
+        shipping_notes: shippingNotes
       })
     };
     console.log('Inserting sale:', saleInsert);

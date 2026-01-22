@@ -29,6 +29,7 @@ interface ProfitDistributionCalculatorProps {
   downPaymentAmount?: number
   isShippingValid?: boolean
   shippingValidationErrors?: string[]
+  hasPreorders?: boolean
 }
 
 export function ProfitDistributionCalculator({
@@ -41,6 +42,7 @@ export function ProfitDistributionCalculator({
   downPaymentAmount = 0,
   isShippingValid = true,
   shippingValidationErrors = [],
+  hasPreorders = false,
 }: ProfitDistributionCalculatorProps) {
   console.log('ProfitDistributionCalculator: profitTemplates', profitTemplates)
   const [distributionType, setDistributionType] = useState<"default" | "manual" | "template">("default")
@@ -372,7 +374,9 @@ export function ProfitDistributionCalculator({
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...
             </>
           ) : shippingMode ? (
-            `Record Down Payment (${formatCurrency(downPaymentAmount, currency)})`
+            hasPreorders 
+              ? 'Complete Order (COD)'
+              : `Record Down Payment (${formatCurrency(downPaymentAmount, currency)})`
           ) : (
             "Complete Sale"
           )}
