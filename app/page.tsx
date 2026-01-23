@@ -51,20 +51,8 @@ export const metadata: Metadata = {
 
 
 export default async function Home() {
-  // Re-enable server-side auth check now that OAuth is working
-  const cookieStore = await import("next/headers").then((mod) => mod.cookies());
-  const supabase = await createClient(cookieStore);
-  
-  try {
-    const { data } = await supabase.auth.getUser();
-    
-    if (data?.user) {
-      redirect("/inventory");
-    }
-  } catch (error) {
-    console.error('Auth check error on homepage:', error);
-    // Don't redirect on auth errors, just show the homepage
-  }
+  // Client-side redirect handles auth check for persistent sessions
+  // No server-side redirect needed to avoid NEXT_REDIRECT errors
 
   return (
     <main className="min-h-screen flex flex-col items-center">
