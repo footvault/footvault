@@ -15,6 +15,7 @@ import Footer from "@/components/Footer";
 import InfiniteCarousel from "@/components/Testimonials";
 import CallToAction from "@/components/CallToAction";
 import { AuthCodeHandler } from "@/components/auth-code-handler";
+import { AuthRedirect } from "@/components/auth-redirect";
 
 
 export const metadata: Metadata = {
@@ -69,6 +70,9 @@ export default async function Home() {
     <main className="min-h-screen flex flex-col items-center">
       {/* Handle OAuth codes that end up on root page */}
       <AuthCodeHandler />
+      
+      {/* Client-side auth redirect for persistent sessions */}
+      <AuthRedirect />
       
       {/* SEO Structured Data */}
       <script
