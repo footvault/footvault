@@ -369,11 +369,11 @@ export function CheckoutCart({
                                   type="number"
                                   step="0.01"
                                   min="0"
-                                  value={preorderCosts[preorder.id] ?? preorder.cost_price ?? ''}
+                                  value={(preorderCosts[preorder.id] ?? preorder.cost_price) || ''}
                                   onChange={(e) => {
-                                    const value = parseFloat(e.target.value) || 0;
+                                    const value = e.target.value;
                                     if (onPreorderCostChange) {
-                                      onPreorderCostChange(preorder.id, value);
+                                      onPreorderCostChange(preorder.id, value === '' ? 0 : Number(value));
                                     }
                                   }}
                                   placeholder="Enter cost"

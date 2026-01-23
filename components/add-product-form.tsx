@@ -366,12 +366,20 @@ export function AddProductForm({
         .from('customers')
         .select('id, name, email, phone')
         .eq('user_id', user.id)
+        .eq('is_archived', false)
         .order('name');
 
       if (error) {
         console.error("Failed to fetch customers:", error);
       } else {
-        setCustomers(data || []);
+        // Deduplicate customers by ID
+        const uniqueCustomers = data?.reduce((acc: any[], customer) => {
+          if (!acc.some(c => c.id === customer.id)) {
+            acc.push(customer);
+          }
+          return acc;
+        }, []) || [];
+        setCustomers(uniqueCustomers);
       }
     } catch (error) {
       console.error("Failed to fetch customers:", error);
@@ -523,7 +531,7 @@ export function AddProductForm({
         brand: productDataFromApi.brand,
         sku: productDataFromApi.sku,
         category: productDataFromApi.category || productDataFromApi.secondary_category || "Uncategorized",
-        originalPrice: retailPrice || 0,
+        originalPrice: 0, // Always start at 0, don't pre-fill with retail price
         salePrice: 0,
         image: productDataFromApi.image || "/placeholder.svg?height=100&width=100",
         sizeCategory: inferredSizeCategory || "Men's",
@@ -991,7 +999,9 @@ export function AddProductForm({
           size: newVariant.size,
           size_label: newVariant.sizeLabel,
           cost_price: 0, // Cost will be entered at checkout
-          total_amount: typeof productForm.salePrice === 'number' ? productForm.salePrice : parseFloat(productForm.salePrice) || 0,
+          total_amount: typeof productForm.salePrice === 'number' 
+            ? productForm.salePrice 
+            : parseNumberFromCommaSeparated(productForm.salePrice) || 0,
           down_payment: preOrderForm.down_payment ? parseNumberFromCommaSeparated(preOrderForm.down_payment) : 0,
           down_payment_method: preOrderForm.down_payment_method,
           // remaining_balance is a generated column - don't insert it
@@ -1052,7 +1062,9 @@ export function AddProductForm({
             size: newVariant.size,
             size_label: newVariant.sizeLabel,
             cost_price: 0, // Cost will be entered at checkout
-            total_amount: typeof productForm.salePrice === 'number' ? productForm.salePrice : parseFloat(productForm.salePrice) || 0,
+            total_amount: typeof productForm.salePrice === 'number' 
+              ? productForm.salePrice 
+              : parseNumberFromCommaSeparated(productForm.salePrice) || 0,
             down_payment: preOrderForm.down_payment ? parseNumberFromCommaSeparated(preOrderForm.down_payment) : 0,
             down_payment_method: preOrderForm.down_payment_method,
             // remaining_balance is a generated column - don't insert it

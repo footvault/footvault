@@ -17,6 +17,14 @@ import { Plus, Loader2, Check, ChevronsUpDown, CheckCircle, XCircle } from "luci
 import { cn } from "@/lib/utils"
 import { insertVariantsWithUniqueSerials } from "@/lib/utils/serial-number-generator"
 
+// Helper function to parse numbers with commas
+const parseNumberFromCommaSeparated = (value: string): number => {
+  if (!value) return 0;
+  const cleanedValue = value.replace(/,/g, '');
+  return parseFloat(cleanedValue) || 0;
+};
+
+
 export function ManualAddProduct({ 
   open, 
   onOpenChange, 
@@ -277,12 +285,20 @@ export function ManualAddProduct({
         .from('customers')
         .select('id, name, email, phone')
         .eq('user_id', user.id)
+        .eq('is_archived', false)
         .order('name');
 
       if (error) {
         console.error("Failed to fetch customers:", error);
       } else {
-        setCustomers(data || []);
+        // Deduplicate customers by ID
+        const uniqueCustomers = data?.reduce((acc: any[], customer) => {
+          if (!acc.some(c => c.id === customer.id)) {
+            acc.push(customer);
+          }
+          return acc;
+        }, []) || [];
+        setCustomers(uniqueCustomers);
       }
     } catch (error) {
       console.error("Failed to fetch customers:", error);
@@ -773,8 +789,8 @@ export function ManualAddProduct({
             product_sku: product.sku,
             size: variants[0].size,
             size_label: sizeLabel,
-            product_price: parseFloat(product.salePrice),
-            down_payment: parseFloat(preOrderForm.down_payment),
+            product_price: parseNumberFromCommaSeparated(product.salePrice),
+            down_payment: parseNumberFromCommaSeparated(preOrderForm.down_payment),
             down_payment_method: preOrderForm.down_payment_method,
             cost_price: 0, // Cost will be entered at checkout
             expected_delivery_date: preOrderForm.expected_delivery_date,
