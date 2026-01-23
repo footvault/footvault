@@ -161,7 +161,7 @@ export function ShoesInventoryTable() {
   const [loading, setLoading] = useState(true)
   const [loadingVariants, setLoadingVariants] = useState(false)
   const [editModal, setEditModal] = useState<{ open: boolean, product?: Product }>({ open: false })
-  const [deleteModal, setDeleteModal] = useState<{ open: boolean, product?: Product }>({ open: false })
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean, product?: Product, hasSales?: boolean }>({ open: false })
   const [addVariantsModal, setAddVariantsModal] = useState<{ open: boolean, product?: Product }>({ open: false })
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   
@@ -791,7 +791,20 @@ export function ShoesInventoryTable() {
                   Edit
                 </DropdownMenuItem>
              
-                <DropdownMenuItem onClick={() => setDeleteModal({ open: true, product })} className="text-red-600">
+                <DropdownMenuItem onClick={async () => {
+                  // Check if product has sales history
+                  const { data: saleItems } = await supabase
+                    .from('sale_items')
+                    .select('variant_id, variants!inner(product_id)')
+                    .eq('variants.product_id', product.id)
+                    .limit(1);
+                  
+                  setDeleteModal({ 
+                    open: true, 
+                    product,
+                    hasSales: !!(saleItems && saleItems.length > 0)
+                  });
+                }} className="text-red-600">
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
                 </DropdownMenuItem>
@@ -1392,17 +1405,57 @@ export function ShoesInventoryTable() {
       {/* Delete Modal */}
       <ConfirmationModal
         open={deleteModal.open && !!deleteModal.product}
-        onOpenChange={(open) => setDeleteModal({ open, product: open ? deleteModal.product : undefined })}
+        onOpenChange={(open) => setDeleteModal({ open, product: open ? deleteModal.product : undefined, hasSales: false })}
         title="Delete Product"
-        description="Are you sure you want to delete this product? This action cannot be undone."
+        description={deleteModal.hasSales 
+          ? "⚠️ This product has sales history. Deleting it will also permanently delete all related sales records. This action cannot be undone. Are you sure you want to proceed?"
+          : "Are you sure you want to delete this product? This action cannot be undone."}
         isConfirming={false}
         onConfirm={async () => {
           if (deleteModal.product?.id) {
-            await supabase.from('products').delete().eq('id', deleteModal.product.id);
+            if (deleteModal.hasSales) {
+              // First, get all variant IDs for this product
+              const { data: variants, error: variantsError } = await supabase
+                .from('variants')
+                .select('id')
+                .eq('product_id', deleteModal.product.id);
+              
+              if (variantsError) {
+                console.error('Error fetching variants:', variantsError);
+                alert('Failed to delete product. Please try again.');
+                return;
+              }
+              
+              if (variants && variants.length > 0) {
+                const variantIds = variants.map(v => v.id);
+                
+                // Delete all sale_items associated with these variants
+                const { error: saleItemsError } = await supabase
+                  .from('sale_items')
+                  .delete()
+                  .in('variant_id', variantIds);
+                
+                if (saleItemsError) {
+                  console.error('Error deleting sale items:', saleItemsError);
+                  alert('Failed to delete sales records. Please try again.');
+                  return;
+                }
+              }
+            }
+            
+            // Now delete the product (variants will cascade delete)
+            const { error } = await supabase.from('products').delete().eq('id', deleteModal.product.id);
+            
+            if (error) {
+              console.error('Delete error:', error);
+              alert(`Failed to delete product: ${error.message}`);
+              return;
+            }
+            
+            setDeleteModal({ open: false, hasSales: false });
+            await fetchProducts();
+            setSorting([]); // Reset sort
           }
-          setDeleteModal({ open: false });
-          await fetchProducts();
-          setSorting([]); // Reset sort
         }}
       />
 

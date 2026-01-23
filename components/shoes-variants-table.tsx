@@ -80,8 +80,8 @@ export function ShoesVariantsTable() {
   const [variants, setVariants] = useState<Variant[]>([])
   const [loading, setLoading] = useState(true)
   const [editModal, setEditModal] = useState<{ open: boolean, variant?: Variant }>({ open: false })
-  const [deleteModal, setDeleteModal] = useState<{ open: boolean, variant?: Variant }>({ open: false })
-  const [bulkDeleteModal, setBulkDeleteModal] = useState<{ open: boolean, count: number }>({ open: false, count: 0 })
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean, variant?: Variant, hasSales?: boolean }>({ open: false })
+  const [bulkDeleteModal, setBulkDeleteModal] = useState<{ open: boolean, count: number, hasSales?: boolean }>({ open: false, count: 0 })
   const [userPlan, setUserPlan] = useState<string>('free')
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [premiumFeatureName, setPremiumFeatureName] = useState('')
@@ -939,7 +939,20 @@ export function ShoesVariantsTable() {
                 </DropdownMenu>
 
                 <DropdownMenuItem 
-                  onClick={() => setDeleteModal({ open: true, variant })}
+                  onClick={async () => {
+                    // Check if variant has sales history
+                    const { data: saleItems } = await supabase
+                      .from('sale_items')
+                      .select('id')
+                      .eq('variant_id', variant.id)
+                      .limit(1);
+                    
+                    setDeleteModal({ 
+                      open: true, 
+                      variant,
+                      hasSales: !!(saleItems && saleItems.length > 0)
+                    });
+                  }}
                   className="text-red-600"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
@@ -992,8 +1005,19 @@ export function ShoesVariantsTable() {
       {selectedIds.length > 0 && (
         <div className="flex items-center gap-4 bg-muted px-4 py-2 rounded mb-2">
           <span>{selectedIds.length} selected</span>
-          <Button size="sm" variant="destructive" onClick={() => {
-            setBulkDeleteModal({ open: true, count: selectedIds.length });
+          <Button size="sm" variant="destructive" onClick={async () => {
+            // Check if any selected variants have sales history
+            const { data: saleItems } = await supabase
+              .from('sale_items')
+              .select('id')
+              .in('variant_id', selectedIds)
+              .limit(1);
+            
+            setBulkDeleteModal({ 
+              open: true, 
+              count: selectedIds.length,
+              hasSales: !!(saleItems && saleItems.length > 0)
+            });
           }}>Bulk Delete</Button>
           <Button 
             size="sm" 
@@ -1301,33 +1325,80 @@ export function ShoesVariantsTable() {
       {/* Delete Modal */}
       <ConfirmationModal
         open={deleteModal.open && !!deleteModal.variant}
-        onOpenChange={(open) => setDeleteModal({ open, variant: open ? deleteModal.variant : undefined })}
+        onOpenChange={(open) => setDeleteModal({ open, variant: open ? deleteModal.variant : undefined, hasSales: false })}
         title="Delete Variant"
-        description="Are you sure you want to delete this variant? This action cannot be undone."
+        description={deleteModal.hasSales 
+          ? "⚠️ This variant has sales history. Deleting it will also permanently delete all related sales records. This action cannot be undone. Are you sure you want to proceed?"
+          : "Are you sure you want to delete this variant? This action cannot be undone."}
         isConfirming={false}
         onConfirm={async () => {
           if (deleteModal.variant?.id) {
-            await supabase.from('variants').delete().eq('id', deleteModal.variant.id);
+            if (deleteModal.hasSales) {
+              // Delete all sale_items associated with this variant
+              const { error: saleItemsError } = await supabase
+                .from('sale_items')
+                .delete()
+                .eq('variant_id', deleteModal.variant.id);
+              
+              if (saleItemsError) {
+                console.error('Error deleting sale items:', saleItemsError);
+                alert('Failed to delete sales records. Please try again.');
+                return;
+              }
+            }
+            
+            // Now delete the variant
+            const { error } = await supabase.from('variants').delete().eq('id', deleteModal.variant.id);
+            
+            if (error) {
+              console.error('Delete error:', error);
+              alert(`Failed to delete variant: ${error.message}`);
+              return;
+            }
+            
+            setDeleteModal({ open: false, hasSales: false });
+            await fetchVariants();
+            fetchVariantStats(); // Refresh stats data
+            setSorting([{ id: "serial_number", desc: true }]); // Reset sort to Stock descending
           }
-          setDeleteModal({ open: false });
-          await fetchVariants();
-          fetchVariantStats(); // Refresh stats data
-          setSorting([{ id: "serial_number", desc: true }]); // Reset sort to Stock descending
         }}
       />
 
       {/* Bulk Delete Modal */}
       <ConfirmationModal
         open={bulkDeleteModal.open}
-        onOpenChange={(open) => setBulkDeleteModal({ open, count: bulkDeleteModal.count })}
+        onOpenChange={(open) => setBulkDeleteModal({ open, count: bulkDeleteModal.count, hasSales: false })}
         title="Bulk Delete Variants"
-        description={`Are you sure you want to delete ${bulkDeleteModal.count} selected variants? This action cannot be undone.`}
+        description={bulkDeleteModal.hasSales
+          ? `⚠️ Some of the ${bulkDeleteModal.count} selected variants have sales history. Deleting them will also permanently delete all related sales records. This action cannot be undone. Are you sure you want to proceed?`
+          : `Are you sure you want to delete ${bulkDeleteModal.count} selected variants? This action cannot be undone.`}
         isConfirming={false}
         onConfirm={async () => {
-          // Bulk delete
-          await supabase.from('variants').delete().in('id', selectedIds);
+          if (bulkDeleteModal.hasSales) {
+            // Delete all sale_items associated with these variants
+            const { error: saleItemsError } = await supabase
+              .from('sale_items')
+              .delete()
+              .in('variant_id', selectedIds);
+            
+            if (saleItemsError) {
+              console.error('Error deleting sale items:', saleItemsError);
+              alert('Failed to delete sales records. Please try again.');
+              return;
+            }
+          }
+          
+          // Bulk delete variants
+          const { error, count } = await supabase.from('variants').delete().in('id', selectedIds);
+          
+          if (error) {
+            console.error('Bulk delete error:', error);
+            alert(`Failed to delete variants: ${error.message}`);
+            return;
+          }
+          
           setSelectedIds([]);
-          setBulkDeleteModal({ open: false, count: 0 });
+          setBulkDeleteModal({ open: false, count: 0, hasSales: false });
           await fetchVariants();
           fetchVariantStats(); // Refresh stats data
           setSorting([{ id: "serial_number", desc: true }]); // Reset sort to Stock descending
