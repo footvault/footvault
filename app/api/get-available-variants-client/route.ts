@@ -56,7 +56,8 @@ export async function GET(request: Request) {
           name
         )
       `)
-      .eq('status', 'Available');
+      .eq('status', 'Available')
+      .range(0, 9999);
     if (variantsError) {
       return NextResponse.json({ success: false, error: variantsError.message }, { status: 500 });
     }
