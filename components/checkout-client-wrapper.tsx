@@ -131,6 +131,8 @@ export function CheckoutClientWrapper({
   const [sizeFilter, setSizeFilter] = useState<string[]>([]) // array of selected sizes
   const [sizeSearch, setSizeSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all") // Add type filter state
+  const [totalVariantsCount, setTotalVariantsCount] = useState(initialVariants.length) // Total count from server
+  const [isFetchingVariants, setIsFetchingVariants] = useState(false) // Loading state for fetching
   const [selectedVariants, setSelectedVariants] = useState<TransformedVariant[]>([])
   const [selectedPreorders, setSelectedPreorders] = useState<Preorder[]>([])
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("fixed")
@@ -192,6 +194,66 @@ export function CheckoutClientWrapper({
 
   const { currency } = useCurrency(); // Get the user's selected currency
 
+  // Fetch variants from API with pagination and filters
+  const fetchVariants = async (page: number = 1) => {
+    setIsFetchingVariants(true);
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No session found');
+      }
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: variantsPerPage.toString(),
+        ...(searchTerm && { search: searchTerm }),
+        ...(brandFilter !== 'all' && { brand: brandFilter }),
+        ...(sizeCategoryFilter !== 'all' && { sizeCategory: sizeCategoryFilter }),
+        ...(locationFilter !== 'all' && { location: locationFilter }),
+        ...(sizeFilter.length > 0 && { sizes: sizeFilter.join(',') }),
+        ...(typeFilter !== 'all' && typeFilter !== 'preorder' && { type: typeFilter })
+      });
+
+      const response = await fetch(`/api/get-available-variants-client?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch variants');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setAllVariants(data.data);
+        setTotalVariantsCount(data.total);
+      }
+    } catch (error) {
+      console.error('Error fetching variants:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load available variants",
+        variant: "destructive"
+      });
+    } finally {
+      setIsFetchingVariants(false);
+    }
+  };
+
+  // Fetch variants when page changes
+  useEffect(() => {
+    fetchVariants(variantPage);
+  }, [variantPage]);
+
+  // Reset to page 1 when filters change (will trigger fetch via page change)
+  useEffect(() => {
+    setVariantPage(1);
+  }, [searchTerm, brandFilter, sizeCategoryFilter, locationFilter, sizeFilter, typeFilter]);
+
   // Auto-fill shipping details when customer is selected or manual info changes
   useEffect(() => {
     if (selectedCustomer) {
@@ -221,58 +283,61 @@ export function CheckoutClientWrapper({
     const selectedIds = new Set(selectedVariants.map((v) => v.id))
     const selectedPreorderIds = new Set(selectedPreorders.map((p) => p.id))
     
-    // Convert pre-orders to pseudo-variants
-    const preorderAsVariants: TransformedVariant[] = allPreorders
-      .filter(preorder => !selectedPreorderIds.has(preorder.id))
-      .map(preorder => ({
-        id: `preorder-${preorder.id}`,
-        variantSku: `PO-${preorder.pre_order_no}`,
-        size: preorder.size || '',
-        sizeLabel: preorder.size_label || 'US',
-        location: null,
-        status: 'preorder',
-        serialNumber: `PO${preorder.pre_order_no}`,
-        costPrice: preorder.cost_price,
-        productName: preorder.product.name,
-        productBrand: preorder.product.brand,
-        productSku: preorder.product.sku,
-        productImage: preorder.product.image,
-        productOriginalPrice: preorder.total_amount,
-        productSalePrice: preorder.total_amount, // Use total_amount instead of remaining_balance
-        productCategory: null,
-        productSizeCategory: 'US', // Default for pre-orders
-        ownerType: 'store' as const,
-        variantPayoutMethod: 'percentage_split',
-        isPreorder: true,
-        preorderData: preorder
-      }))
+    // Convert pre-orders to pseudo-variants (only when showing pre-orders)
+    const preorderAsVariants: TransformedVariant[] = typeFilter === 'all' || typeFilter === 'preorder' 
+      ? allPreorders
+          .filter(preorder => !selectedPreorderIds.has(preorder.id))
+          .map(preorder => ({
+            id: `preorder-${preorder.id}`,
+            variantSku: `PO-${preorder.pre_order_no}`,
+            size: preorder.size || '',
+            sizeLabel: preorder.size_label || 'US',
+            location: null,
+            status: 'preorder',
+            serialNumber: `PO${preorder.pre_order_no}`,
+            costPrice: preorder.cost_price,
+            productName: preorder.product.name,
+            productBrand: preorder.product.brand,
+            productSku: preorder.product.sku,
+            productImage: preorder.product.image,
+            productOriginalPrice: preorder.total_amount,
+            productSalePrice: preorder.total_amount,
+            productCategory: null,
+            productSizeCategory: 'US',
+            ownerType: 'store' as const,
+            variantPayoutMethod: 'percentage_split',
+            isPreorder: true,
+            preorderData: preorder
+          }))
+      : [];
     
-    // Combine regular variants with pre-order pseudo-variants
+    // Filter out selected variants and combine with preorders
     return [
       ...allVariants.filter((variant) => !selectedIds.has(variant.id)),
       ...preorderAsVariants
     ]
-  }, [allVariants, selectedVariants, allPreorders, selectedPreorders])
+  }, [allVariants, selectedVariants, allPreorders, selectedPreorders, typeFilter])
 
-  // Get unique filter options
+  // Get unique filter options - now we need to fetch all to get complete options
+  // For now, we'll use what's available in current page (trade-off for performance)
   const brandOptions = useMemo(() => {
-    const brands = new Set(availableVariants.map(v => v.productBrand).filter(Boolean))
+    const brands = new Set(allVariants.map(v => v.productBrand).filter(Boolean))
     return ["all", ...Array.from(brands)]
-  }, [availableVariants])
+  }, [allVariants])
 
   const sizeCategoryOptions = useMemo(() => {
-    const categories = new Set(availableVariants.map(v => v.productSizeCategory).filter(Boolean))
+    const categories = new Set(allVariants.map(v => v.productSizeCategory).filter(Boolean))
     return ["all", ...Array.from(categories)]
-  }, [availableVariants])
+  }, [allVariants])
 
   const locationOptions = useMemo(() => {
-    const locations = new Set(availableVariants.map(v => v.location).filter((loc): loc is string => Boolean(loc)))
+    const locations = new Set(allVariants.map(v => v.location).filter((loc): loc is string => Boolean(loc)))
     return ["all", ...Array.from(locations)]
-  }, [availableVariants])
+  }, [allVariants])
 
   const sizeOptionsByCategory = useMemo(() => {
     const map: Record<string, Set<string>> = {}
-    availableVariants.forEach(variant => {
+    allVariants.forEach(variant => {
       if (!variant.productSizeCategory || !variant.size) return
       if (!map[variant.productSizeCategory]) map[variant.productSizeCategory] = new Set()
       map[variant.productSizeCategory].add(String(variant.size))
@@ -287,64 +352,11 @@ export function CheckoutClientWrapper({
       })
     })
     return result
-  }, [availableVariants])
+  }, [allVariants])
 
-  const filteredVariants = useMemo(() => {
-    let filtered = availableVariants
-
-    // Apply search filter
-    if (searchTerm) {
-      const lowerCaseSearchTerm = searchTerm.toLowerCase()
-      filtered = filtered.filter((variant) => {
-        const searchableFields = [
-          variant.productName,
-          variant.productBrand,
-          variant.productSku,
-          variant.serialNumber?.toString(),
-          variant.variantSku,
-          variant.size?.toString(),
-        ].map((field) => (field || "").toLowerCase())
-        return searchableFields.some((field) => field.includes(lowerCaseSearchTerm))
-      })
-    }
-
-    // Apply brand filter
-    if (brandFilter !== "all") {
-      filtered = filtered.filter(variant => variant.productBrand === brandFilter)
-    }
-
-    // Apply size category filter
-    if (sizeCategoryFilter !== "all") {
-      filtered = filtered.filter(variant => variant.productSizeCategory === sizeCategoryFilter)
-    }
-
-    // Apply location filter
-    if (locationFilter !== "all") {
-      filtered = filtered.filter(variant => variant.location === locationFilter)
-    }
-
-    // Apply size filter
-    if (sizeFilter.length > 0) {
-      filtered = filtered.filter(variant => sizeFilter.includes(String(variant.size)))
-    }
-
-    // Apply type filter
-    if (typeFilter !== "all") {
-      if (typeFilter === "preorder") {
-        filtered = filtered.filter(variant => variant.isPreorder === true)
-      } else if (typeFilter === "instock") {
-        filtered = filtered.filter(variant => variant.isPreorder !== true)
-      }
-    }
-
-    return filtered
-  }, [searchTerm, availableVariants, brandFilter, sizeCategoryFilter, locationFilter, sizeFilter, typeFilter])
-
-  // Pagination logic for variants
-  const totalVariantPages = filteredVariants.length > 12 ? Math.ceil(filteredVariants.length / variantsPerPage) : 1
-  const paginatedVariants = filteredVariants.length > 12
-    ? filteredVariants.slice((variantPage - 1) * variantsPerPage, variantPage * variantsPerPage)
-    : filteredVariants
+  // Server-side pagination - no need for client-side filtering
+  const totalVariantPages = totalVariantsCount > 0 ? Math.ceil(totalVariantsCount / variantsPerPage) : 1
+  const paginatedVariants = availableVariants // Already paginated from server
 
   const handleAddVariantToCart = (variant: TransformedVariant) => {
     if (variant.isPreorder && variant.preorderData) {
@@ -1136,27 +1148,17 @@ export function CheckoutClientWrapper({
           setShowConfirmSaleModal(false) // Close confirmation modal
           setShowSaleSuccessModal(true) // Show success modal
 
-          // Re-fetch all variants to update available stock using the API
+          // Re-fetch all variants to update available stock
           startLoadingVariantsTransition(async () => {
             try {
+              // Refresh variants using our fetch function
+              await fetchVariants(variantPage);
+
+              // Refresh pre-orders
               const { createClient } = await import("@/lib/supabase/client")
               const supabase = createClient()
               const { data: { session } } = await supabase.auth.getSession()
               
-              // Refresh variants
-              const variantsResponse = await fetch("/api/get-available-variants-client", {
-                headers: {
-                  Authorization: `Bearer ${session?.access_token || ''}`
-                }
-              })
-              const variantsResult = await variantsResponse.json()
-              if (variantsResult.success && variantsResult.data) {
-                setAllVariants(variantsResult.data)
-              } else {
-                console.error("Failed to refresh variants after sale:", variantsResult.error)
-              }
-
-              // Refresh pre-orders
               const preordersResponse = await fetch("/api/get-available-preorders", {
                 headers: {
                   Authorization: `Bearer ${session?.access_token || ''}`
@@ -1581,20 +1583,20 @@ export function CheckoutClientWrapper({
 
               {/* Results count */}
               <div className="text-sm text-gray-600">
-                Showing {filteredVariants.length} of {availableVariants.length} available shoes
+                Showing {paginatedVariants.length} of {totalVariantsCount} available shoes
               </div>
 
-              {isLoadingVariants ? (
+              {isFetchingVariants ? (
                 <div className="text-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-4" />
                   <p className="text-gray-600">Loading available shoes...</p>
                 </div>
-              ) : filteredVariants.length === 0 && searchTerm ? (
+              ) : paginatedVariants.length === 0 && searchTerm ? (
                 <div className="text-center py-8 text-gray-500">
                   <X className="h-12 w-12 mx-auto mb-4" />
                   <p>No matching available shoes found.</p>
                 </div>
-              ) : filteredVariants.length === 0 && !searchTerm ? (
+              ) : paginatedVariants.length === 0 && !searchTerm ? (
                 <div className="text-center py-8 text-gray-500">
                   <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
                   <p>All available shoes are in the cart or inventory is empty.</p>
@@ -1704,7 +1706,7 @@ export function CheckoutClientWrapper({
                     ))}
                   </div>
                   {/* Pagination controls for variants */}
-                  {filteredVariants.length > 12 && (
+                  {totalVariantPages > 1 && (
                     <div className="flex flex-wrap justify-center items-center gap-2 mt-4">
                       <Button
                         variant="outline"
@@ -1730,9 +1732,9 @@ export function CheckoutClientWrapper({
                     </div>
                   )}
                   {/* Show total count and see more hint */}
-                  {filteredVariants.length > 12 && (
+                  {totalVariantsCount > variantsPerPage && (
                     <div className="text-center text-sm text-muted-foreground mt-2">
-                      Showing {paginatedVariants.length} of {filteredVariants.length} available shoes
+                      Showing {paginatedVariants.length} of {totalVariantsCount} available shoes
                     </div>
                   )}
                 </>

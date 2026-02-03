@@ -18,7 +18,23 @@ export async function GET(request: Request) {
     if (userError || !user) {
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
-    const { data: variants, error: variantsError } = await supabase
+
+    // Extract query parameters for pagination and filtering
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '12');
+    const searchTerm = searchParams.get('search') || '';
+    const brand = searchParams.get('brand') || '';
+    const sizeCategory = searchParams.get('sizeCategory') || '';
+    const location = searchParams.get('location') || '';
+    const sizes = searchParams.get('sizes') || '';
+    const type = searchParams.get('type') || '';
+
+    // Calculate offset for pagination
+    const offset = (page - 1) * limit;
+
+    // Build the query
+    let query = supabase
       .from('variants')
       .select(`
         id,
@@ -55,9 +71,36 @@ export async function GET(request: Request) {
           id,
           name
         )
-      `)
-      .eq('status', 'Available')
-      .range(0, 9999);
+      `, { count: 'exact' })
+      .eq('status', 'Available');
+
+    // Apply filters
+    if (brand && brand !== 'all') {
+      query = query.eq('products.brand', brand);
+    }
+
+    if (sizeCategory && sizeCategory !== 'all') {
+      query = query.eq('products.size_category', sizeCategory);
+    }
+
+    if (location && location !== 'all') {
+      query = query.eq('location', location);
+    }
+
+    if (sizes) {
+      const sizeArray = sizes.split(',');
+      query = query.in('size', sizeArray);
+    }
+
+    // Apply search term (using OR conditions)
+    if (searchTerm) {
+      query = query.or(`variant_sku.ilike.%${searchTerm}%,serial_number.ilike.%${searchTerm}%,size.ilike.%${searchTerm}%,products.name.ilike.%${searchTerm}%,products.brand.ilike.%${searchTerm}%,products.sku.ilike.%${searchTerm}%`);
+    }
+
+    // Apply pagination
+    query = query.range(offset, offset + limit - 1);
+
+    const { data: variants, error: variantsError, count } = await query;
     if (variantsError) {
       return NextResponse.json({ success: false, error: variantsError.message }, { status: 500 });
     }
@@ -100,7 +143,14 @@ export async function GET(request: Request) {
         consignorMarkupPercentage: consignor?.markup_percentage
       };
     }).filter(Boolean);
-    return NextResponse.json({ success: true, data: transformedVariants });
+    return NextResponse.json({ 
+      success: true, 
+      data: transformedVariants, 
+      total: count || 0,
+      page,
+      limit,
+      totalPages: count ? Math.ceil(count / limit) : 0
+    });
   } catch (error) {
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
