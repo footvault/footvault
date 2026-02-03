@@ -72,6 +72,7 @@ export async function GET(request: Request) {
           name
         )
       `, { count: 'exact' })
+      .eq('user_id', user.id)
       .eq('status', 'Available');
 
     // Apply filters
