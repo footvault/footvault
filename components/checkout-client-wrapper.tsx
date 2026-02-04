@@ -5,7 +5,7 @@ import { Select, SelectItem, SelectContent, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
 import React from "react"
-import { useMemo, useTransition } from "react"
+import { useMemo, useTransition, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -125,6 +125,7 @@ export function CheckoutClientWrapper({
   const [allVariants, setAllVariants] = useState<TransformedVariant[]>(initialVariants)
   const [allPreorders, setAllPreorders] = useState(initialPreorders)
   const [searchTerm, setSearchTerm] = useState("")
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("") // Debounced version
   const [brandFilter, setBrandFilter] = useState<string>("all")
   const [sizeCategoryFilter, setSizeCategoryFilter] = useState<string>("all")
   const [locationFilter, setLocationFilter] = useState<string>("all")
@@ -193,9 +194,17 @@ export function CheckoutClientWrapper({
   const router = useRouter()
 
   const { currency } = useCurrency(); // Get the user's selected currency
+  
+  // AbortController ref to cancel previous fetch requests
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Fetch variants from API with pagination and filters
-  const fetchVariants = async (page: number = 1) => {
+  // Fetch variants from API with filters (returns ALL matching variants)
+  const fetchVariants = async (variantPage: number = 1) => {
+    // Cancel any previous pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
     setIsFetchingVariants(true);
     try {
       const { createClient } = await import("@/lib/supabase/client");
@@ -203,13 +212,23 @@ export function CheckoutClientWrapper({
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.access_token) {
-        throw new Error('No session found');
+        console.error('No session found');
+        // Don't throw error, just use empty data
+        setAllVariants([]);
+        setTotalVariantsCount(0);
+        return;
+      }
+
+      // If user selected 'preorder' type filter, don't fetch variants at all
+      if (typeFilter === 'preorder') {
+        setAllVariants([]);
+        setTotalVariantsCount(0);
+        setIsFetchingVariants(false);
+        return;
       }
 
       const params = new URLSearchParams({
-        page: page.toString(),
-        limit: variantsPerPage.toString(),
-        ...(searchTerm && { search: searchTerm }),
+        ...(debouncedSearchTerm && { search: debouncedSearchTerm }),
         ...(brandFilter !== 'all' && { brand: brandFilter }),
         ...(sizeCategoryFilter !== 'all' && { sizeCategory: sizeCategoryFilter }),
         ...(locationFilter !== 'all' && { location: locationFilter }),
@@ -217,42 +236,123 @@ export function CheckoutClientWrapper({
         ...(typeFilter !== 'all' && typeFilter !== 'preorder' && { type: typeFilter })
       });
 
-      const response = await fetch(`/api/get-available-variants-client?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
+      // Add timeout to fetch request (30 seconds) and use component-level abort controller
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      try {
+        const response = await fetch(`/api/get-available-variants-client?${params}`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error('Failed to fetch variants');
+        // Check content type to determine how to parse the error
+        const contentType = response.headers.get('content-type');
+        let errorMessage = `Server error (${response.status})`;
+        
+        if (contentType?.includes('application/json')) {
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+          } catch (parseError) {
+            console.error('Failed to parse error response:', parseError);
+          }
+        } else if (contentType?.includes('text/html')) {
+          // HTML error response (likely from Cloudflare or server infrastructure)
+          errorMessage = 'Service temporarily unavailable. Please try again in a moment.';
+          console.error('HTML error response received:', response.status);
+        } else {
+          // Try to read as text
+          try {
+            const errorText = await response.text();
+            if (errorText.length < 200) {
+              errorMessage = errorText;
+            }
+          } catch (e) {
+            console.error('Failed to read error response:', e);
+          }
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      // Check content type before parsing JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        throw new Error('Server returned non-JSON response. Please try again.');
       }
 
       const data = await response.json();
       if (data.success) {
         setAllVariants(data.data);
         setTotalVariantsCount(data.total);
+      } else {
+        console.error('API returned error:', data.error);
+        throw new Error(data.error || 'Unknown API error');
+      }
+      } catch (fetchError) {
+        // Handle fetch-specific errors (timeout, network, etc.)
+        if (fetchError instanceof Error) {
+          if (fetchError.name === 'AbortError') {
+            throw new Error('Request timed out. Please check your connection and try again.');
+          }
+        }
+        throw fetchError;
       }
     } catch (error) {
       console.error('Error fetching variants:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load available variants",
-        variant: "destructive"
-      });
+      
+      // Prepare user-friendly error message
+      let errorMessage = "Failed to load available variants";
+      if (error instanceof Error) {
+        // Don't show HTML or overly long error messages to users
+        if (!error.message.includes('<!DOCTYPE') && error.message.length < 200) {
+          errorMessage = error.message;
+        } else if (error.message.includes('Service temporarily unavailable')) {
+          errorMessage = 'Service temporarily unavailable. Please try again in a moment.';
+        }
+      }
+      
+      // Only show toast for actual errors, not initial load
+      if (allVariants.length > 0) {
+        toast({
+          title: "Error Loading Items",
+          description: errorMessage,
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsFetchingVariants(false);
     }
   };
 
-  // Fetch variants when page changes
+  // Debounce search term to avoid excessive API calls
   useEffect(() => {
-    fetchVariants(variantPage);
-  }, [variantPage]);
+    const timerId = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 1500); // 1.5 second delay after user stops typing
 
-  // Reset to page 1 when filters change (will trigger fetch via page change)
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [searchTerm]);
+
+  // Fetch variants when filters change (not page changes)
+  // Use debouncedSearchTerm instead of searchTerm for API calls
+  useEffect(() => {
+    fetchVariants();
+  }, [debouncedSearchTerm, brandFilter, sizeCategoryFilter, locationFilter, sizeFilter, typeFilter]);
+
+  // Reset to page 1 when filters change
   useEffect(() => {
     setVariantPage(1);
-  }, [searchTerm, brandFilter, sizeCategoryFilter, locationFilter, sizeFilter, typeFilter]);
+  }, [debouncedSearchTerm, brandFilter, sizeCategoryFilter, locationFilter, sizeFilter, typeFilter]);
 
   // Auto-fill shipping details when customer is selected or manual info changes
   useEffect(() => {
@@ -354,9 +454,34 @@ export function CheckoutClientWrapper({
     return result
   }, [allVariants])
 
-  // Server-side pagination - no need for client-side filtering
-  const totalVariantPages = totalVariantsCount > 0 ? Math.ceil(totalVariantsCount / variantsPerPage) : 1
-  const paginatedVariants = availableVariants // Already paginated from server
+  // Calculate actual total including preorders when type filter is 'all' or 'preorder'
+  const actualTotalCount = useMemo(() => {
+    if (typeFilter === 'all') {
+      // Include both variants and preorders
+      const availablePreordersCount = allPreorders.filter(p => 
+        !selectedPreorders.some(sp => sp.id === p.id)
+      ).length;
+      return totalVariantsCount + availablePreordersCount;
+    } else if (typeFilter === 'preorder') {
+      // Only preorders
+      return allPreorders.filter(p => 
+        !selectedPreorders.some(sp => sp.id === p.id)
+      ).length;
+    } else {
+      // Only in-stock variants
+      return totalVariantsCount;
+    }
+  }, [totalVariantsCount, allPreorders, selectedPreorders, typeFilter]);
+
+  // Server-side pagination for variants, but need client-side pagination when combining with preorders
+  const totalVariantPages = actualTotalCount > 0 ? Math.ceil(actualTotalCount / variantsPerPage) : 1
+  
+  // Apply client-side pagination after combining variants and preorders
+  const paginatedVariants = useMemo(() => {
+    const startIndex = (variantPage - 1) * variantsPerPage;
+    const endIndex = startIndex + variantsPerPage;
+    return availableVariants.slice(startIndex, endIndex);
+  }, [availableVariants, variantPage, variantsPerPage]);
 
   const handleAddVariantToCart = (variant: TransformedVariant) => {
     if (variant.isPreorder && variant.preorderData) {
@@ -1583,7 +1708,7 @@ export function CheckoutClientWrapper({
 
               {/* Results count */}
               <div className="text-sm text-gray-600">
-                Showing {paginatedVariants.length} of {totalVariantsCount} available shoes
+                Showing {paginatedVariants.length} of {actualTotalCount} available shoes
               </div>
 
               {isFetchingVariants ? (
@@ -1732,9 +1857,9 @@ export function CheckoutClientWrapper({
                     </div>
                   )}
                   {/* Show total count and see more hint */}
-                  {totalVariantsCount > variantsPerPage && (
+                  {actualTotalCount > variantsPerPage && (
                     <div className="text-center text-sm text-muted-foreground mt-2">
-                      Showing {paginatedVariants.length} of {totalVariantsCount} available shoes
+                      Showing {paginatedVariants.length} of {actualTotalCount} available shoes
                     </div>
                   )}
                 </>

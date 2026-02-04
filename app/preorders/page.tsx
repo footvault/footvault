@@ -49,6 +49,13 @@ async function getPreorders(): Promise<Preorder[]> {
   const cookieStore = await cookies();
   const supabase = await createClient(cookieStore);
   
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    console.error('No authenticated user');
+    return [];
+  }
+  
   try {
     const { data: preorders, error } = await supabase
       .from('pre_orders')
@@ -57,6 +64,8 @@ async function getPreorders(): Promise<Preorder[]> {
         customer:customers!inner(id, name, email, phone, address, city, state, zip_code, country),
         product:products!inner(name, brand, sku, image)
       `)
+      .eq('user_id', user.id)
+      .not('user_id', 'is', null)
       .order('created_at', { ascending: false })
 
     if (error) {

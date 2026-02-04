@@ -111,6 +111,7 @@ async function getAvailablePreorders(userId: string) {
         )
       `)
       .eq('user_id', userId)
+      .not('user_id', 'is', null)
       .in('status', ['pending', 'confirmed']) // Only available pre-orders
       .order('created_at', { ascending: false });
 

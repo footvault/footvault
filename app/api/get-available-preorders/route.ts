@@ -24,7 +24,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
 
-    // Get available pre-orders (pending or confirmed status)
+    // Get available pre-orders (pending or confirmed status) for this user only
     const { data: preorders, error } = await supabase
       .from('pre_orders')
       .select(`
@@ -32,6 +32,8 @@ export async function GET(request: Request) {
         customer:customers(*),
         product:products(*)
       `)
+      .eq('user_id', user.id)
+      .not('user_id', 'is', null)
       .in('status', ['pending', 'confirmed'])
       .order('created_at', { ascending: false });
 
