@@ -78,9 +78,18 @@ export async function GET(request: Request) {
     // Apply type filter - if type is 'preorder', don't fetch any variants (they'll be shown from preorders)
     // This is handled client-side by not showing variants when typeFilter='preorder'
 
-    // Apply size filter (category-aware filtering is done client-side after product join)
+    // Apply size filter (extract just size values if they have category prefix)
+    // The category-aware filtering is done client-side after product join
     if (sizes) {
-      const sizeArray = sizes.split(',').map(s => s.trim());
+      const sizeArray = sizes.split(',').map(s => {
+        const trimmed = s.trim();
+        // If size has category prefix (format: "Men's-6.5"), extract just the size part
+        const lastDashIndex = trimmed.lastIndexOf('-');
+        if (lastDashIndex > 0 && trimmed.includes('-')) {
+          return trimmed.substring(lastDashIndex + 1);
+        }
+        return trimmed;
+      });
       query = query.in('size', sizeArray);
     }
 
@@ -190,13 +199,33 @@ export async function GET(request: Request) {
       filteredVariants = filteredVariants.filter(v => v.productSizeCategory === sizeCategory);
     }
     
-    // If size filter is applied WITH a size category, only match sizes from that category
+    // Handle size filters with category prefix (format: "category-size")
     // This prevents selecting "6.5" from both Men's and Women's
-    if (sizes && sizeCategory && sizeCategory !== 'all') {
+    if (sizes) {
       const sizeArray = sizes.split(',').map(s => s.trim());
-      filteredVariants = filteredVariants.filter(v => 
-        sizeArray.includes(String(v.size)) && v.productSizeCategory === sizeCategory
-      );
+      
+      // Check if sizes include category prefix (format: "category-size")
+      if (sizeArray.some(s => s.includes('-'))) {
+        // Parse category-size pairs
+        filteredVariants = filteredVariants.filter(v => {
+          return sizeArray.some(sizeKey => {
+            const lastDashIndex = sizeKey.lastIndexOf('-');
+            if (lastDashIndex > 0) {
+              const category = sizeKey.substring(0, lastDashIndex);
+              const size = sizeKey.substring(lastDashIndex + 1);
+              const sizeMatch = String(v.size) === size;
+              const categoryMatch = v.productSizeCategory === category;
+              return sizeMatch && categoryMatch;
+            }
+            return false;
+          });
+        });
+      } else if (sizeCategory && sizeCategory !== 'all') {
+        // Legacy behavior: if no category prefix but size category is set
+        filteredVariants = filteredVariants.filter(v => 
+          sizeArray.includes(String(v.size)) && v.productSizeCategory === sizeCategory
+        );
+      }
     }
     
     // Extend search to product fields

@@ -1636,7 +1636,7 @@ export function CheckoutClientWrapper({
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-between">
                       <span className="truncate">
-                        {sizeFilter.length === 0 ? "All Sizes" : sizeFilter.join(", ")}
+                        {sizeFilter.length === 0 ? "All Sizes" : sizeFilter.map(s => s.split('-')[1]).join(", ")}
                       </span>
                       <svg className="ml-2 h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none">
                         <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1667,15 +1667,16 @@ export function CheckoutClientWrapper({
                       <React.Fragment key={cat}>
                         <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/50 sticky top-0 z-10">{cat}</div>
                         {sizes.filter(size => sizeSearch === "" || String(size).toLowerCase().includes(sizeSearch.toLowerCase())).map(size => {
-                          const checked = sizeFilter.includes(size)
+                          const sizeKey = `${cat}-${size}`
+                          const checked = sizeFilter.includes(sizeKey)
                           return (
                             <div key={cat + "-" + size} className="flex items-center px-2 py-1 cursor-pointer hover:bg-muted/30 rounded">
                               <Checkbox
                                 id={`size-checkout-${cat}-${size}`}
                                 checked={checked}
                                 onCheckedChange={checked => {
-                                  if (checked) setSizeFilter(prev => [...prev, size])
-                                  else setSizeFilter(prev => prev.filter(s => s !== size))
+                                  if (checked) setSizeFilter(prev => [...prev, sizeKey])
+                                  else setSizeFilter(prev => prev.filter(s => s !== sizeKey))
                                 }}
                               />
                               <label htmlFor={`size-checkout-${cat}-${size}`} className="ml-2 text-xs cursor-pointer select-none">{size}</label>
