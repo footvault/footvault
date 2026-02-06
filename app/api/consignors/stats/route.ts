@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: consignors, error: consignorsError } = await query
+      .range(0, 4999) // Support up to 5000 consignors
       .order('created_at', { ascending: false })
 
     if (consignorsError) {

@@ -54,6 +54,7 @@ async function getCustomers(userId: string) {
       .select('*')
       .eq('user_id', userId)
       .eq('is_archived', false)
+      .range(0, 4999) // Support up to 5000 customers
       .order('created_at', { ascending: false });
 
     if (customersError) {

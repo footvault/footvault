@@ -38,6 +38,7 @@ async function getSales(userId: string) {
         )
       `)
       .eq('user_id', userId)
+      .range(0, 4999) // Support up to 5000 sales
       .order('sale_date', { ascending: false });
 
     if (salesError) {

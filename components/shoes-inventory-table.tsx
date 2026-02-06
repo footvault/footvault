@@ -112,36 +112,77 @@ async function fetchVariantsForProduct(productId: number, supabase: any): Promis
   return data || [];
 }
 
-// Optimized batch fetcher for all variants
+// Optimized batch fetcher for all variants - handles more than 1000 variants with pagination
 async function fetchAllVariants(productIds: number[], supabase: any): Promise<Record<number, Variant[]>> {
   if (productIds.length === 0) return {};
   
-  console.time('fetchAllVariants');
-  const { data, error } = await supabase
-    .from('variants')
-    .select(`
-      *,
-      custom_locations!location_id (
-        id,
-        name
-      )
-    `)
-    .in('product_id', productIds);
-  console.timeEnd('fetchAllVariants');
+  console.log(`📦 fetchAllVariants: Fetching variants for ${productIds.length} products`);
+  const startTime = performance.now();
   
-  if (error) {
-    console.error('Error fetching variants:', error);
-    return {};
+  let allData: Variant[] = [];
+  let hasMore = true;
+  let page = 0;
+  const pageSize = 1000;
+  
+  // Fetch in batches of 1000 until we get all variants
+  while (hasMore) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+    
+    const { data, error, count } = await supabase
+      .from('variants')
+      .select(`
+        *,
+        custom_locations!location_id (
+          id,
+          name
+        )
+      `, { count: 'exact' })
+      .eq('isArchived', false)
+      .in('status', ['Available', 'In Display', 'Used'])
+      .in('product_id', productIds)
+      .order('serial_number', { ascending: false })
+      .range(from, to);
+    
+    if (error) {
+      console.error('❌ Error fetching variants:', error);
+      break;
+    }
+    
+    if (data && data.length > 0) {
+      allData = [...allData, ...data];
+      console.log(`  📄 Page ${page + 1}: Fetched ${data.length} variants (total so far: ${allData.length})`);
+    }
+    
+    // Check if we have more data to fetch
+    hasMore = data && data.length === pageSize && (!count || allData.length < count);
+    page++;
+    
+    // Safety check to prevent infinite loops
+    if (page > 10) {
+      console.warn('⚠️ Stopped after 10 pages (10,000 variants). Implement better pagination if needed.');
+      break;
+    }
   }
+  
+  const endTime = performance.now();
+  const duration = (endTime - startTime).toFixed(2);
+  
+  console.log(`✅ Fetched ${allData.length} total variants in ${duration}ms`);
   
   // Group by product_id
   const grouped: Record<number, Variant[]> = {};
-  data?.forEach((variant: Variant) => {
+  allData.forEach((variant: Variant) => {
     if (!grouped[variant.product_id]) {
       grouped[variant.product_id] = [];
     }
     grouped[variant.product_id].push(variant);
   });
+  
+  const productsWithVariants = Object.keys(grouped).length;
+  const productsWithoutVariants = productIds.length - productsWithVariants;
+  
+  console.log(`📊 Variant distribution: ${productsWithVariants} products have variants, ${productsWithoutVariants} products have no variants`);
   
   return grouped;
 }
@@ -255,6 +296,8 @@ export function ShoesInventoryTable() {
         .from('products')
         .select('*')
         .eq('user_id', user.id)
+        .eq('isArchived', false) // Only fetch non-archived products
+        .range(0, 4999) // Support up to 5000 products
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -272,6 +315,16 @@ export function ShoesInventoryTable() {
   // Prefetch all variants for all products on load to ensure quantity is always correct
   useEffect(() => {
     fetchProducts()
+    
+    // Refresh products when tab becomes visible (e.g., returning from add-product page)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchProducts();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [])
 
   // When products change, prefetch all variants for quantity (OPTIMIZED)
@@ -281,8 +334,10 @@ export function ShoesInventoryTable() {
       setLoadingVariants(true);
       
       console.time('prefetchAllVariants');
+      console.log(`Fetching variants for ${products.length} products...`);
       const productIds = products.map(p => p.id);
       const allVariants = await fetchAllVariants(productIds, supabase);
+      console.log(`Fetched variants for ${Object.keys(allVariants).length} products, total ${Object.values(allVariants).flat().length} variants`);
       setRowVariants(allVariants);
       console.timeEnd('prefetchAllVariants');
       

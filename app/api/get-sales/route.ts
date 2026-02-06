@@ -101,7 +101,7 @@ export async function GET(request: Request) {
 
     // Parse the URL to get query parameters for optimization
     const { searchParams } = new URL(request.url);
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 1000; // Default limit
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 5000; // Support up to 5000 sales
     const fromDate = searchParams.get('from');
     const toDate = searchParams.get('to');
 

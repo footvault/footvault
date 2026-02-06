@@ -66,6 +66,7 @@ async function getPreorders(): Promise<Preorder[]> {
       `)
       .eq('user_id', user.id)
       .not('user_id', 'is', null)
+      .range(0, 4999) // Support up to 5000 preorders
       .order('created_at', { ascending: false })
 
     if (error) {

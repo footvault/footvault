@@ -259,6 +259,7 @@ export function ShoesVariantsTable() {
         .eq('user_id', user.id)
         .eq('isArchived', false)
         .neq('status', 'Sold')
+        .range(0, 4999) // Support up to 5000 variants
         .order('serial_number', { ascending: false }) // Sort by serial number descending
 
       console.timeEnd('fetchVariants')
