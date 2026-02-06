@@ -225,52 +225,81 @@ export function ShoesVariantsTable() {
   const fetchVariants = async () => {
     try {
       setLoading(true)
-      console.time('fetchVariants')
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data, error } = await supabase
-        .from('variants')
-        .select(`
-          *,
-          product:products (
-            id,
-            name,
-            brand,
-            sku,
-            category,
-            original_price,
-            sale_price,
-            status,
-            image,
-            size_category,
-            user_id,
-            isArchived
-          ),
-          consignor:consignors (
-            id,
-            name
-          ),
-          locationData:custom_locations!location_id (
-            id,
-            name
-          )
-        `)
-        .eq('user_id', user.id)
-        .eq('isArchived', false)
-        .neq('status', 'Sold')
-        .range(0, 4999) // Support up to 5000 variants
-        .order('serial_number', { ascending: false }) // Sort by serial number descending
+      console.log('📦 fetchVariants: Starting to fetch variants...');
+      const startTime = performance.now();
+      
+      let allData: any[] = [];
+      let hasMore = true;
+      let page = 0;
+      const pageSize = 1000;
+      
+      // Fetch in batches of 1000 until we get all variants
+      while (hasMore) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+        
+        const { data, error, count } = await supabase
+          .from('variants')
+          .select(`
+            *,
+            product:products (
+              id,
+              name,
+              brand,
+              sku,
+              category,
+              original_price,
+              sale_price,
+              status,
+              image,
+              size_category,
+              user_id,
+              isArchived
+            ),
+            consignor:consignors (
+              id,
+              name
+            ),
+            locationData:custom_locations!location_id (
+              id,
+              name
+            )
+          `, { count: 'exact' })
+          .eq('user_id', user.id)
+          .eq('isArchived', false)
+          .neq('status', 'Sold')
+          .order('serial_number', { ascending: false })
+          .range(from, to);
 
-      console.timeEnd('fetchVariants')
-      if (error) {
-        console.error('Error fetching variants:', error)
-      } else {
-        console.log('Variants loaded:', data?.length, 'variants');
-        console.log('First variant locationData:', data?.[0]?.locationData);
-        console.log('First variant location text:', data?.[0]?.location);
-        setVariants(data || [])
+        if (error) {
+          console.error('❌ Error fetching variants:', error);
+          break;
+        }
+
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          console.log(`  📄 Page ${page + 1}: Fetched ${data.length} variants (total so far: ${allData.length})`);
+        }
+
+        // Check if we have more data to fetch
+        hasMore = data && data.length === pageSize && (!count || allData.length < count);
+        page++;
+
+        // Safety check to prevent infinite loops
+        if (page > 10) {
+          console.warn('⚠️ Stopped after 10 pages (10,000 variants). Implement better pagination if needed.');
+          break;
+        }
       }
+
+      const endTime = performance.now();
+      const duration = (endTime - startTime).toFixed(2);
+      
+      console.log(`✅ Fetched ${allData.length} total variants in ${duration}ms`);
+      setVariants(allData);
     } catch (error) {
       console.error('Error:', error)
     } finally {

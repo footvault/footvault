@@ -131,57 +131,88 @@ async function getAvailableVariants(userId: string) {
   try {
     const cookieStore = cookies();
     const supabase = await createClient(cookieStore);
-    const { data: variantsData, error: variantsError } = await supabase
-      .from('variants')
-      .select(`
-        id,
-        variant_sku,
-        size,
-        size_label,
-        location,
-        status,
-        serial_number,
-        cost_price,
-        owner_type,
-        consignor_id,
-        payout_method,
-        fixed_markup,
-        markup_percentage,
-        products (
+    
+    console.log('📦 getAvailableVariants: Starting to fetch variants...');
+    const startTime = Date.now();
+    
+    let allData: any[] = [];
+    let hasMore = true;
+    let page = 0;
+    const pageSize = 1000;
+    
+    // Fetch in batches of 1000 until we get all variants
+    while (hasMore) {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+      
+      const { data: variantsData, error: variantsError, count } = await supabase
+        .from('variants')
+        .select(`
           id,
-          name,
-          brand,
-          sku,
-          category,
-          original_price,
-          sale_price,
-          image,
-          size_category
-        ),
-        consignors (
-          id,
-          name,
-          commission_rate,
+          variant_sku,
+          size,
+          size_label,
+          location,
+          status,
+          serial_number,
+          cost_price,
+          owner_type,
+          consignor_id,
           payout_method,
           fixed_markup,
-          markup_percentage
-        )
-      `)
-      .eq('user_id', userId)
-      .eq('status', 'Available')
-      .eq('isArchived', false);
+          markup_percentage,
+          products (
+            id,
+            name,
+            brand,
+            sku,
+            category,
+            original_price,
+            sale_price,
+            image,
+            size_category
+          ),
+          consignors (
+            id,
+            name,
+            commission_rate,
+            payout_method,
+            fixed_markup,
+            markup_percentage
+          )
+        `, { count: 'exact' })
+        .eq('user_id', userId)
+        .eq('status', 'Available')
+        .eq('isArchived', false)
+        .range(from, to);
 
-    if (variantsError) {
-      console.error("Error fetching variants:", variantsError);
-      return { data: null, error: variantsError };
+      if (variantsError) {
+        console.error('❌ Error fetching variants:', variantsError);
+        break;
+      }
+
+      if (variantsData && variantsData.length > 0) {
+        allData = [...allData, ...variantsData];
+        console.log(`  📄 Page ${page + 1}: Fetched ${variantsData.length} variants (total so far: ${allData.length})`);
+      }
+
+      // Check if we have more data to fetch
+      hasMore = variantsData && variantsData.length === pageSize && (!count || allData.length < count);
+      page++;
+
+      // Safety check to prevent infinite loops
+      if (page > 10) {
+        console.warn('⚠️ Stopped after 10 pages (10,000 variants).');
+        break;
+      }
     }
 
-    if (!variantsData) {
-      return { data: [], error: null };
-    }
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ Fetched ${allData.length} total variants in ${duration}ms`);
 
     // Transform the database response to our expected format
-    const transformedVariants = variantsData.map(variant => {
+    const transformedVariants = allData.map(variant => {
       if (!variant.products) {
         console.error("Variant missing product data:", variant);
         return null;
