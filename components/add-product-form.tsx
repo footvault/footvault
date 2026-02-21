@@ -1115,7 +1115,12 @@ export function AddProductForm({
             date_added: newVariant.dateAdded,
             condition: newVariant.condition,
             size_label: newVariant.sizeLabel,
-            cost_price: 0.00,
+            cost_price: typeof productForm.originalPrice === 'number' 
+              ? productForm.originalPrice 
+              : parseNumberFromCommaSeparated(productForm.originalPrice) || 0,
+            sale_price: typeof productForm.salePrice === 'number' 
+              ? productForm.salePrice 
+              : parseNumberFromCommaSeparated(productForm.salePrice) || 0,
             isArchived: false,
             owner_type: newVariant.owner_type,
             consignor_id: newVariant.owner_type === 'consignor' ? newVariant.consignor_id : null,

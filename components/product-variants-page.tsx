@@ -92,6 +92,8 @@ function AddVariantsModal({
   const [quantity, setQuantity] = useState<number>(1);
   const [status, setStatus] = useState<string>("Available");
   const [location, setLocation] = useState<string>("");
+  const [costPrice, setCostPrice] = useState<string>("");
+  const [salePrice, setSalePrice] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sizeSearch, setSizeSearch] = useState("");
   
@@ -132,6 +134,8 @@ function AddVariantsModal({
       setSizeLabel("US");
       setShowAddLocationInput(false);
       setNewLocation("");
+      setCostPrice("");
+      setSalePrice("");
     }
   }, [open, product]);
 
@@ -249,7 +253,8 @@ function AddVariantsModal({
               location_id: selectedLocation?.id, // New: use location ID
               date_added: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
               variant_sku: `${product.sku || 'SKU'}-${size}`, // Generate variant SKU
-              cost_price: product.original_price || 0.00, // Set cost_price from product's original_price
+              cost_price: parseFloat(costPrice) || 0.00, // Use form input for cost price
+              sale_price: parseFloat(salePrice) || 0.00, // Use form input for sale price
               size_label: sizeLabel, // Add size_label field
               type: 'In Stock', // Regular inventory items are 'In Stock'
             };
@@ -450,6 +455,34 @@ function AddVariantsModal({
             <div className="text-sm text-muted-foreground">
               Total variants: {selectedSizes.length * quantity}
             </div>
+          </div>
+
+          {/* Cost Price */}
+          <div className="space-y-2">
+            <Label>Cost Price (per variant)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={costPrice}
+              onChange={(e) => setCostPrice(e.target.value)}
+              placeholder="0.00"
+              className="w-full"
+            />
+          </div>
+
+          {/* Sale Price */}
+          <div className="space-y-2">
+            <Label>Sale Price (per variant)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={salePrice}
+              onChange={(e) => setSalePrice(e.target.value)}
+              placeholder="0.00"
+              className="w-full"
+            />
           </div>
 
           {/* Status */}
@@ -692,7 +725,8 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
       return sum + cost;
     }, 0);
     const totalSaleValue = variants.reduce((sum, variant) => {
-      const price = product?.sale_price || 0;
+      // Use variant's sale_price first, fallback to product's sale_price
+      const price = (variant as any).sale_price ?? product?.sale_price ?? 0;
       return sum + price;
     }, 0);
     const profit = totalSaleValue - totalCostValue;

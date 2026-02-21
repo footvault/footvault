@@ -75,7 +75,7 @@ export function VariantsStatsCard({ totalVariants, totalCostValue, totalSaleValu
         </CardHeader>
         <CardFooter className="pt-0">
           <div className="text-xs text-muted-foreground">
-            Profit: {formatCurrency(potentialProfit)}
+            Profit: {formatCurrency(potentialProfit, currency)}
           </div>
         </CardFooter>
       </Card>

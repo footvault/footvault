@@ -16,8 +16,9 @@ import { MoreHorizontal, Edit, Trash2, MapPin, Plus } from "lucide-react";
 
 import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
+import { insertVariantsWithUniqueSerials } from "@/lib/utils/serial-number-generator"
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input as ShadInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +36,8 @@ function EditVariantModal({ open, onClose, variant, product, onSave }: EditVaria
   const [status, setStatus] = useState(variant?.status || "Available");
   // Use the variant's cost_price if available, otherwise fall back to product's original_price
   const [cost, setCost] = useState((variant?.cost_price || product?.original_price)?.toString() ?? "");
-  const [price, setPrice] = useState(product?.sale_price?.toString() ?? "");
+  // Use variant's sale_price if available, otherwise fall back to product's sale_price
+  const [price, setPrice] = useState(((variant as any)?.sale_price || product?.sale_price)?.toString() ?? "");
   const [sizeCategory, setSizeCategory] = useState(product?.size_category || "");
   const [location, setLocation] = useState(variant?.location || "");
   
@@ -80,7 +82,8 @@ function EditVariantModal({ open, onClose, variant, product, onSave }: EditVaria
     setStatus(variant?.status || "Available");
     // Use the variant's cost_price if available, otherwise fall back to product's original_price
     setCost((variant?.cost_price || product?.original_price)?.toString() ?? "");
-    setPrice(product?.sale_price?.toString() ?? "");
+    // Use variant's sale_price if available, otherwise fall back to product's sale_price
+    setPrice(((variant as any)?.sale_price || product?.sale_price)?.toString() ?? "");
     setSizeCategory(product?.size_category || "");
     setLocation(variant?.location || "");
   }, [variant, product]);
@@ -259,13 +262,291 @@ function ConfirmDeleteModal({ open, onClose, onConfirm }: ConfirmDeleteModalProp
   );
 }
 
+type BulkAddVariantModalProps = {
+  open: boolean;
+  product: Product | null;
+  size: string;
+  onOpenChange: (open: boolean) => void;
+  onVariantsAdded: () => void;
+};
+
+function BulkAddVariantModal({ open, product, size, onOpenChange, onVariantsAdded }: BulkAddVariantModalProps) {
+  const [quantity, setQuantity] = useState<number>(1);
+  const [status, setStatus] = useState<string>("Available");
+  const [location, setLocation] = useState<string>("");
+  const [costPrice, setCostPrice] = useState<string>("");
+  const [salePrice, setSalePrice] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // For location management
+  const [customLocations, setCustomLocations] = useState<CustomLocation[]>([]);
+  const [showAddLocationInput, setShowAddLocationInput] = useState(false);
+  const [newLocation, setNewLocation] = useState("");
+  const [selectedLocationId, setSelectedLocationId] = useState<string | undefined>(undefined);
+  
+  const supabase = createClient();
+  const { currency } = useCurrency();
+  const currencySymbol = getCurrencySymbol(currency);
+
+  // Fetch custom locations
+  useEffect(() => {
+    if (!open) return;
+    
+    const fetchLocations = async () => {
+      const result = await fetchCustomLocations();
+      if (result.success && result.data) {
+        setCustomLocations(result.data);
+      }
+    };
+    
+    fetchLocations();
+  }, [open]);
+
+  // Reset form when modal opens/closes
+  useEffect(() => {
+    if (!open) {
+      setQuantity(1);
+      setStatus("Available");
+      setLocation("");
+      setSelectedLocationId(undefined);
+      setCostPrice("");
+      setSalePrice("");
+      setShowAddLocationInput(false);
+      setNewLocation("");
+    }
+  }, [open]);
+
+  const handleAddLocation = async () => {
+    if (!newLocation.trim()) return;
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("custom_locations")
+        .insert({ name: newLocation.trim(), user_id: user.id })
+        .select()
+        .single();
+
+      if (!error && data) {
+        const newLoc: CustomLocation = data;
+        setCustomLocations(prev => [...prev, newLoc]);
+        setLocation(newLoc.name);
+        setSelectedLocationId(newLoc.id);
+        setNewLocation("");
+        setShowAddLocationInput(false);
+      }
+    } catch (error) {
+      console.error('Error adding location:', error);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!product || !location || quantity < 1) return;
+    
+    setIsSubmitting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const selectedLocation = customLocations.find(loc => loc.name === location);
+      
+      // Create variants for the quantity specified
+      const variantsToCreate = [];
+      for (let i = 0; i < quantity; i++) {
+        const variant = {
+          id: crypto.randomUUID(),
+          product_id: product.id,
+          size: size,
+          status: status,
+          location: location,
+          location_id: selectedLocation?.id,
+          date_added: new Date().toISOString().slice(0, 10),
+          variant_sku: `${product.sku || 'SKU'}-${size}`,
+          cost_price: parseFloat(costPrice) || 0.00,
+          sale_price: parseFloat(salePrice) || 0.00,
+          size_label: "US", // Default, can be made dynamic if needed
+          type: 'In Stock',
+        };
+        variantsToCreate.push(variant);
+      }
+
+      const result = await insertVariantsWithUniqueSerials(variantsToCreate, user.id, supabase);
+      
+      if (!result.success) {
+        alert(`Error creating variants: ${result.error || 'Unknown error'}`);
+        return;
+      }
+
+      onVariantsAdded();
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error creating variants:', error);
+      alert(`Error creating variants: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!product) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Bulk Add Variants</DialogTitle>
+          <DialogDescription>
+            Add multiple variants for {product.name} (Size: {size})
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Quantity */}
+          <div className="space-y-2">
+            <Label>Quantity</Label>
+            <Input
+              type="number"
+              min="1"
+              value={quantity}
+              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+              className="w-full"
+            />
+            <div className="text-sm text-muted-foreground">
+              Total variants to create: {quantity}
+            </div>
+          </div>
+
+          {/* Location Selection */}
+          <div className="space-y-2">
+            <Label>Location *</Label>
+            
+            {showAddLocationInput ? (
+              <div className="flex gap-2">
+                <Input
+                  value={newLocation}
+                  onChange={(e) => setNewLocation(e.target.value)}
+                  placeholder="Enter new location"
+                  className="h-9"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleAddLocation}
+                  disabled={!newLocation.trim()}
+                >
+                  Add
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowAddLocationInput(false);
+                    setNewLocation("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Select value={location} onValueChange={setLocation}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customLocations.map((loc) => (
+                      <SelectItem key={loc.id} value={loc.name}>{loc.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddLocationInput(true)}
+                >
+                  Add New
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Cost Price */}
+          <div className="space-y-2">
+            <Label>Cost Price ({currencySymbol})</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={costPrice}
+              onChange={(e) => setCostPrice(e.target.value)}
+              placeholder="0.00"
+              className="w-full"
+            />
+          </div>
+
+          {/* Sale Price */}
+          <div className="space-y-2">
+            <Label>Sale Price ({currencySymbol})</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={salePrice}
+              onChange={(e) => setSalePrice(e.target.value)}
+              placeholder="0.00"
+              className="w-full"
+            />
+          </div>
+
+          {/* Status */}
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Available">Available</SelectItem>
+                <SelectItem value="PullOut">PullOut</SelectItem>
+                <SelectItem value="Reserved">Reserved</SelectItem>
+                <SelectItem value="PreOrder">PreOrder</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isSubmitting || !location}
+          >
+            {isSubmitting ? "Creating..." : `Add ${quantity} Variant${quantity > 1 ? 's' : ''}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 interface Props {
   params: Promise<{ productId: string; size: string }>;
 }
 
 export default function ProductVariantsBySizePage({ params }: Props) {
   // Filter state
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("Available");
   const [dateFilter, setDateFilter] = useState<string>("");
   // Unwrap params for Next.js app router
   const { productId, size } = React.use(params); // This will extract values from the Promise
@@ -275,6 +556,7 @@ export default function ProductVariantsBySizePage({ params }: Props) {
   const [loading, setLoading] = useState(true);
   const [editModal, setEditModal] = useState<{ open: boolean; variant: Variant | null }>({ open: false, variant: null });
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; variant: Variant | null }>({ open: false, variant: null });
+  const [bulkAddModal, setBulkAddModal] = useState<boolean>(false);
   const supabase = createClient();
   const router = useRouter();
    const { currency } = useCurrency(); // Get the user's selected currency
@@ -309,14 +591,17 @@ export default function ProductVariantsBySizePage({ params }: Props) {
   }, [productId, size]);
 
   // Calculate stats for all variants (not just filtered ones) - MOVED BEFORE CONDITIONAL RETURNS
+  // Exclude "Sold" variants from stats calculation
   const stats = React.useMemo(() => {
-    const totalVariants = variants.length;
-    const totalCostValue = variants.reduce((sum, variant) => {
+    const availableVariants = variants.filter(v => v.status !== 'Sold');
+    const totalVariants = availableVariants.length;
+    const totalCostValue = availableVariants.reduce((sum, variant) => {
       const cost = variant.cost_price || product?.original_price || 0;
       return sum + cost;
     }, 0);
-    const totalSaleValue = variants.reduce((sum, variant) => {
-      const price = product?.sale_price || 0;
+    const totalSaleValue = availableVariants.reduce((sum, variant) => {
+      // Use variant's sale_price first, fallback to product's sale_price
+      const price = (variant as any).sale_price ?? product?.sale_price ?? 0;
       return sum + price;
     }, 0);
     const profit = totalSaleValue - totalCostValue;
@@ -350,12 +635,14 @@ export default function ProductVariantsBySizePage({ params }: Props) {
     
     console.log("Saving variant with data:", data);
     
-    // Update variant status and cost_price (matching the actual database schema)
+    // Update variant with cost_price and sale_price at variant level
     const { error: variantError } = await supabase.from("variants").update({
       // Don't update serial_number since we removed it from the form
       status: data.status,
       // Use cost_price as it's the column name in the variants table
       cost_price: data.cost_price !== undefined ? Number(data.cost_price) : undefined,
+      // Save sale_price at variant level
+      sale_price: data.sale_price !== undefined ? Number(data.sale_price) : undefined,
       location: data.location, // Keep for backward compatibility
       location_id: data.location_id, // New: use location ID
     }).eq("id", editModal.variant.id);
@@ -365,26 +652,6 @@ export default function ProductVariantsBySizePage({ params }: Props) {
       return;
     }
     
-    // Optionally update product's size_category, cost, price if changed
-    if (product && (
-      product.size_category !== data.size_category ||
-      product.original_price !== Number(data.original_price) ||
-      product.sale_price !== Number(data.sale_price)
-    )) {
-      const { error: productError } = await supabase.from("products").update({
-        size_category: data.size_category,
-        original_price: Number(data.original_price),
-        sale_price: Number(data.sale_price),
-      }).eq("id", product.id);
-      
-      if (productError) {
-        console.error("Error updating product:", productError);
-      } else {
-        // Refresh product
-        const { data: productData } = await supabase.from("products").select("*").eq("id", productId).single();
-        setProduct(productData || null);
-      }
-    }
     // Refresh data before closing modal
     const { data: variantsData, error: variantsFetchError } = await supabase
       .from("variants")
@@ -473,7 +740,8 @@ export default function ProductVariantsBySizePage({ params }: Props) {
       </div>
       
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-2 mb-4 items-center">
+      <div className="flex flex-col sm:flex-row gap-2 mb-4 items-center justify-between">
+        <div className="flex gap-2">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="All Status" />
@@ -494,6 +762,11 @@ export default function ProductVariantsBySizePage({ params }: Props) {
           className="w-[180px]"
           placeholder="Date Added"
         />
+        </div>
+        <Button onClick={() => setBulkAddModal(true)} size="sm" className="flex items-center gap-1">
+          <Plus className="h-4 w-4" />
+          Bulk Add Variants
+        </Button>
       </div>
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
         <Image src={product.image || "/placeholder.jpg"} alt="Product" width={60} height={60} className="rounded object-cover bg-muted mx-auto sm:mx-0" />
@@ -586,7 +859,7 @@ export default function ProductVariantsBySizePage({ params }: Props) {
                   </TableCell>
                   <TableCell>{product.size_category || "-"}</TableCell>
                   <TableCell>{currencySymbol}{typeof variant.cost_price === 'number' ? variant.cost_price.toFixed(2) : (typeof product.original_price === 'number' ? product.original_price.toFixed(2) : '-')}</TableCell>
-                  <TableCell>{currencySymbol}{typeof product.sale_price === 'number' ? product.sale_price.toFixed(2) : '-'}</TableCell>
+                  <TableCell>{currencySymbol}{typeof (variant as any).sale_price === 'number' ? (variant as any).sale_price.toFixed(2) : (typeof product.sale_price === 'number' ? product.sale_price.toFixed(2) : '-')}</TableCell>
                   <TableCell>{variant.created_at ? new Date(variant.created_at).toISOString().slice(0, 10) : "-"}</TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -636,6 +909,32 @@ export default function ProductVariantsBySizePage({ params }: Props) {
         open={deleteModal.open}
         onClose={() => setDeleteModal({ open: false, variant: null })}
         onConfirm={handleDeleteConfirm}
+      />
+      {/* Bulk Add Modal */}
+      <BulkAddVariantModal
+        open={bulkAddModal}
+        product={product}
+        size={size}
+        onOpenChange={setBulkAddModal}
+        onVariantsAdded={() => {
+          // Refresh variants
+          const fetchData = async () => {
+            const { data: variantsData } = await supabase
+              .from("variants")
+              .select(`
+                *,
+                consignor:consignors (
+                  id,
+                  name
+                )
+              `)
+              .eq("product_id", productId)
+              .eq("size", size)
+              .eq("isArchived", false);
+            if (variantsData) setVariants(variantsData);
+          };
+          fetchData();
+        }}
       />
     </div>
   );

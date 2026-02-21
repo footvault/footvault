@@ -146,7 +146,8 @@ export function ShoesVariantsTable() {
     const totalVariants = availableVariants.length;
     const totalCostValue = availableVariants.reduce((sum, v) => sum + (v.cost_price || 0), 0);
     const totalSaleValue = availableVariants.reduce((sum, v) => {
-      const salePrice = (v as any).product?.sale_price || 0;
+      // Use variant's sale_price first, fallback to product's sale_price
+      const salePrice = (v as any).sale_price ?? (v as any).product?.sale_price ?? 0;
       return sum + salePrice;
     }, 0);
     const profit = totalSaleValue - totalCostValue;
@@ -805,12 +806,14 @@ export function ShoesVariantsTable() {
       },
       cell: (info) => {
         const variant = info.row.original as any;
-        return <div className=" min-w-[100px]">{currencySymbol}{variant.product?.sale_price?.toFixed(2) ?? '-'}</div>;
+        // Use variant's sale_price first, fallback to product's sale_price
+        const price = variant.sale_price ?? variant.product?.sale_price;
+        return <div className=" min-w-[100px]">{currencySymbol}{price?.toFixed(2) ?? '-'}</div>;
       },
       enableSorting: true,
       sortingFn: (rowA, rowB) => {
-        const a = (rowA.original as any).product?.sale_price || 0;
-        const b = (rowB.original as any).product?.sale_price || 0;
+        const a = (rowA.original as any).sale_price ?? (rowA.original as any).product?.sale_price ?? 0;
+        const b = (rowB.original as any).sale_price ?? (rowB.original as any).product?.sale_price ?? 0;
         return a - b;
       },
     }),

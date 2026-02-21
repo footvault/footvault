@@ -700,50 +700,6 @@ export function ShoesInventoryTable() {
       enableSorting: false,
       enableColumnFilter: false,
     }),
-    // Cost (original_price)
-    columnHelper.accessor('original_price', {
-      id: "cost",
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="p-0 h-auto font-medium hover:bg-transparent"
-          >
-            Cost
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        )
-      },
-      cell: (info) => {
-        const product = info.row.original as Product;
-        const value = product.original_price;
-        return <div className="min-w-[100px]">{currencySymbol}{typeof value === 'number' ? value.toFixed(2) : '-'}</div>;
-      },
-      enableSorting: true,
-    }),
-    // Price (sale_price)
-    columnHelper.accessor('sale_price', {
-      id: "price",
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="p-0 h-auto font-medium hover:bg-transparent"
-          >
-            Price
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        )
-      },
-      cell: (info) => {
-        const product = info.row.original as Product;
-        const value = product.sale_price;
-        return <div className="min-w-[100px]">{currencySymbol}{typeof value === 'number' ? value.toFixed(2) : '-'}</div>;
-      },
-      enableSorting: true,
-    }),
     // Status
     columnHelper.accessor('status', {
       id: "status",
@@ -1564,6 +1520,8 @@ function AddVariantsModal({
   const [quantity, setQuantity] = useState<number>(1);
   const [status, setStatus] = useState<string>("Available");
   const [location, setLocation] = useState<string>("");
+  const [costPrice, setCostPrice] = useState<string>("");
+  const [salePrice, setSalePrice] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sizeSearch, setSizeSearch] = useState("");
   
@@ -1604,6 +1562,8 @@ function AddVariantsModal({
       setSizeLabel("US");
       setShowAddLocationInput(false);
       setNewLocation("");
+      setCostPrice("");
+      setSalePrice("");
     }
   }, [open, product]);
 
@@ -1749,7 +1709,8 @@ function AddVariantsModal({
               location_id: selectedLocation?.id, // New: use location ID
               date_added: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
               variant_sku: `${product.sku || 'SKU'}-${size}`, // Generate variant SKU
-              cost_price: product.original_price || 0.00, // Set cost_price from product's original_price
+              cost_price: parseFloat(costPrice) || 0.00, // Use form input for cost price
+              sale_price: parseFloat(salePrice) || 0.00, // Use form input for sale price
               size_label: sizeLabel, // Add size_label field
               type: 'In Stock', // Regular inventory items are 'In Stock'
             };
@@ -1954,6 +1915,34 @@ function AddVariantsModal({
             <div className="text-sm text-muted-foreground">
               Total variants: {selectedSizes.length * quantity}
             </div>
+          </div>
+
+          {/* Cost Price */}
+          <div className="space-y-2">
+            <Label>Cost Price (per variant)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={costPrice}
+              onChange={(e) => setCostPrice(e.target.value)}
+              placeholder="0.00"
+              className="w-full"
+            />
+          </div>
+
+          {/* Sale Price */}
+          <div className="space-y-2">
+            <Label>Sale Price (per variant)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={salePrice}
+              onChange={(e) => setSalePrice(e.target.value)}
+              placeholder="0.00"
+              className="w-full"
+            />
           </div>
 
           {/* Status */}

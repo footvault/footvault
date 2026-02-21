@@ -26,6 +26,7 @@ interface DatabaseVariant {
   status: string;
   serial_number: string | null;
   cost_price: number;
+  sale_price: number;
   products: DatabaseProduct;
 }
 
@@ -156,6 +157,7 @@ async function getAvailableVariants(userId: string) {
           status,
           serial_number,
           cost_price,
+          sale_price,
           owner_type,
           consignor_id,
           payout_method,
@@ -239,7 +241,7 @@ async function getAvailableVariants(userId: string) {
          // @ts-ignore
         productOriginalPrice: variant.products.original_price,
          // @ts-ignore
-        productSalePrice: variant.products.sale_price,
+        productSalePrice: variant.sale_price || variant.products.sale_price, // Use variant's sale price first, fallback to product
          // @ts-ignore
         productCategory: variant.products.category,
          // @ts-ignore

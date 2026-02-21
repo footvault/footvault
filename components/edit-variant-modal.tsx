@@ -51,7 +51,7 @@ export function EditVariantModal({ open, variant, onClose }: EditVariantModalPro
   useEffect(() => {
     if (variant) {
       setCostPrice(variant.cost_price?.toString() || "")
-      setSalePrice((variant as any).product?.sale_price?.toString() || "")
+      setSalePrice((variant as any).sale_price?.toString() || "") // Use variant's sale_price
       setStatus(variant.status || "Available")
       setLocation(variant.location || "")
       // Set location ID if available
@@ -99,25 +99,18 @@ export function EditVariantModal({ open, variant, onClose }: EditVariantModalPro
     
     setSaving(true)
     try {
-      // Update variant
+      // Update variant (including sale_price at variant level)
       const { error: variantError } = await supabase
         .from('variants')
         .update({
           cost_price: parseFloat(costPrice) || 0,
+          sale_price: parseFloat(salePrice) || 0, // Save sale_price at variant level
           status,
           location_id: selectedLocationId, // Use location_id (UUID)
           location, // Keep text for backward compatibility
           date_sold: dateSold || null,
         })
         .eq('id', variant.id)
-
-      // Update product sale price if changed
-      if (salePrice && (variant as any).product_id) {
-        const { error: productError } = await supabase
-          .from('products')
-          .update({ sale_price: parseFloat(salePrice) || 0 })
-          .eq('id', (variant as any).product_id)
-      }
 
       if (!variantError) {
         onClose(true) // Successfully updated
