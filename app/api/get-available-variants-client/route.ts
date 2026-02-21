@@ -46,6 +46,7 @@ export async function GET(request: Request) {
         status,
         serial_number,
         cost_price,
+        sale_price,
         owner_type,
         consignor_id,
         products:products (
@@ -166,7 +167,7 @@ export async function GET(request: Request) {
           productSku: product.sku,
           productImage: product.image,
           productOriginalPrice: product.original_price,
-          productSalePrice: product.sale_price,
+          productSalePrice: variant.sale_price ?? product.sale_price,
           productCategory: product.category,
           productSizeCategory: product.size_category,
           ownerType: variant.owner_type || 'store',
