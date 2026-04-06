@@ -1747,7 +1747,7 @@ export function AddProductForm({
                         </SelectItem>
                       ))}
                       {customLocations.length === 0 && (
-                        <SelectItem value="" disabled className="text-xs text-muted-foreground italic">
+                        <SelectItem value="__no-locations__" disabled className="text-xs text-muted-foreground italic">
                           No locations yet - add one below
                         </SelectItem>
                       )}

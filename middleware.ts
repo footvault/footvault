@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit, rateLimits } from '@/lib/simple-rate-limit'
 import { getSecurityHeaders } from '@/lib/simple-security'
+import { updateSession } from '@/lib/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
-  // Apply security headers to all responses
-  const response = NextResponse.next()
   const securityHeaders = getSecurityHeaders()
-  
-  Object.entries(securityHeaders).forEach(([key, value]) => {
-    response.headers.set(key, value)
-  })
 
   // Rate limit product search API (very strict due to external API costs)
   if (pathname === '/api/search-kicks-dev') {
@@ -19,7 +14,6 @@ export async function middleware(request: NextRequest) {
     const rateLimitResponse = await searchRateLimit(request)
     
     if (rateLimitResponse) {
-      // Add security headers to rate limit response
       Object.entries(securityHeaders).forEach(([key, value]) => {
         rateLimitResponse.headers.set(key, value)
       })
@@ -81,6 +75,14 @@ export async function middleware(request: NextRequest) {
       )
     }
   }
+
+  // Update Supabase session (refreshes auth cookies on every request)
+  const response = await updateSession(request)
+
+  // Apply security headers to the response
+  Object.entries(securityHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value)
+  })
 
   return response
 }

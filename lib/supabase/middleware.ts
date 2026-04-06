@@ -41,12 +41,27 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (
-    request.nextUrl.pathname !== "/" &&
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth")
-  ) {
+  const publicPaths = [
+    "/",
+    "/login",
+    "/signup",
+    "/auth",
+    "/contact",
+    "/contact-enterprise",
+    "/features",
+    "/privacy",
+    "/terms",
+  ];
+
+  const isPublic =
+    publicPaths.some(
+      (p) =>
+        request.nextUrl.pathname === p ||
+        request.nextUrl.pathname.startsWith(p + "/")
+    ) ||
+    request.nextUrl.pathname.startsWith("/api/");
+
+  if (!user && !isPublic) {
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone();
     url.pathname = "/login";

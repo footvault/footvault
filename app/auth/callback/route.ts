@@ -149,7 +149,7 @@ export async function GET(request: Request) {
         const username = user.user_metadata.full_name ?? email ?? 'NoName'
         const currency = 'USD'
 
-        await admin.from('users').insert({
+        const { error: userError } = await admin.from('users').insert({
           id: user.id,
           username,
           plan,
@@ -158,12 +158,16 @@ export async function GET(request: Request) {
           timezone: 'America/New_York',
         })
 
+        if (userError) {
+          console.error('Error creating user record:', userError)
+        }
+
         // default avatar
         const initials = email.split('@')[0].slice(0, 2).toUpperCase()
         const fallback = `https://api.dicebear.com/7.x/initials/svg?seed=${initials}`
         const avatarImage = user.user_metadata.avatar_url ?? fallback
 
-        await admin.from('avatars').insert({
+        const { error: avatarError } = await admin.from('avatars').insert({
           name: 'Main',
           user_id: user.id,
           default_percentage: 100.0,
@@ -171,13 +175,21 @@ export async function GET(request: Request) {
           type: 'Main',
         })
 
+        if (avatarError) {
+          console.error('Error creating avatar record:', avatarError)
+        }
+
         // default payment type
-        await admin.from('payment_types').insert({
+        const { error: paymentError } = await admin.from('payment_types').insert({
           user_id: user.id,
           name: 'Cash',
           fee_type: 'fixed',
           fee_value: 0.0,
         })
+
+        if (paymentError) {
+          console.error('Error creating payment type record:', paymentError)
+        }
         
         console.log('New user created successfully')
       } else {
