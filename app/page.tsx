@@ -1,38 +1,33 @@
-import { AuthButton } from "@/components/auth-button";
-import { Hero } from "@/components/hero";
 import { Metadata } from "next";
-import { DiscordBanner } from "@/components/discord-banner";
-
-import Link from "next/link";
-import Image from "next/image";
-
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
-import Marquee from "@/components/Marquee";
-import Features from "@/components/Features";
-import Pricing from "@/components/Pricing";
-import Footer from "@/components/Footer";
-import InfiniteCarousel from "@/components/Testimonials";
-import CallToAction from "@/components/CallToAction";
 import { AuthCodeHandler } from "@/components/auth-code-handler";
 import { AuthRedirect } from "@/components/auth-redirect";
+import LandingNavbar from "@/components/landing/LandingNavbar";
+import HeroSection from "@/components/landing/HeroSection";
+import ProblemSection from "@/components/landing/ProblemSection";
+import FeaturesSection from "@/components/landing/FeaturesSection";
+import WhyFootVault from "@/components/landing/WhyFootVault";
+import TestimonialsSection from "@/components/landing/TestimonialsSection";
+import PricingSection from "@/components/landing/PricingSection";
+import ObjectionSection from "@/components/landing/ObjectionSection";
+import FinalCTA from "@/components/landing/FinalCTA";
+import LandingFooter from "@/components/landing/LandingFooter";
 
 
 export const metadata: Metadata = {
-  title: "FootVault - Ultimate Sneaker Reseller Inventory Management Tool",
-  description: "The most powerful sneaker reseller inventory management platform. Track sneaker stock, manage resale profits, automate pricing, and scale your sneaker business with advanced tools for Jordan, Nike, Yeezy, and designer footwear.",
+  title: "FootVault - Inventory & Sales Management for Sneaker Resellers",
+  description: "Track every pair, manage sales, and know your real profit. FootVault is the inventory and sales management system built specifically for sneaker resellers.",
   keywords: "sneaker reseller tools, sneaker inventory management, resale inventory tracker, sneaker stock management, sneaker business software, Jordan reseller tools, Nike inventory tracker, Yeezy resale management",
   openGraph: {
-    title: "FootVault - Ultimate Sneaker Reseller Inventory Management Tool",
-    description: "The most powerful sneaker reseller inventory management platform. Track sneaker stock, manage resale profits, automate pricing, and scale your sneaker business.",
-    url: "https://https://footvault.dev",
+    title: "FootVault - Inventory & Sales Management for Sneaker Resellers",
+    description: "Track every pair, manage sales, and know your real profit. Built specifically for sneaker resellers.",
+    url: "https://footvault.dev",
     siteName: "FootVault",
     images: [
       {
         url: "/images/footvault-og-home.jpg",
         width: 1200,
         height: 630,
-        alt: "FootVault Homepage - Sneaker Reseller Tools",
+        alt: "FootVault - Sneaker Reseller Inventory Management",
       },
     ],
     locale: "en_US",
@@ -40,22 +35,19 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "FootVault - Ultimate Sneaker Reseller Inventory Management Tool",
-    description: "The most powerful sneaker reseller inventory management platform for sneaker resellers and businesses.",
+    title: "FootVault - Inventory & Sales Management for Sneaker Resellers",
+    description: "Track every pair, manage sales, and know your real profit. Built specifically for sneaker resellers.",
     images: ["/images/footvault-twitter-home.jpg"],
   },
   alternates: {
-    canonical: "https://https://footvault.dev",
+    canonical: "https://footvault.dev",
   },
 }
 
 
 export default async function Home() {
-  // Client-side redirect handles auth check for persistent sessions
-  // No server-side redirect needed to avoid NEXT_REDIRECT errors
-
   return (
-    <main className="min-h-screen flex flex-col items-center">
+    <main className="min-h-screen flex flex-col bg-[#0a0a0a] text-white">
       {/* Handle OAuth codes that end up on root page */}
       <AuthCodeHandler />
       
@@ -69,14 +61,14 @@ export default async function Home() {
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "WebPage",
-            "name": "FootVault - Ultimate Sneaker Reseller Inventory Management Tool",
-            "description": "The most powerful sneaker reseller inventory management platform. Track sneaker stock, manage resale profits, automate pricing, and scale your sneaker business.",
-            "url": "https://https://footvault.dev",
+            "name": "FootVault - Inventory & Sales Management for Sneaker Resellers",
+            "description": "Track every pair, manage sales, and know your real profit. Built specifically for sneaker resellers.",
+            "url": "https://footvault.dev",
             "mainEntity": {
               "@type": "SoftwareApplication",
               "name": "FootVault",
               "applicationCategory": "BusinessApplication",
-              "description": "Advanced sneaker reseller inventory management platform with tools for tracking stock, managing profits, and scaling sneaker businesses.",
+              "description": "Inventory and sales management platform built specifically for sneaker resellers.",
               "operatingSystem": "Web Browser",
               "offers": {
                 "@type": "Offer",
@@ -91,7 +83,7 @@ export default async function Home() {
                   "@type": "ListItem",
                   "position": 1,
                   "name": "Home",
-                  "item": "https://https://footvault.dev"
+                  "item": "https://footvault.dev"
                 }
               ]
             }
@@ -99,57 +91,20 @@ export default async function Home() {
         }}
       />
       
+      <LandingNavbar />
+
       <div className="flex-1 w-full flex flex-col">
-        {/* Discord Banner */}
-        <DiscordBanner />
-
-        {/* ✅ Responsive Navbar */}
-        <nav className="w-full border-b border-b-foreground/10 h-16">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
-            {/* Left Logo */}
-            <div className="font-bold text-base ">
-              
-              <Link href="/" className="flex items-center gap-2">
-              <Image src={"/images/FootVault-logo-white-only.png"} alt="FootVault" width={32} height={32} />
-              <p>FootVault</p>
-              </Link>
-            </div>
-
-            {/* Centered links for medium+ screens */}
-              <div className="hidden md:flex gap-6 font-medium">
-                <Link href="/">Home</Link>
-                <a href="#features">Features</a>
-                <a href="#pricing">Pricing</a>
-                <Link href="/contact">Contact</Link>
-              </div>
-
-            {/* Right-side buttons */}
-            <div>
-               <AuthButton />
-            </div>
-          </div>
-        </nav>
-
-        {/* ✅ Page Content */}
-          <div className="flex-1 w-full mx-auto  flex flex-col ">
-            <Hero />
-            <Marquee />
-            <section id="features">
-              <Features />
-            </section>
-            <section id="pricing">
-              <Pricing />
-            </section>
-            <InfiniteCarousel />
-            <CallToAction/>
-          </div>
-
-        {/* ✅ Footer */}
-        <div>
-          <Footer />
-          
-        </div>
+        <HeroSection />
+        <ProblemSection />
+        <FeaturesSection />
+        <WhyFootVault />
+        <TestimonialsSection />
+        <PricingSection />
+        <ObjectionSection />
+        <FinalCTA />
       </div>
+
+      <LandingFooter />
     </main>
   );
 }
