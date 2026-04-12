@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { useState, useEffect, useRef } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useGSAP } from '@gsap/react';
 import { Check, HelpCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
@@ -11,6 +13,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
+gsap.registerPlugin(ScrollTrigger, useGSAP);
+
 const plans = [
   {
     key: 'free',
@@ -18,8 +22,6 @@ const plans = [
     audience: 'For beginners',
     priceMonthlyUSD: 0,
     priceYearlyUSD: 0,
-    priceMonthlyPHP: 0,
-    priceYearlyPHP: 0,
     features: [
       { label: 'Track available & sold shoes' },
       { label: 'Manage inventory and sales' },
@@ -35,8 +37,6 @@ const plans = [
     audience: 'For active resellers',
     priceMonthlyUSD: 10,
     priceYearlyUSD: 100,
-    priceMonthlyPHP: 499,
-    priceYearlyPHP: 4990,
     features: [
       { label: 'Everything in Starter' },
       { label: 'Up to 500 available variants' },
@@ -52,8 +52,6 @@ const plans = [
     audience: 'For growing businesses',
     priceMonthlyUSD: 14,
     priceYearlyUSD: 140,
-    priceMonthlyPHP: 799,
-    priceYearlyPHP: 7990,
     features: [
       { label: 'Everything in Reseller' },
       { label: 'Up to 1,500 available variants' },
@@ -69,8 +67,6 @@ const plans = [
     audience: 'For full-time sellers',
     priceMonthlyUSD: 20,
     priceYearlyUSD: 200,
-    priceMonthlyPHP: 1199,
-    priceYearlyPHP: 11990,
     features: [
       { label: 'Everything in Business' },
       { label: 'Up to 5,000 available variants' },
@@ -84,67 +80,102 @@ const plans = [
 
 export default function PricingSection() {
   const [isYearly, setIsYearly] = useState(false);
-  const [isPhilippines, setIsPhilippines] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const sectionRef = useRef<HTMLElement>(null);
 
+  useGSAP(() => {
+    const ctx = gsap.context(() => {
+      gsap.from('.pricing-label', {
+        scrollTrigger: { trigger: '.pricing-label', start: 'top 85%' },
+        opacity: 0,
+        y: 30,
+        duration: 0.7,
+        ease: 'power3.out',
+      });
+
+      gsap.from('.pricing-heading', {
+        scrollTrigger: { trigger: '.pricing-heading', start: 'top 85%' },
+        opacity: 0,
+        y: 40,
+        duration: 0.9,
+        delay: 0.15,
+        ease: 'power3.out',
+      });
+
+      gsap.from('.pricing-toggle', {
+        scrollTrigger: { trigger: '.pricing-toggle', start: 'top 90%' },
+        opacity: 0,
+        y: 20,
+        duration: 0.6,
+        delay: 0.3,
+        ease: 'power3.out',
+      });
+    }, sectionRef);
+
+    return () => ctx.revert();
+  }, { scope: sectionRef });
+
+  // Animate pricing cards
+  useGSAP(() => {
+    const ctx = gsap.context(() => {
+      gsap.from('.pricing-card', {
+        scrollTrigger: { trigger: '.pricing-card', start: 'top 85%' },
+        opacity: 0,
+        y: 50,
+        scale: 0.95,
+        duration: 0.7,
+        stagger: 0.1,
+        ease: 'power3.out',
+      });
+    }, sectionRef);
+    return () => ctx.revert();
+  }, { scope: sectionRef });
+
+  // Card hover effects
   useEffect(() => {
-    const detectLocation = async () => {
-      try {
-        const response = await fetch('https://ipapi.co/json/');
-        const data = await response.json();
-        if (data.country_code === 'PH') {
-          setIsPhilippines(true);
-        }
-      } catch {
-        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        if (timezone.includes('Manila')) {
-          setIsPhilippines(true);
-        }
-      } finally {
-        setIsLoading(false);
-      }
+    const cards = document.querySelectorAll('.pricing-card');
+    const enters: Array<() => void> = [];
+    const leaves: Array<() => void> = [];
+    cards.forEach((card, i) => {
+      const enter = () => gsap.to(card, { y: -6, duration: 0.3, ease: 'power2.out' });
+      const leave = () => gsap.to(card, { y: 0, duration: 0.4, ease: 'power2.out' });
+      enters.push(enter);
+      leaves.push(leave);
+      card.addEventListener('mouseenter', enter);
+      card.addEventListener('mouseleave', leave);
+    });
+    return () => {
+      cards.forEach((card, i) => {
+        card.removeEventListener('mouseenter', enters[i]);
+        card.removeEventListener('mouseleave', leaves[i]);
+      });
     };
-    detectLocation();
   }, []);
 
-  const currencySymbol = isPhilippines ? '₱' : '$';
-
   const getPrice = (plan: (typeof plans)[number]) => {
-    if (isYearly) {
-      return isPhilippines ? plan.priceYearlyPHP : plan.priceYearlyUSD;
-    }
-    return isPhilippines ? plan.priceMonthlyPHP : plan.priceMonthlyUSD;
+    return isYearly ? plan.priceYearlyUSD : plan.priceMonthlyUSD;
   };
 
   const getSavings = (plan: (typeof plans)[number]) => {
-    const monthly = isPhilippines ? plan.priceMonthlyPHP : plan.priceMonthlyUSD;
-    const yearly = isPhilippines ? plan.priceYearlyPHP : plan.priceYearlyUSD;
-    return monthly * 12 - yearly;
+    return plan.priceMonthlyUSD * 12 - plan.priceYearlyUSD;
   };
 
   return (
-    <section id="pricing" className="w-full px-5 sm:px-8 py-20 sm:py-28 lg:py-32">
+    <section ref={sectionRef} id="pricing" className="w-full px-5 sm:px-8 py-20 sm:py-28 lg:py-32">
       <div className="max-w-5xl mx-auto">
-        <motion.div
-          className="text-center mb-12 sm:mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
-          <p className="text-emerald-400 text-sm font-medium tracking-wide uppercase mb-4">
+        <div className="text-center mb-12 sm:mb-16">
+          <p className="pricing-label text-emerald-400 text-sm font-medium tracking-wide uppercase mb-4">
             Pricing
           </p>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight mb-4">
+          <h2 className="pricing-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight mb-4">
             Pick your plan. Scale when ready.
           </h2>
-          <p className="text-neutral-400 max-w-xl mx-auto">
+          <p className="pricing-heading text-neutral-400 max-w-xl mx-auto">
             Start free. Upgrade as your business grows.
           </p>
 
           {/* Toggle */}
-          <div className="mt-8 inline-flex items-center gap-1 bg-white/[0.05] border border-white/[0.06] rounded-lg p-1">
+          <div className="pricing-toggle mt-8 inline-flex items-center gap-1 bg-white/[0.05] border border-white/[0.06] rounded-lg p-1">
             <button
               onClick={() => setIsYearly(false)}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
@@ -166,37 +197,17 @@ export default function PricingSection() {
               Yearly
             </button>
           </div>
-        </motion.div>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {isLoading
-            ? Array.from({ length: 4 }).map((_, i) => (
+          {plans.map((plan) => (
                 <div
-                  key={i}
-                  className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 animate-pulse"
-                >
-                  <div className="h-5 bg-white/[0.06] rounded w-20 mb-2" />
-                  <div className="h-4 bg-white/[0.06] rounded w-28 mb-6" />
-                  <div className="h-8 bg-white/[0.06] rounded w-24 mb-8" />
-                  <div className="space-y-3">
-                    {[1, 2, 3, 4].map((j) => (
-                      <div key={j} className="h-4 bg-white/[0.06] rounded w-full" />
-                    ))}
-                  </div>
-                </div>
-              ))
-            : plans.map((plan, index) => (
-                <motion.div
                   key={plan.key}
-                  className={`relative rounded-xl border p-6 flex flex-col transition-all duration-300 ${
+                  className={`pricing-card relative rounded-xl border p-6 flex flex-col transition-colors duration-300 will-change-transform ${
                     plan.recommended
                       ? 'border-emerald-500/40 bg-emerald-500/[0.05] ring-1 ring-emerald-500/20'
                       : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12]'
                   }`}
-                  initial={{ opacity: 0, y: 24 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: index * 0.08 }}
                 >
                   {plan.recommended && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -214,8 +225,7 @@ export default function PricingSection() {
                   <div className="mb-6">
                     <div className="flex items-end gap-1">
                       <span className="text-3xl font-bold text-white">
-                        {currencySymbol}
-                        {getPrice(plan).toLocaleString()}
+                        ${getPrice(plan).toLocaleString()}
                       </span>
                       <span className="text-neutral-500 text-sm mb-1">
                         / {isYearly ? 'year' : 'month'}
@@ -223,8 +233,7 @@ export default function PricingSection() {
                     </div>
                     {isYearly && getSavings(plan) > 0 && (
                       <p className="text-emerald-400 text-xs mt-1">
-                        Save {currencySymbol}
-                        {getSavings(plan).toLocaleString()}/year
+                        Save ${getSavings(plan).toLocaleString()}/year
                       </p>
                     )}
                   </div>
@@ -262,7 +271,7 @@ export default function PricingSection() {
                   >
                     {plan.cta}
                   </button>
-                </motion.div>
+                </div>
               ))}
         </div>
       </div>

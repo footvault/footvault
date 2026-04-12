@@ -1,153 +1,188 @@
+'use client';
+
 import Link from 'next/link';
-import Image from 'next/image';
-import Footer from '@/components/Footer';
-import { AuthButton } from "@/components/auth-button";
-import { DiscordBanner } from "@/components/discord-banner";
+import { useRef } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useGSAP } from '@gsap/react';
+import LandingNavbar from '@/components/landing/LandingNavbar';
+import LandingFooter from '@/components/landing/LandingFooter';
+import { Mail, Clock, MessageCircle, ChevronDown, Send, ExternalLink } from 'lucide-react';
+
+gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 export default function ContactPage() {
+  const pageRef = useRef<HTMLDivElement>(null);
+
+  useGSAP(() => {
+    const ctx = gsap.context(() => {
+      // Hero entrance
+      gsap.from('.contact-label', { opacity: 0, y: 20, duration: 0.6, delay: 0.2, ease: 'power3.out' });
+      gsap.from('.contact-heading', { opacity: 0, y: 30, duration: 0.8, delay: 0.35, ease: 'power3.out' });
+      gsap.from('.contact-subtitle', { opacity: 0, y: 20, duration: 0.7, delay: 0.5, ease: 'power3.out' });
+
+      // Contact card rise
+      gsap.from('.contact-card', {
+        scrollTrigger: { trigger: '.contact-card', start: 'top 85%' },
+        opacity: 0, y: 50, scale: 0.96, duration: 0.8, ease: 'power3.out',
+      });
+
+      // Info cards stagger
+      gsap.from('.info-card', {
+        scrollTrigger: { trigger: '.info-cards', start: 'top 85%' },
+        opacity: 0, y: 40, scale: 0.95, duration: 0.7, stagger: 0.1, ease: 'power3.out',
+      });
+
+      // FAQ heading
+      gsap.from('.faq-heading', {
+        scrollTrigger: { trigger: '.faq-heading', start: 'top 85%' },
+        opacity: 0, y: 30, duration: 0.7, ease: 'power3.out',
+      });
+
+      // FAQ items stagger
+      gsap.from('.faq-item', {
+        scrollTrigger: { trigger: '.faq-list', start: 'top 85%' },
+        opacity: 0, y: 25, duration: 0.6, stagger: 0.08, ease: 'power3.out',
+      });
+
+      // Info card hover
+      const infoCards = gsap.utils.toArray<HTMLElement>('.info-card');
+      infoCards.forEach((card) => {
+        card.addEventListener('mouseenter', () => {
+          gsap.to(card, { y: -4, duration: 0.3, ease: 'power2.out' });
+          gsap.to(card.querySelector('.info-icon'), { scale: 1.15, rotation: -5, duration: 0.3, ease: 'back.out(2)' });
+        });
+        card.addEventListener('mouseleave', () => {
+          gsap.to(card, { y: 0, duration: 0.4, ease: 'power2.out' });
+          gsap.to(card.querySelector('.info-icon'), { scale: 1, rotation: 0, duration: 0.3, ease: 'power2.out' });
+        });
+      });
+    }, pageRef);
+
+    return () => ctx.revert();
+  }, { scope: pageRef });
+
   return (
-    <div className="min-h-screen bg-white">
-      {/* Discord Banner */}
-      <DiscordBanner />
-      
-      {/* Navbar */}
-      <nav className="w-full border-b border-gray-200 h-16 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
-          <div className="font-semibold text-gray-900">
-            <Link href="/" className="flex items-center gap-2">
-              <Image src={"/images/FootVault-logo-white-only.png"} alt="FootVault" width={32} height={32} />
-              <span>FootVault</span>
-            </Link>
-          </div>
+    <div ref={pageRef} className="min-h-screen bg-[#0a0a0a] text-white relative">
+      {/* Subtle background */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:80px_80px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,black_20%,transparent_70%)]" />
+        <div className="absolute -top-[40%] left-1/2 -translate-x-1/2 w-[1000px] h-[700px] rounded-full bg-emerald-500/[0.03] blur-[150px]" />
+      </div>
 
-          <div className="hidden md:flex gap-8 text-sm font-medium text-gray-600">
-            <Link href="/" className="hover:text-gray-900 transition-colors">Home</Link>
-            <a href="/#features" className="hover:text-gray-900 transition-colors">Features</a>
-            <a href="/#pricing" className="hover:text-gray-900 transition-colors">Pricing</a>
-            <Link href="/contact" className="text-gray-900">Contact</Link>
-          </div>
+      <LandingNavbar />
 
-          <div>
-            <AuthButton />
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main className="pt-20 pb-20">
-        {/* Hero Section */}
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-5xl font-bold text-gray-900 mb-6 tracking-tight">
-            Contact Us
+      <main className="relative z-10 pt-28 pb-20">
+        {/* Hero */}
+        <div className="max-w-4xl mx-auto px-5 sm:px-8 text-center mb-16">
+          <p className="contact-label text-emerald-400 text-sm font-medium tracking-wide uppercase mb-4">
+            Contact
+          </p>
+          <h1 className="contact-heading text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6 tracking-tight">
+            Get in touch
           </h1>
-          <p className="text-xl text-gray-600 mb-16 max-w-2xl mx-auto">
-            Have questions? We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+          <p className="contact-subtitle text-lg text-neutral-400 max-w-2xl mx-auto">
+            Have questions about FootVault? We&apos;d love to hear from you. Reach out and we&apos;ll get back to you within 24 hours.
           </p>
         </div>
 
         {/* Contact Card */}
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 mb-20">
-          <div className="bg-white border border-gray-200 rounded-2xl p-12 shadow-sm">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              
-              <h2 className="text-2xl font-semibold text-gray-900 mb-3">Get in touch</h2>
-              <p className="text-gray-600 mb-8">We typically respond within 24 hours</p>
-              
-              <a 
-                href="https://tally.so/r/31el0l" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-                Send us a message
-              </a>
+        <div className="max-w-2xl mx-auto px-5 sm:px-8 mb-20">
+          <div className="contact-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-10 sm:p-12 text-center backdrop-blur-sm">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-6">
+              <Send className="w-7 h-7 text-emerald-400" />
             </div>
+
+            <h2 className="text-2xl font-bold text-white mb-3">Send us a message</h2>
+            <p className="text-neutral-400 mb-8">We typically respond within 24 hours</p>
+
+            <a
+              href="https://tally.so/r/31el0l"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold rounded-xl transition-all duration-200"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Open Contact Form
+            </a>
           </div>
         </div>
 
         {/* Contact Info */}
-        <div className="bg-gray-50 py-16">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid md:grid-cols-3 gap-8 text-center">
-              <div>
-                <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Email</h3>
-                <p className="text-gray-600">support@footvault.com</p>
+        <div className="max-w-4xl mx-auto px-5 sm:px-8 mb-20">
+          <div className="info-cards grid md:grid-cols-3 gap-5">
+            <div className="info-card rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 text-center will-change-transform">
+              <div className="info-icon w-11 h-11 rounded-lg bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
+                <Mail className="w-5 h-5 text-emerald-400" />
               </div>
+              <h3 className="text-base font-semibold text-white mb-1">Email</h3>
+              <p className="text-neutral-400 text-sm">footvault.dev@gmail.com</p>
+            </div>
 
-              <div>
-                <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Response Time</h3>
-                <p className="text-gray-600">Within 24 hours</p>
+            <div className="info-card rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 text-center will-change-transform">
+              <div className="info-icon w-11 h-11 rounded-lg bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
+                <Clock className="w-5 h-5 text-emerald-400" />
               </div>
+              <h3 className="text-base font-semibold text-white mb-1">Response Time</h3>
+              <p className="text-neutral-400 text-sm">Within 24 hours</p>
+            </div>
 
-              <div>
-                <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Support</h3>
-                <p className="text-gray-600">Monday - Friday</p>
+            <div className="info-card rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 text-center will-change-transform">
+              <div className="info-icon w-11 h-11 rounded-lg bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
+                <MessageCircle className="w-5 h-5 text-emerald-400" />
               </div>
+              <h3 className="text-base font-semibold text-white mb-1">Support</h3>
+              <p className="text-neutral-400 text-sm">Monday – Friday</p>
             </div>
           </div>
         </div>
 
-        {/* FAQ Section */}
-        <div className="py-20">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                Frequently Asked Questions
-              </h2>
-              <p className="text-lg text-gray-600">
-                Quick answers to common questions
-              </p>
-            </div>
+        {/* FAQ */}
+        <div className="max-w-3xl mx-auto px-5 sm:px-8">
+          <div className="faq-heading text-center mb-12">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
+              Frequently Asked Questions
+            </h2>
+            <p className="text-neutral-400">Quick answers to common questions</p>
+          </div>
 
-            <div className="space-y-4">
-              <div className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-sm transition-shadow">
-                <h3 className="font-semibold text-gray-900 mb-3">How do I get started with FootVault?</h3>
-                <p className="text-gray-600">Simply sign up for an account and you can start managing your sneaker inventory immediately. Our free plan includes basic features to get you started.</p>
-              </div>
-              
-              <div className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-sm transition-shadow">
-                <h3 className="font-semibold text-gray-900 mb-3">Can I import my existing inventory?</h3>
-                <p className="text-gray-600">Yes! FootVault supports CSV imports and manual entry. You can easily migrate your existing inventory data.</p>
-              </div>
-              
-              <div className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-sm transition-shadow">
-                <h3 className="font-semibold text-gray-900 mb-3">Is my data secure?</h3>
-                <p className="text-gray-600">Absolutely. We use enterprise-grade security measures including encryption, secure hosting, and regular backups to protect your data.</p>
-              </div>
-
-              <div className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-sm transition-shadow">
-                <h3 className="font-semibold text-gray-900 mb-3">Can I cancel my subscription anytime?</h3>
-                <p className="text-gray-600">Yes, you can cancel your subscription at any time. You'll continue to have access until the end of your billing period.</p>
-              </div>
-            </div>
+          <div className="faq-list space-y-3">
+            {[
+              {
+                q: 'How do I get started with FootVault?',
+                a: 'Simply sign up for an account and you can start managing your sneaker inventory immediately. Our free plan includes basic features to get you started.',
+              },
+              {
+                q: 'Can I export my inventory data?',
+                a: 'Yes! FootVault supports CSV exports so you can download your inventory, sales, and profit data anytime.',
+              },
+              {
+                q: 'Is my data secure?',
+                a: 'Absolutely. We use enterprise-grade security measures including encryption, secure hosting, and regular backups to protect your data.',
+              },
+              {
+                q: 'Can I cancel my subscription anytime?',
+                a: 'Yes, you can cancel your subscription at any time. You\'ll continue to have access until the end of your billing period.',
+              },
+            ].map((faq) => (
+              <details
+                key={faq.q}
+                className="faq-item group rounded-xl border border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] transition-colors"
+              >
+                <summary className="flex items-center justify-between cursor-pointer p-5 sm:p-6 text-white font-medium text-sm sm:text-base list-none [&::-webkit-details-marker]:hidden">
+                  {faq.q}
+                  <ChevronDown className="w-4 h-4 text-neutral-500 group-open:rotate-180 transition-transform duration-200 flex-shrink-0 ml-4" />
+                </summary>
+                <div className="px-5 sm:px-6 pb-5 sm:pb-6 -mt-1">
+                  <p className="text-neutral-400 text-sm leading-relaxed">{faq.a}</p>
+                </div>
+              </details>
+            ))}
           </div>
         </div>
       </main>
 
-      <Footer />
+      <LandingFooter />
     </div>
   );
 }

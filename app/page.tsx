@@ -3,6 +3,7 @@ import { AuthCodeHandler } from "@/components/auth-code-handler";
 import { AuthRedirect } from "@/components/auth-redirect";
 import LandingNavbar from "@/components/landing/LandingNavbar";
 import HeroSection from "@/components/landing/HeroSection";
+import BrandMarquee from "@/components/landing/BrandMarquee";
 import ProblemSection from "@/components/landing/ProblemSection";
 import FeaturesSection from "@/components/landing/FeaturesSection";
 import WhyFootVault from "@/components/landing/WhyFootVault";
@@ -47,7 +48,19 @@ export const metadata: Metadata = {
 
 export default async function Home() {
   return (
-    <main className="min-h-screen flex flex-col bg-[#0a0a0a] text-white">
+    <main className="min-h-screen flex flex-col bg-[#0a0a0a] text-white relative overflow-x-hidden">
+      {/* Subtle grid background */}
+      {/* Subtle background texture */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        {/* Faint grid — only visible near hero, fades out */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:80px_80px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,black_20%,transparent_70%)]" />
+        {/* Top emerald radial wash */}
+        <div className="absolute -top-[40%] left-1/2 -translate-x-1/2 w-[1200px] h-[900px] rounded-full bg-emerald-500/[0.035] blur-[150px] animate-landing-glow-1" />
+        {/* Bottom-right warm glow */}
+        <div className="absolute -bottom-[20%] -right-[10%] w-[700px] h-[700px] rounded-full bg-emerald-600/[0.025] blur-[130px] animate-landing-glow-2" />
+        {/* Subtle vignette — darkens edges, lifts center slightly */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)]" />
+      </div>
       {/* Handle OAuth codes that end up on root page */}
       <AuthCodeHandler />
       
@@ -93,8 +106,9 @@ export default async function Home() {
       
       <LandingNavbar />
 
-      <div className="flex-1 w-full flex flex-col">
+      <div className="flex-1 w-full flex flex-col relative z-10">
         <HeroSection />
+        <BrandMarquee />
         <ProblemSection />
         <FeaturesSection />
         <WhyFootVault />

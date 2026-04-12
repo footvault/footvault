@@ -1,7 +1,12 @@
 'use client';
 
-import { motion } from 'motion/react';
+import { useRef } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useGSAP } from '@gsap/react';
 import { AlertTriangle, FileSpreadsheet, HelpCircle, TrendingDown } from 'lucide-react';
+
+gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 const painPoints = [
   {
@@ -31,37 +36,107 @@ const painPoints = [
 ];
 
 export default function ProblemSection() {
+  const sectionRef = useRef<HTMLElement>(null);
+
+  useGSAP(() => {
+    const ctx = gsap.context(() => {
+      // Heading text reveal with clip-path
+      gsap.from('.problem-heading', {
+        scrollTrigger: {
+          trigger: '.problem-heading',
+          start: 'top 85%',
+          toggleActions: 'play none none none',
+        },
+        opacity: 0,
+        y: 40,
+        duration: 0.9,
+        ease: 'power3.out',
+      });
+
+      gsap.from('.problem-subtitle', {
+        scrollTrigger: {
+          trigger: '.problem-heading',
+          start: 'top 85%',
+          toggleActions: 'play none none none',
+        },
+        opacity: 0,
+        y: 30,
+        duration: 0.8,
+        delay: 0.2,
+        ease: 'power3.out',
+      });
+
+      // Cards stagger with scale + rotation
+      const cards = gsap.utils.toArray<HTMLElement>('.problem-card');
+      cards.forEach((card, i) => {
+        gsap.from(card, {
+          scrollTrigger: {
+            trigger: card,
+            start: 'top 88%',
+            toggleActions: 'play none none none',
+          },
+          opacity: 0,
+          y: 50,
+          scale: 0.95,
+          rotateY: i % 2 === 0 ? -5 : 5,
+          duration: 0.7,
+          delay: i * 0.1,
+          ease: 'power3.out',
+        });
+      });
+
+      // Card icon pulse on hover via GSAP
+      cards.forEach((card) => {
+        const icon = card.querySelector('.problem-icon');
+        if (!icon) return;
+        card.addEventListener('mouseenter', () => {
+          gsap.to(icon, { scale: 1.2, rotation: -8, duration: 0.3, ease: 'back.out(1.7)' });
+        });
+        card.addEventListener('mouseleave', () => {
+          gsap.to(icon, { scale: 1, rotation: 0, duration: 0.4, ease: 'power2.out' });
+        });
+      });
+
+      // Subtle horizontal line drawing
+      gsap.from('.problem-divider', {
+        scrollTrigger: {
+          trigger: '.problem-heading',
+          start: 'top 80%',
+          toggleActions: 'play none none none',
+        },
+        scaleX: 0,
+        duration: 1.2,
+        ease: 'power3.inOut',
+        delay: 0.4,
+      });
+    }, sectionRef);
+
+    return () => ctx.revert();
+  }, { scope: sectionRef });
+
   return (
-    <section className="w-full px-5 sm:px-8 py-20 sm:py-28 lg:py-32">
+    <section ref={sectionRef} className="w-full px-5 sm:px-8 py-20 sm:py-28 lg:py-32">
       <div className="max-w-5xl mx-auto">
-        <motion.div
-          className="text-center mb-16 sm:mb-20"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
-          <p className="text-emerald-400 text-sm font-medium tracking-wide uppercase mb-4">
+        <div className="text-center mb-16 sm:mb-20">
+          <p className="problem-heading text-emerald-400 text-sm font-medium tracking-wide uppercase mb-4">
             Sound familiar?
           </p>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight max-w-3xl mx-auto">
+          <h2 className="problem-subtitle text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight max-w-3xl mx-auto">
             Reselling sneakers is profitable.
             <br />
             <span className="text-neutral-500">Managing them shouldn&apos;t be painful.</span>
           </h2>
-        </motion.div>
+          <div className="problem-divider w-16 h-px bg-emerald-500/40 mx-auto mt-8 origin-left" />
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
-          {painPoints.map((point, index) => (
-            <motion.div
+          {painPoints.map((point) => (
+            <div
               key={point.title}
-              className="group rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 hover:border-white/[0.12] hover:bg-white/[0.04] transition-all duration-300"
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
+              className="problem-card group rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 hover:border-white/[0.12] hover:bg-white/[0.04] transition-all duration-300 cursor-default"
+              style={{ perspective: '800px' }}
             >
-              <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center mb-5">
+              <div className="problem-icon w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center mb-5 will-change-transform">
                 <point.icon className="w-5 h-5 text-red-400" />
               </div>
               <h3 className="text-lg font-semibold text-white mb-2">
@@ -70,7 +145,7 @@ export default function ProblemSection() {
               <p className="text-neutral-400 text-sm leading-relaxed">
                 {point.description}
               </p>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>
