@@ -48,7 +48,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, QrCode, ArrowUpDown, ShoppingCart, ReceiptText, Filter, Search, Plus, Sliders, Grid } from "lucide-react"
+import { ChevronDown, ChevronUp, MoreHorizontal, Edit, Trash2, ArrowUpDown, ShoppingCart, ReceiptText, Filter, Search, Plus, Sliders, Grid } from "lucide-react"
 import jsPDF from "jspdf"
 import QRCode from "qrcode"
 import { createClient } from "@/lib/supabase/client"
@@ -112,77 +112,60 @@ async function fetchVariantsForProduct(productId: number, supabase: any): Promis
   return data || [];
 }
 
-// Optimized batch fetcher for all variants - handles more than 1000 variants with pagination
+// Optimized batch fetcher for all variants - selects only needed columns, parallel pages
 async function fetchAllVariants(productIds: number[], supabase: any): Promise<Record<number, Variant[]>> {
   if (productIds.length === 0) return {};
   
-  console.log(`📦 fetchAllVariants: Fetching variants for ${productIds.length} products`);
   const startTime = performance.now();
   
-  let allData: Variant[] = [];
-  let hasMore = true;
-  let page = 0;
-  const pageSize = 1000;
+  // First, get a count to know how many pages we need
+  const { count } = await supabase
+    .from('variants')
+    .select('id', { count: 'exact', head: true })
+    .eq('isArchived', false)
+    .in('status', ['Available', 'In Display', 'Used'])
+    .in('product_id', productIds);
   
-  // Fetch in batches of 1000 until we get all variants
-  while (hasMore) {
+  const totalCount = count ?? 0;
+  const pageSize = 1000;
+  const totalPages = Math.ceil(totalCount / pageSize);
+  
+  // Fetch all pages in parallel
+  const pagePromises = Array.from({ length: Math.min(totalPages, 10) }, (_, page) => {
     const from = page * pageSize;
     const to = from + pageSize - 1;
     
-    const { data, error, count } = await supabase
+    return supabase
       .from('variants')
-      .select(`
-        *,
-        custom_locations!location_id (
-          id,
-          name
-        )
-      `, { count: 'exact' })
+      .select('id, product_id, size, size_label, variant_sku, location, location_id, status, date_added, serial_number, cost_price, sale_price, created_at, custom_locations!location_id(id, name)')
       .eq('isArchived', false)
       .in('status', ['Available', 'In Display', 'Used'])
       .in('product_id', productIds)
       .order('serial_number', { ascending: false })
-      .range(from, to);
-    
-    if (error) {
-      console.error('❌ Error fetching variants:', error);
-      break;
-    }
-    
-    if (data && data.length > 0) {
-      allData = [...allData, ...data];
-      console.log(`  📄 Page ${page + 1}: Fetched ${data.length} variants (total so far: ${allData.length})`);
-    }
-    
-    // Check if we have more data to fetch
-    hasMore = data && data.length === pageSize && (!count || allData.length < count);
-    page++;
-    
-    // Safety check to prevent infinite loops
-    if (page > 10) {
-      console.warn('⚠️ Stopped after 10 pages (10,000 variants). Implement better pagination if needed.');
-      break;
-    }
-  }
+      .range(from, to)
+      .then(({ data, error }: any) => {
+        if (error) {
+          console.error('Error fetching variants page:', error);
+          return [];
+        }
+        return data || [];
+      });
+  });
   
-  const endTime = performance.now();
-  const duration = (endTime - startTime).toFixed(2);
+  const pages = await Promise.all(pagePromises);
+  const allData: Variant[] = pages.flat();
   
-  console.log(`✅ Fetched ${allData.length} total variants in ${duration}ms`);
+  const duration = (performance.now() - startTime).toFixed(0);
+  console.log(`Fetched ${allData.length} variants in ${duration}ms (${totalPages} pages parallel)`);
   
   // Group by product_id
   const grouped: Record<number, Variant[]> = {};
-  allData.forEach((variant: Variant) => {
+  for (const variant of allData) {
     if (!grouped[variant.product_id]) {
       grouped[variant.product_id] = [];
     }
     grouped[variant.product_id].push(variant);
-  });
-  
-  const productsWithVariants = Object.keys(grouped).length;
-  const productsWithoutVariants = productIds.length - productsWithVariants;
-  
-  console.log(`📊 Variant distribution: ${productsWithVariants} products have variants, ${productsWithoutVariants} products have no variants`);
+  }
   
   return grouped;
 }
@@ -215,52 +198,45 @@ export function ShoesInventoryTable() {
     sum + variants.filter(v => v.status === 'Available').length, 0
   );
    const [totalValue, setTotalValue] = useState<number>(0)
-   const [lastFetchTime, setLastFetchTime] = useState<number>(0)
+   const [variantCount, setVariantCount] = useState<number>(0)
 
+  // Track variant count separately to avoid unstable deps
+  const currentVariantCount = Object.keys(rowVariants).length
   useEffect(() => {
-    const fetchTotalValue = async () => {
-      // Only fetch if it's been more than 30 seconds since last fetch
-      const now = Date.now();
-      if (now - lastFetchTime < 30000) return;
-      
-      console.time('fetchTotalValue');
-      try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession()
+    setVariantCount(currentVariantCount)
+  }, [currentVariantCount])
 
-        if (!session?.access_token) {
-          console.warn('No session token available')
-          return
-        }
+  const fetchTotalValue = async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
 
-        const res = await fetch('/api/inventory-value', {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        })
+      if (!session?.access_token) return
 
-        const json = await res.json()
-        console.debug('[DEBUG] /api/inventory-value response:', json)
+      const res = await fetch('/api/inventory-value', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
 
-        if (typeof json.totalCost === 'number') {
-          setTotalValue(json.totalCost)
-          setLastFetchTime(now)
-        } else {
-          setTotalValue(0)
-        }
-      } catch (error) {
-        console.error('Error fetching total value:', error)
-      } finally {
-        console.timeEnd('fetchTotalValue');
+      const json = await res.json()
+      if (typeof json.totalCost === 'number') {
+        setTotalValue(json.totalCost)
+      } else {
+        setTotalValue(0)
       }
+    } catch (error) {
+      console.error('Error fetching total value:', error)
     }
+  }
 
-    // Debounce the call to prevent excessive requests
-    const timeoutId = setTimeout(fetchTotalValue, 1000);
-    return () => clearTimeout(timeoutId);
-  }, [products.length, Object.keys(rowVariants).length, lastFetchTime]) // Only depend on counts, not full objects
+  // Fetch total value when variant count changes (after variants load)
+  useEffect(() => {
+    if (variantCount > 0) {
+      fetchTotalValue()
+    }
+  }, [variantCount])
 
   // Track screen width for responsive design
   const [screenWidth, setScreenWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1400);
@@ -285,6 +261,7 @@ export function ShoesInventoryTable() {
   const [sizeSearch, setSizeSearch] = useState("");
 
   const supabase = createClient(undefined)
+  const lastFetchRef = React.useRef<number>(0)
 
   const fetchProducts = async () => {
     try {
@@ -296,14 +273,15 @@ export function ShoesInventoryTable() {
         .from('products')
         .select('*')
         .eq('user_id', user.id)
-        .eq('isArchived', false) // Only fetch non-archived products
-        .range(0, 4999) // Support up to 5000 products
+        .eq('isArchived', false)
+        .range(0, 4999)
         .order('created_at', { ascending: false })
 
       if (error) {
         console.error('Error fetching products:', error)
       } else {
         setProducts(data || [])
+        lastFetchRef.current = Date.now()
       }
     } catch (error) {
       console.error('Error:', error)
@@ -316,9 +294,9 @@ export function ShoesInventoryTable() {
   useEffect(() => {
     fetchProducts()
     
-    // Refresh products when tab becomes visible (e.g., returning from add-product page)
+    // Refresh products when tab becomes visible, but only if stale (>30s)
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && Date.now() - lastFetchRef.current > 30000) {
         fetchProducts();
       }
     };
@@ -346,11 +324,6 @@ export function ShoesInventoryTable() {
     prefetchAllVariants();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products]);
-
-  // Debug: Log sorting state
-  useEffect(() => {
-   
-  }, [sorting])
 
 
   // Compute unique filter options
@@ -739,20 +712,20 @@ export function ShoesInventoryTable() {
         return (
           <div className="min-w-[100px] space-y-1">
             <span
-  className={`
-    inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
-    shadow-sm transition-colors duration-200
-    ${
-      badgeVariant === "success"
-        ? "bg-green-100 text-green-800"
-        : badgeVariant === "destructive"
-        ? "bg-red-100 text-red-800"
-        : "bg-gray-100 text-gray-800"
-    }
-  `}
->
-  {status}
-</span>
+              className={`
+                inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                transition-colors duration-150
+                ${
+                  badgeVariant === "success"
+                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    : badgeVariant === "destructive"
+                    ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                    : "bg-muted text-muted-foreground"
+                }
+              `}
+            >
+              {status}
+            </span>
           </div>
         );
       },
@@ -869,68 +842,74 @@ export function ShoesInventoryTable() {
     <div className="space-y-4">
       {/* Inventory Stats Card */}
       <InventoryStatsCard totalShoes={totalShoes} totalVariants={totalVariants} totalValue={totalValue} loading={loading} />
+
       {/* Top Action Buttons */}
-      <div className="flex flex-wrap gap-2 justify-end mb-2">
-        <Button
-          variant="default"
-          onClick={() => window.location.href = "/add-product"}
-        >
-          + Add Product
-        </Button>
-        {isMobile ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => window.location.href = "/sales"} className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div /> {/* Spacer */}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => window.location.href = "/add-product"}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white transition-colors duration-150"
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Add Product
+          </Button>
+          {isMobile ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => window.location.href = "/sales"} className="flex items-center gap-2">
+                  <ReceiptText className="w-4 h-4" />
+                  Sales History
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => window.location.href = "/checkout"} className="flex items-center gap-2">
+                  <ShoppingCart className="w-4 h-4" />
+                  Checkout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => window.location.href = "/sales"}
+                className="flex items-center gap-2 transition-colors duration-150"
+              >
                 <ReceiptText className="w-4 h-4" />
                 Sales History
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => window.location.href = "/checkout"} className="flex items-center gap-2">
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => window.location.href = "/checkout"}
+                className="flex items-center gap-2 transition-colors duration-150"
+              >
                 <ShoppingCart className="w-4 h-4" />
                 Checkout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <>
-            <Button
-              variant="outline"
-              onClick={() => window.location.href = "/sales"}
-              className="flex items-center gap-2"
-            >
-              <ReceiptText className="w-4 h-4" />
-              Sales History
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => window.location.href = "/checkout"}
-              className="flex items-center gap-2"
-            >
-              <ShoppingCart className="w-4 h-4" />
-              Checkout
-            </Button>
-          </>
-        )}
+              </Button>
+            </>
+          )}
+        </div>
       </div>
+
       {/* Filters */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2 items-center flex-1">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 transition-colors duration-200" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
               placeholder="Search by name, brand, SKU..."
               value={globalFilter ?? ""}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              className="pl-10 transition-all duration-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              className="pl-10 h-9 transition-shadow duration-150 focus:shadow-sm"
             />
             {globalFilter && (
               <button
                 onClick={() => setGlobalFilter("")}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-150"
               >
                 ✕
               </button>
@@ -1073,7 +1052,7 @@ export function ShoesInventoryTable() {
                             </div>
                           </div>
                           {(priceMin > 0 || (priceMax > 0 && priceMax < maxPrice)) && (
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-muted-foreground">
                               Range: {currencySymbol}{priceMin || 0} - {currencySymbol}{priceMax || maxPrice}
                             </div>
                           )}
@@ -1225,7 +1204,7 @@ export function ShoesInventoryTable() {
                     </div>
                   </div>
                   {(priceMin > 0 || (priceMax > 0 && priceMax < maxPrice)) && (
-                    <div className="text-xs text-gray-500 border-t pt-2">
+                    <div className="text-xs text-muted-foreground border-t pt-2">
                       Active Range: {currencySymbol}{priceMin || 0} - {currencySymbol}{priceMax || maxPrice}
                     </div>
                   )}
@@ -1250,13 +1229,13 @@ export function ShoesInventoryTable() {
       </div>
 
       {/* Table with horizontal scroll */}
-      <div className="overflow-x-auto rounded-md border">
-        <Table className="min-w-[1000px] w-full">
-          <TableHeader className="bg-muted sticky top-0 z-10">
+      <div className="overflow-x-auto rounded-xl border bg-card">
+        <Table className="min-w-[900px] w-full">
+          <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="border-b bg-muted/30 hover:bg-muted/30">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="whitespace-nowrap">
+                  <TableHead key={header.id} className="whitespace-nowrap text-xs font-medium text-muted-foreground uppercase tracking-wider h-10">
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
@@ -1267,12 +1246,11 @@ export function ShoesInventoryTable() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              // Skeleton loader for table rows
               Array.from({ length: 5 }).map((_, idx) => (
                 <TableRow key={idx}>
                   {columns.map((col, colIdx) => (
-                    <TableCell key={colIdx} className="px-4 py-2">
-                      <div className="h-4 bg-gray-200 rounded animate-pulse w-full" />
+                    <TableCell key={colIdx} className="px-4 py-3">
+                      <div className="h-4 bg-muted rounded animate-pulse w-full" />
                     </TableCell>
                   ))}
                 </TableRow>
@@ -1284,7 +1262,7 @@ export function ShoesInventoryTable() {
                 return (
                   <React.Fragment key={row.id}>
                     <TableRow
-                      className={isExpanded ? "bg-muted/40" : ""}
+                      className={`transition-colors duration-100 cursor-pointer ${isExpanded ? "bg-muted/40" : "hover:bg-muted/20"}`}
                       onClick={async () => {
                         if (expandedRow === product.id) {
                           setExpandedRow(null);
@@ -1292,24 +1270,23 @@ export function ShoesInventoryTable() {
                           setExpandedRow(product.id);
                         }
                       }}
-                      style={{ cursor: "pointer" }}
                     >
                       {/* Expand/Collapse Arrow */}
-                      <TableCell className="px-4 py-2 whitespace-nowrap w-8 text-center">
-                        <span className="inline-flex items-center">
-                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      <TableCell className="px-4 py-2.5 whitespace-nowrap w-8 text-center">
+                        <span className={`inline-flex items-center transition-transform duration-150 ${isExpanded ? "rotate-180" : ""}`}>
+                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
                         </span>
                       </TableCell>
                       {row.getVisibleCells().slice(1).map((cell, idx) => (
-                        <TableCell key={cell.id} className="px-4 py-2 whitespace-nowrap">
+                        <TableCell key={cell.id} className="px-4 py-2.5 whitespace-nowrap">
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </TableCell>
                       ))}
                     </TableRow>
                     {isExpanded && (
                       <TableRow>
-                        <TableCell colSpan={columns.length} className="bg-muted/20 px-8 py-4">
-                          <div className="flex flex-wrap gap-2 items-center">
+                        <TableCell colSpan={columns.length} className="bg-muted/10 px-8 py-4 border-b">
+                          <div className="flex flex-wrap gap-2 items-center animate-in fade-in slide-in-from-top-1 duration-200">
                             <span className="font-semibold text-sm">Available Sizes:</span>
                             {(rowVariants[product.id] || []).filter(v => v.status === 'Available').length === 0 ? (
                               <span className="text-muted-foreground text-xs">No available variants</span>
@@ -1356,19 +1333,19 @@ export function ShoesInventoryTable() {
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="text-center h-32">
-                  <div className="flex flex-col items-center justify-center space-y-4 py-8">
-                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
-                      <Plus className="w-8 h-8 text-gray-400" />
+                  <div className="flex flex-col items-center justify-center space-y-3 py-12">
+                    <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
+                      <Plus className="w-7 h-7 text-muted-foreground" />
                     </div>
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-gray-900">No shoes in your inventory yet</h3>
-                      <p className="text-sm text-gray-500 max-w-sm">
-                        Start building your sneaker collection by adding your first pair of shoes to track inventory, sales, and profits.
+                    <div className="space-y-1.5">
+                      <h3 className="text-base font-semibold">No shoes in your inventory yet</h3>
+                      <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                        Add your first pair to start tracking inventory, sales, and profits.
                       </p>
                     </div>
                     <Link href="/add-product">
-                      <Button className="mt-2">
-                        <Plus className="w-4 h-4 mr-2" />
+                      <Button className="mt-1 bg-emerald-600 hover:bg-emerald-700 text-white">
+                        <Plus className="w-4 h-4 mr-1.5" />
                         Add Your First Shoes
                       </Button>
                     </Link>
@@ -1381,32 +1358,33 @@ export function ShoesInventoryTable() {
       </div>
 
       {/* Pagination */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="text-sm text-muted-foreground">
-          Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{" "}
-          {Math.min(
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+        <p className="text-xs text-muted-foreground tabular-nums">
+          Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}–{Math.min(
             (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
             table.getFilteredRowModel().rows.length
           )}{" "}
-          of {table.getFilteredRowModel().rows.length} entries
-        </div>
-        <div className="flex items-center space-x-2">
+          of {table.getFilteredRowModel().rows.length}
+        </p>
+        <div className="flex items-center gap-1.5">
           <Button
             variant="outline"
             size="sm"
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
+            className="h-8 text-xs transition-colors duration-150"
           >
             Previous
           </Button>
-          <div className="text-sm">
-            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-          </div>
+          <span className="text-xs text-muted-foreground px-2 tabular-nums">
+            {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
+          </span>
           <Button
             variant="outline"
             size="sm"
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
+            className="h-8 text-xs transition-colors duration-150"
           >
             Next
           </Button>

@@ -19,18 +19,18 @@ interface BulkActionsBarProps {
 
 export function BulkActionsBar({ selectedCount, selectedVariantCount, onAction, isLoading }: BulkActionsBarProps) {
   return (
-    <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+    <div className="flex items-center justify-between p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg mb-4">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <Package className="h-4 w-4 text-blue-600" />
-          <span className="text-sm font-medium text-blue-900">
+          <Package className="h-4 w-4 text-blue-500" />
+          <span className="text-sm font-medium text-blue-400">
             {selectedCount} product{selectedCount !== 1 ? "s" : ""} selected
           </span>
         </div>
         {selectedVariantCount > 0 && (
           <div className="flex items-center gap-2">
-            <CheckSquare className="h-4 w-4 text-green-600" />
-            <span className="text-sm font-medium text-green-900">
+            <CheckSquare className="h-4 w-4 text-emerald-500" />
+            <span className="text-sm font-medium text-emerald-400">
               {selectedVariantCount} individual shoe{selectedVariantCount !== 1 ? "s" : ""} selected
             </span>
           </div>

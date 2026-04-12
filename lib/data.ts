@@ -40,7 +40,7 @@ const mapVariantToCamelCase = (variant: any, productOriginalPrice: number) => ({
   productOriginalPrice,
 })
 
-// ✅ Fetch Active Products with Non-Archived Variants
+// ✅ Fetch Active Products with Non-Archived Variants (optimized: single batch query)
 export async function getProducts(): Promise<Product[]> {
   const cookieStore = cookies()
   const supabase = await createClient(cookieStore)
@@ -51,44 +51,45 @@ export async function getProducts(): Promise<Product[]> {
     return []
   }
 
-  const { data: products, error } = await supabase
-    .from("products")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("isArchived", false)
-    .order("name", { ascending: true })
+  // Fetch products and all variants in parallel (2 queries instead of N+1)
+  const [productsResult, variantsResult] = await Promise.all([
+    supabase
+      .from("products")
+      .select("id, name, brand, sku, category, original_price, sale_price, status, image, size_category, created_at, updated_at, isArchived, user_id")
+      .eq("user_id", user.id)
+      .eq("isArchived", false)
+      .order("name", { ascending: true }),
+    supabase
+      .from("variants")
+      .select("id, product_id, size, size_label, variant_sku, location, status, date_added, condition, serial_number, cost_price, created_at, updated_at")
+      .eq("user_id", user.id)
+      .eq("isArchived", false)
+      .in("status", ["Available", "In Display", "Used"])
+      .order("size", { ascending: true })
+      .order("serial_number", { ascending: true })
+      .range(0, 9999),
+  ])
 
-  if (error || !products) {
-    console.error("Error fetching products:", error)
+  if (productsResult.error || !productsResult.data) {
+    console.error("Error fetching products:", productsResult.error)
     return []
   }
 
-  const productsWithVariants = await Promise.all(
-    products.map(async (product: { id: any; original_price: any }) => {
-      const { data: variants, error: variantError } = await supabase
-        .from("variants")
-        .select("*")
-        .eq("product_id", product.id)
-        .eq("isArchived", false)
-        .in("status", ["Available", "In Display", "Used"])
-        .order("size", { ascending: true })
-        .order("serial_number", { ascending: true })
+  // Group variants by product_id
+  const variantsByProduct: Record<number, any[]> = {}
+  if (variantsResult.data) {
+    for (const v of variantsResult.data) {
+      if (!variantsByProduct[v.product_id]) variantsByProduct[v.product_id] = []
+      variantsByProduct[v.product_id].push(v)
+    }
+  }
 
-      if (variantError || !variants) {
-        console.error(`Error fetching variants for product ${product.id}:`, variantError)
-        return { ...mapProductToCamelCase(product), variants: [] }
-      }
-
-      return {
-        ...mapProductToCamelCase(product),
-        variants: variants.map((variant: any) =>
-          mapVariantToCamelCase(variant, product.original_price ?? 0)
-        ),
-      }
-    })
-  )
-
-  return productsWithVariants
+  return productsResult.data.map((product: any) => ({
+    ...mapProductToCamelCase(product),
+    variants: (variantsByProduct[product.id] || []).map((variant: any) =>
+      mapVariantToCamelCase(variant, product.original_price ?? 0)
+    ),
+  }))
 }
 
 export async function getProductById(productId: number): Promise<Product | null> {
@@ -148,41 +149,42 @@ export async function getArchivedProducts(): Promise<Product[]> {
     return []
   }
 
-  const { data: products, error } = await supabase
-    .from("products")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("isArchived", true)
-    .order("name", { ascending: true })
+  // Fetch archived products and variants in parallel (2 queries instead of N+1)
+  const [productsResult, variantsResult] = await Promise.all([
+    supabase
+      .from("products")
+      .select("id, name, brand, sku, category, original_price, sale_price, status, image, size_category, created_at, updated_at, isArchived, user_id")
+      .eq("user_id", user.id)
+      .eq("isArchived", true)
+      .order("name", { ascending: true }),
+    supabase
+      .from("variants")
+      .select("id, product_id, size, size_label, variant_sku, location, status, date_added, condition, serial_number, cost_price, created_at, updated_at")
+      .eq("user_id", user.id)
+      .eq("isArchived", true)
+      .order("size", { ascending: true })
+      .order("serial_number", { ascending: true })
+      .range(0, 9999),
+  ])
 
-  if (error || !products) {
-    console.error("Error fetching archived products:", error)
+  if (productsResult.error || !productsResult.data) {
+    console.error("Error fetching archived products:", productsResult.error)
     return []
   }
 
-  const productsWithVariants = await Promise.all(
-    products.map(async (product: { id: any; original_price: any }) => {
-      const { data: variants, error: variantError } = await supabase
-        .from("variants")
-        .select("*")
-        .eq("product_id", product.id)
-        .eq("isArchived", true)
-        .order("size", { ascending: true })
-        .order("serial_number", { ascending: true })
+  // Group variants by product_id
+  const variantsByProduct: Record<number, any[]> = {}
+  if (variantsResult.data) {
+    for (const v of variantsResult.data) {
+      if (!variantsByProduct[v.product_id]) variantsByProduct[v.product_id] = []
+      variantsByProduct[v.product_id].push(v)
+    }
+  }
 
-      if (variantError || !variants) {
-        console.error(`Error fetching archived variants for product ${product.id}:`, variantError)
-        return { ...mapProductToCamelCase(product), variants: [] }
-      }
-
-      return {
-        ...mapProductToCamelCase(product),
-        variants: variants.map((variant: any) =>
-          mapVariantToCamelCase(variant, product.original_price ?? 0)
-        ),
-      }
-    })
-  )
-
-  return productsWithVariants
+  return productsResult.data.map((product: any) => ({
+    ...mapProductToCamelCase(product),
+    variants: (variantsByProduct[product.id] || []).map((variant: any) =>
+      mapVariantToCamelCase(variant, product.original_price ?? 0)
+    ),
+  }))
 }

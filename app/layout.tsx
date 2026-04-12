@@ -106,23 +106,26 @@ export default async function RootLayout({
 
   // Check inventory limit for all authenticated users
   let overLimit = false
+  let userSettings: any = null
+
   if (user) {
-    // Call the API route to get inventory stats
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL || ""}/api/user-inventory-stats`,
-        {
-          method: "GET",
-          headers: { Cookie: (await cookieStore).toString() },
-        }
-      )
-      const data = await res.json()
-      if (data.overLimit) {
-        overLimit = true
-      }
-    } catch (e) {
-      // fail silently, allow access
+    // Run inventory stats check and user settings in parallel
+    const [statsResult, settingsResult] = await Promise.all([
+      supabase
+        .from("variants")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .then(({ count }) => ({ totalVariants: count ?? 0 }))
+        .catch(() => ({ totalVariants: 0 })),
+      getUserSettings(),
+    ])
+
+    if (statsResult.totalVariants >= 10000) {
+      overLimit = true
     }
+    userSettings = settingsResult
+  } else {
+    userSettings = await getUserSettings()
   }
 
   // Redirect unauthenticated users from protected routes
@@ -135,10 +138,8 @@ export default async function RootLayout({
     redirect("/contact-enterprise")
   }
 
-  const userSettings = await getUserSettings()
-
   return (
-    <html lang="en" itemScope itemType="https://schema.org/WebApplication">
+    <html lang="en" className="dark" itemScope itemType="https://schema.org/WebApplication">
       <head>
         <link rel="canonical" href="https://footvault.dev " />
         <link rel="alternate" hrefLang="en" href="https://https://footvault.dev" />

@@ -13,25 +13,27 @@ export async function GET(req: Request) {
     return NextResponse.json({ success: false, error: "User not found or not authenticated." }, { status: 401 });
   }
 
-  // Count available shoes (variants with status 'Available')
-  const { count: availableCount, error: availableError } = await supabase
-    .from("variants")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("status", "Available");
+  // Run all count queries in parallel instead of sequentially
+  const [availableResult, soldResult, totalResult] = await Promise.all([
+    supabase
+      .from("variants")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("status", "Available"),
+    supabase
+      .from("variants")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("status", "Sold"),
+    supabase
+      .from("variants")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id),
+  ]);
 
-  // Count sold shoes (variants with status 'Sold')
-  const { count: soldCount, error: soldError } = await supabase
-    .from("variants")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("status", "Sold");
-
-  // Count total variants for this user
-  const { count: totalVariants, error: totalError } = await supabase
-    .from("variants")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id);
+  const { count: availableCount, error: availableError } = availableResult;
+  const { count: soldCount, error: soldError } = soldResult;
+  const { count: totalVariants, error: totalError } = totalResult;
 
   if (availableError || soldError || totalError) {
     return NextResponse.json({ success: false, error: availableError?.message || soldError?.message || totalError?.message }, { status: 500 });
