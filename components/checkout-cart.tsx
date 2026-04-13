@@ -124,6 +124,15 @@ export function CheckoutCart({
   const [showAll, setShowAll] = useState(false);
   const [isCompactView, setIsCompactView] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set());
+  const toggleCollapse = (id: string) => {
+    setCollapsedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // Constants for display logic
   const ITEMS_TO_SHOW = 5;
@@ -253,36 +262,44 @@ export function CheckoutCart({
                           </div>
                         </div>
 
-                        {/* Details grid - 2x2 layout with labels above values */}
-                        <div className="grid grid-cols-2 gap-3 text-xs">
-                          <div>
-                            <div className="text-muted-foreground font-medium mb-1">Cost Price</div>
-                            <div className="text-foreground/80 font-medium">{formatCurrency(preorder.cost_price, currency)}</div>
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground font-medium mb-1">Total Amount</div>
-                            <div className="text-foreground/80 font-medium">{formatCurrency(preorder.total_amount, currency)}</div>
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground font-medium mb-1">Down Payment</div>
-                            <div className="text-emerald-400 font-medium">{formatCurrency(preorder.down_payment || 0, currency)}</div>
-                            {preorder.down_payment_method && (
-                              <div className="text-xs text-muted-foreground mt-0.5">via {preorder.down_payment_method}</div>
-                            )}
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground font-medium mb-1">Remaining</div>
-                            <div className="text-orange-600 font-medium">{formatCurrency(preorder.remaining_balance, currency)}</div>
-                          </div>
-                          <div className="col-span-2 pt-2 border-t">
-                            <div className="text-muted-foreground font-medium mb-1">Expected Profit</div>
-                            <div className={`font-bold ${
-                              (preorder.total_amount - preorder.cost_price) >= 0 ? 'text-emerald-400' : 'text-red-400'
-                            }`}>
-                              {formatCurrency(preorder.total_amount - preorder.cost_price, currency)}
-                            </div>
-                          </div>
-                        </div>
+                        {/* Collapse toggle */}
+                        <button
+                          onClick={() => toggleCollapse(unifiedItem.id)}
+                          className="w-full flex items-center justify-center gap-1 text-[10px] text-muted-foreground hover:text-foreground py-1 mt-1"
+                        >
+                          {collapsedItems.has(unifiedItem.id) ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+                          {collapsedItems.has(unifiedItem.id) ? 'Show Details' : 'Hide Details'}
+                        </button>
+
+                        {/* Details table */}
+                        {!collapsedItems.has(unifiedItem.id) && (
+                        <table className="w-full text-xs">
+                          <tbody className="[&_td]:py-0.5">
+                            <tr>
+                              <td className="text-muted-foreground">Cost</td>
+                              <td className="text-right font-medium tabular-nums">{formatCurrency(preorder.cost_price, currency)}</td>
+                            </tr>
+                            <tr>
+                              <td className="text-muted-foreground">Total</td>
+                              <td className="text-right font-medium tabular-nums">{formatCurrency(preorder.total_amount, currency)}</td>
+                            </tr>
+                            <tr>
+                              <td className="text-muted-foreground">Paid{preorder.down_payment_method ? ` · ${preorder.down_payment_method}` : ''}</td>
+                              <td className="text-right font-medium text-emerald-400 tabular-nums">{formatCurrency(preorder.down_payment || 0, currency)}</td>
+                            </tr>
+                            <tr>
+                              <td className="text-muted-foreground">Balance</td>
+                              <td className="text-right font-medium text-orange-600 tabular-nums">{formatCurrency(preorder.remaining_balance, currency)}</td>
+                            </tr>
+                            <tr className="border-t border-border">
+                              <td className="text-muted-foreground pt-1">Profit</td>
+                              <td className={`text-right font-bold tabular-nums pt-1 ${(preorder.total_amount - preorder.cost_price) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {formatCurrency(preorder.total_amount - preorder.cost_price, currency)}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        )}
                       </div>
                     );
                   } else {
@@ -360,62 +377,59 @@ export function CheckoutCart({
                             </Badge>
                           </div>
                           
-                          {/* Enhanced cost and profit information */}
-                          <div className="mt-2 p-2 bg-muted/50 rounded border border-border">
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <div className="text-muted-foreground font-medium mb-1">Cost Price *</div>
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={(preorderCosts[preorder.id] ?? preorder.cost_price) || ''}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    if (onPreorderCostChange) {
-                                      onPreorderCostChange(preorder.id, value === '' ? 0 : Number(value));
-                                    }
-                                  }}
-                                  placeholder="Enter cost"
-                                  className="h-8 text-sm"
-                                />
-                                <p className="text-xs text-muted-foreground mt-1">Enter actual cost</p>
-                              </div>
-                              <div>
-                                <div className="text-muted-foreground font-medium mb-1">Total Amount</div>
-                                <div className="font-medium">{formatCurrency(preorder.total_amount, currency)}</div>
-                              </div>
-                              <div>
-                                <div className="text-muted-foreground font-medium mb-1">Down Payment</div>
-                                <div className="font-medium text-emerald-400">
-                                  {formatCurrency(preorder.down_payment || 0, currency)}
-                                </div>
-                                {preorder.down_payment_method && (
-                                  <div className="text-xs text-muted-foreground mt-0.5">via {preorder.down_payment_method}</div>
-                                )}
-                              </div>
-                              <div>
-                                <div className="text-muted-foreground font-medium mb-1">Remaining</div>
-                                <div className="font-medium text-orange-600">
-                                  {formatCurrency(preorder.remaining_balance, currency)}
-                                </div>
-                              </div>
+                          {/* Collapse toggle */}
+                          <button
+                            onClick={() => toggleCollapse(unifiedItem.id)}
+                            className="w-full flex items-center justify-center gap-1 text-[10px] text-muted-foreground hover:text-foreground py-1 mt-2"
+                          >
+                            {collapsedItems.has(unifiedItem.id) ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+                            {collapsedItems.has(unifiedItem.id) ? 'Show Details' : 'Hide Details'}
+                          </button>
+
+                          {/* Cost and profit details */}
+                          {!collapsedItems.has(unifiedItem.id) && (
+                          <div className="mt-2 p-2 bg-muted/50 rounded border border-border text-xs">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-muted-foreground shrink-0">Cost *</span>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={(preorderCosts[preorder.id] ?? preorder.cost_price) || ''}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  if (onPreorderCostChange) {
+                                    onPreorderCostChange(preorder.id, value === '' ? 0 : Number(value));
+                                  }
+                                }}
+                                placeholder="Enter cost"
+                                className="h-7 text-xs"
+                              />
                             </div>
-                            
-                            {/* Profit calculation */}
-                            <div className="mt-2 pt-2 border-t border-border">
-                              <div className="flex justify-between text-xs">
-                                <span className="text-muted-foreground">Expected Profit:</span>
-                                <span className={`font-bold ${
-                                  (preorder.total_amount - (preorderCosts[preorder.id] ?? preorder.cost_price ?? 0)) >= 0 
-                                    ? 'text-emerald-400' 
-                                    : 'text-red-400'
-                                }`}>
-                                  {formatCurrency(preorder.total_amount - (preorderCosts[preorder.id] ?? preorder.cost_price ?? 0), currency)}
-                                </span>
-                              </div>
-                            </div>
+                            <table className="w-full">
+                              <tbody className="[&_td]:py-0.5">
+                                <tr>
+                                  <td className="text-muted-foreground">Total</td>
+                                  <td className="text-right font-medium tabular-nums">{formatCurrency(preorder.total_amount, currency)}</td>
+                                </tr>
+                                <tr>
+                                  <td className="text-muted-foreground">Paid{preorder.down_payment_method ? ` · ${preorder.down_payment_method}` : ''}</td>
+                                  <td className="text-right font-medium text-emerald-400 tabular-nums">{formatCurrency(preorder.down_payment || 0, currency)}</td>
+                                </tr>
+                                <tr>
+                                  <td className="text-muted-foreground">Balance</td>
+                                  <td className="text-right font-medium text-orange-600 tabular-nums">{formatCurrency(preorder.remaining_balance, currency)}</td>
+                                </tr>
+                                <tr className="border-t border-border">
+                                  <td className="text-muted-foreground pt-1">Profit</td>
+                                  <td className={`text-right font-bold tabular-nums pt-1 ${(preorder.total_amount - (preorderCosts[preorder.id] ?? preorder.cost_price ?? 0)) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                    {formatCurrency(preorder.total_amount - (preorderCosts[preorder.id] ?? preorder.cost_price ?? 0), currency)}
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
                           </div>
+                          )}
                           
                           {/* Main price display */}
                           <div className="flex justify-between items-center mt-2">

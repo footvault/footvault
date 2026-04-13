@@ -143,9 +143,9 @@ export function CustomerSelection({
 
   const getCustomerTypeColor = (type: string) => {
     switch (type) {
-      case "vip": return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "wholesale": return "bg-purple-100 text-purple-800 border-purple-200";
-      default: return "bg-blue-500/10 text-blue-300 border-blue-500/20";
+      case "vip": return "bg-amber-500/15 text-amber-400 border-amber-500/25";
+      case "wholesale": return "bg-purple-500/15 text-purple-400 border-purple-500/25";
+      default: return "bg-emerald-500/15 text-emerald-400 border-emerald-500/25";
     }
   };
 

@@ -105,11 +105,11 @@ export function TutorialModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-[95vw] sm:max-w-2xl md:max-w-4xl max-h-[95vh] sm:max-h-[90vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-[95vw] sm:max-w-2xl md:max-w-4xl max-h-[95vh] sm:max-h-[90vh] flex flex-col p-0 gap-0 bg-card text-card-foreground border-border">
         {/* Header */}
         <DialogHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b flex-shrink-0">
           <div className="flex items-center gap-3">
-            <HelpCircle className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+            <HelpCircle className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
             <div>
               <DialogTitle className="text-lg sm:text-xl font-semibold">
                 {isFirstTime ? "Welcome to FootVault!" : tutorialData.title}
@@ -129,10 +129,10 @@ export function TutorialModal({
                 className={cn(
                   "h-1.5 sm:h-2 rounded-full transition-all duration-200",
                   index === currentStep
-                    ? "w-6 sm:w-8 bg-blue-600"
+                    ? "w-6 sm:w-8 bg-primary"
                     : index < currentStep
-                    ? "w-1.5 sm:w-2 bg-green-500"
-                    : "w-1.5 sm:w-2 bg-gray-200"
+                    ? "w-1.5 sm:w-2 bg-primary/60"
+                    : "w-1.5 sm:w-2 bg-muted"
                 )}
               />
             ))}
@@ -143,10 +143,10 @@ export function TutorialModal({
         </DialogHeader>
 
         {/* Content */}
-        <div className="flex-1 p-4 sm:p-6 overflow-y-auto min-h-0">
+        <div className="custom-scrollbar flex-1 p-4 sm:p-6 overflow-y-auto min-h-0">
           {isCompleted ? (
             <div className="flex flex-col items-center justify-center text-center py-8 sm:py-12">
-              <CheckCircle2 className="h-12 w-12 sm:h-16 sm:w-16 text-green-500 mb-4" />
+              <CheckCircle2 className="h-12 w-12 sm:h-16 sm:w-16 text-primary mb-4" />
               <h3 className="text-lg sm:text-xl font-semibold mb-2">Tutorial Complete!</h3>
               <p className="text-sm sm:text-base text-muted-foreground">
                 You're all set to start using {tutorialData.page}
@@ -160,7 +160,7 @@ export function TutorialModal({
                 <div className="space-y-3 sm:space-y-4">
                   <div className="flex items-center gap-2 sm:gap-3">
                     {currentStepData.icon && (
-                      <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg">
+                      <div className="p-1.5 sm:p-2 bg-primary/10 text-primary rounded-lg">
                         {currentStepData.icon}
                       </div>
                     )}
@@ -173,12 +173,12 @@ export function TutorialModal({
 
                   {/* Features */}
                   {currentStepData.tips && currentStepData.tips.length > 0 && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
-                      <h4 className="font-medium text-blue-900 mb-2 text-sm sm:text-base">⭐ Features:</h4>
-                      <ul className="space-y-1 text-xs sm:text-sm text-blue-800">
+                    <div className="bg-muted/40 border border-border rounded-lg p-3 sm:p-4">
+                      <h4 className="font-medium text-foreground mb-2 text-sm sm:text-base">Features:</h4>
+                      <ul className="space-y-1 text-xs sm:text-sm text-muted-foreground">
                         {currentStepData.tips.map((tip, index) => (
                           <li key={index} className="flex items-start gap-2">
-                            <span className="text-blue-600 mt-0.5">•</span>
+                            <span className="text-primary mt-0.5">•</span>
                             <span>{tip}</span>
                           </li>
                         ))}
@@ -210,8 +210,8 @@ export function TutorialModal({
                       />
                     </div>
                   ) : (
-                    <div className="w-full max-w-sm sm:max-w-md h-48 sm:h-64 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg border-2 border-dashed border-blue-200 flex items-center justify-center">
-                      <div className="text-center text-blue-600">
+                    <div className="w-full max-w-sm sm:max-w-md h-48 sm:h-64 bg-gradient-to-br from-muted/40 to-accent/40 rounded-lg border-2 border-dashed border-border flex items-center justify-center">
+                      <div className="text-center text-primary">
                         {currentStepData.icon || <HelpCircle className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-2" />}
                         <p className="text-xs sm:text-sm font-medium">Visual Guide</p>
                       </div>
@@ -232,7 +232,7 @@ export function TutorialModal({
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                    className="w-4 h-4 text-primary bg-background border-input rounded focus:ring-ring focus:ring-2"
                     checked={dontShowWelcomeAgain}
                     onChange={(e) => setDontShowWelcomeAgain(e.target.checked)}
                   />

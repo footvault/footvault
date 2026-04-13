@@ -7,17 +7,16 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Trash2, Loader2, Edit, Save } from "lucide-react"
+import { Plus, Trash2, Loader2, Save, PieChart, Users, FileText, ChevronRight } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { Avatar as UIAvatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { motion, AnimatePresence } from "framer-motion"
 import type { ProfitDistributionTemplateDetail } from "@/lib/types"
+import { cn } from "@/lib/utils"
 
 interface AvatarType {
   id: string
@@ -207,24 +206,48 @@ export function ProfitTemplateManagementModal({
     })
   }
 
+  const totalPercentage = templateItems.reduce((sum, item) => sum + item.percentage, 0)
+  const isValidTotal = Math.abs(totalPercentage - 100) <= 0.01
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-hidden flex flex-col">
-        <DialogHeader className="pb-6">
-          <DialogTitle className="text-2xl font-bold">
-            {selectedTemplate ? "Edit Profit Template" : "Create New Profit Template"}
-          </DialogTitle>
-          <DialogDescription className="text-base">
-            {selectedTemplate
-              ? "Modify the details of this profit distribution template."
-              : "Create a new template for recurring profit distributions."}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-hidden flex flex-col p-0 custom-scrollbar">
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 border-b border-border">
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="flex items-start gap-3"
+          >
+            <div className="rounded-lg bg-purple-500/10 p-2.5 shrink-0">
+              <PieChart className="h-5 w-5 text-purple-500" />
+            </div>
+            <div>
+              <DialogHeader className="p-0 space-y-1">
+                <DialogTitle className="text-lg font-semibold tracking-tight">
+                  {selectedTemplate ? "Edit Profit Template" : "Create New Profit Template"}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-muted-foreground">
+                  {selectedTemplate
+                    ? "Modify the details of this profit distribution template."
+                    : "Create a new template for recurring profit distributions."}
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+          </motion.div>
+        </div>
 
-        <div className="flex-1 overflow-y-auto space-y-6 px-1">
-          {/* Template Name Section */}
-          <div className="space-y-2">
-            <Label htmlFor="templateName" className="text-sm font-medium">
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5 space-y-5">
+          {/* Template Name */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: 0.05 }}
+            className="space-y-2"
+          >
+            <Label htmlFor="templateName" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Template Name
             </Label>
             <Input 
@@ -232,164 +255,213 @@ export function ProfitTemplateManagementModal({
               value={templateName} 
               onChange={(e) => setTemplateName(e.target.value)} 
               placeholder="e.g., Store Split, Team Distribution"
-              className="h-11"
+              className="h-10 bg-muted/30 border-border focus:bg-background transition-colors"
               disabled={isPending} 
             />
-          </div>
+          </motion.div>
 
           {/* Participants Section */}
-          <div className="space-y-4">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: 0.1 }}
+            className="space-y-3"
+          >
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Participants</h3>
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold">Participants</h3>
+                {templateItems.length > 0 && (
+                  <span className="text-xs text-muted-foreground">({templateItems.length})</span>
+                )}
+              </div>
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={handleAddTemplateItem} 
                 disabled={isPending}
-                className="h-9"
+                className="h-8 text-xs gap-1.5"
               >
-                <Plus className="h-4 w-4 mr-2" /> 
-                Add Participant
+                <Plus className="h-3.5 w-3.5" /> 
+                Add
               </Button>
             </div>
 
-            <div className="space-y-3 max-h-60 overflow-y-auto">
-              {templateItems.map((item, index) => (
-                <div key={index} className="bg-gray-50 rounded-lg p-4">
-                  <div className="flex items-center gap-3">
-                    {/* Avatar Letter Badge */}
-                    <div className="flex-shrink-0">
-                      {item.avatar_id ? (
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                          <span className="text-blue-600 font-semibold">
-                            {avatars.find(a => a.id === item.avatar_id)?.name.charAt(0).toUpperCase() || 'A'}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                          <span className="text-gray-400 font-semibold">?</span>
-                        </div>
-                      )}
-                    </div>
+            <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+              <AnimatePresence mode="popLayout">
+                {templateItems.map((item, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="rounded-lg border border-border bg-muted/30 p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Avatar Letter Badge */}
+                      <div className="flex-shrink-0">
+                        {item.avatar_id ? (
+                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span className="text-primary text-sm font-semibold">
+                              {avatars.find(a => a.id === item.avatar_id)?.name.charAt(0).toUpperCase() || 'A'}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">
+                            <span className="text-muted-foreground text-sm font-semibold">?</span>
+                          </div>
+                        )}
+                      </div>
 
-                    {/* Avatar Selection */}
-                    <div className="flex-1">
-                      <Select 
-                        value={item.avatar_id} 
-                        onValueChange={(value) => handleItemAvatarChange(index, value)} 
-                        disabled={isPending}
-                      >
-                        <SelectTrigger className="h-11">
-                          <SelectValue placeholder="Select participant" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {avatars.map((avatar) => (
-                            <SelectItem key={avatar.id} value={avatar.id}>
-                              <div className="flex items-center gap-3">
-                                <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
-                                  <span className="text-blue-600 text-xs font-semibold">
-                                    {avatar.name.charAt(0).toUpperCase()}
-                                  </span>
+                      {/* Avatar Selection */}
+                      <div className="flex-1 min-w-0">
+                        <Select 
+                          value={item.avatar_id} 
+                          onValueChange={(value) => handleItemAvatarChange(index, value)} 
+                          disabled={isPending}
+                        >
+                          <SelectTrigger className="h-9 bg-background border-border text-sm">
+                            <SelectValue placeholder="Select participant" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {avatars.map((avatar) => (
+                              <SelectItem key={avatar.id} value={avatar.id}>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <span className="text-primary text-[10px] font-semibold">
+                                      {avatar.name.charAt(0).toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <span>{avatar.name}</span>
                                 </div>
-                                <span>{avatar.name}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                    {/* Percentage Input */}
-                    <div className="flex-shrink-0 relative">
-                      <Input 
-                        type="number" 
-                        value={item.percentage || ''} 
-                        onChange={(e) => handleItemPercentageChange(index, Number(e.target.value))} 
-                        placeholder="0" 
-                        min="0" 
-                        max="100" 
-                        step="0.01" 
-                        className="w-20 h-11 pr-8 text-center" 
-                        disabled={isPending} 
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">%</span>
-                    </div>
+                      {/* Percentage Input */}
+                      <div className="flex-shrink-0 relative">
+                        <Input 
+                          type="number" 
+                          value={item.percentage || ''} 
+                          onChange={(e) => handleItemPercentageChange(index, Number(e.target.value))} 
+                          placeholder="0" 
+                          min="0" 
+                          max="100" 
+                          step="0.01" 
+                          className="w-20 h-9 pr-7 text-center text-sm bg-background border-border" 
+                          disabled={isPending} 
+                        />
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                      </div>
 
-                    {/* Remove Button */}
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => handleRemoveTemplateItem(index)} 
-                      disabled={isPending}
-                      className="flex-shrink-0 h-9 w-9 text-gray-400 hover:text-red-500"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                      {/* Remove Button */}
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleRemoveTemplateItem(index)} 
+                        disabled={isPending}
+                        className="flex-shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
 
               {templateItems.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <p>No participants added yet.</p>
-                  <p className="text-sm">Click "Add Participant" to get started.</p>
+                <div className="text-center py-8 rounded-lg border border-dashed border-border bg-muted/20">
+                  <Users className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No participants added yet.</p>
+                  <p className="text-xs text-muted-foreground/60 mt-0.5">Click &ldquo;Add&rdquo; to get started.</p>
                 </div>
               )}
             </div>
 
             {/* Total Percentage Display */}
-            <div className="bg-white border-2 rounded-lg p-4">
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Total Percentage:</span>
-                <span className={`text-lg font-bold ${
-                  Math.abs(templateItems.reduce((sum, item) => sum + item.percentage, 0) - 100) > 0.01
-                    ? "text-red-500"
-                    : "text-green-600"
-                }`}>
-                  {templateItems.reduce((sum, item) => sum + item.percentage, 0).toFixed(2)}%
-                </span>
-              </div>
-              {Math.abs(templateItems.reduce((sum, item) => sum + item.percentage, 0) - 100) > 0.01 && (
-                <p className="text-sm text-red-500 mt-1">
-                  Total must equal 100%
-                </p>
-              )}
-            </div>
-          </div>
+            {templateItems.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className={cn(
+                  "rounded-lg border-2 p-3 transition-colors",
+                  isValidTotal
+                    ? "border-emerald-500/30 bg-emerald-500/5"
+                    : "border-destructive/30 bg-destructive/5"
+                )}
+              >
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Total Percentage</span>
+                  <span className={cn(
+                    "text-base font-bold tabular-nums",
+                    isValidTotal ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"
+                  )}>
+                    {totalPercentage.toFixed(2)}%
+                  </span>
+                </div>
+                {!isValidTotal && (
+                  <p className="text-xs text-destructive/80 mt-1">
+                    Total must equal 100%
+                  </p>
+                )}
+              </motion.div>
+            )}
+          </motion.div>
 
           {/* Existing Templates Section */}
           {profitTemplates.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Existing Templates</h3>
-              <div className="grid gap-2 max-h-48 overflow-y-auto">
-                {profitTemplates.map((template) => (
-                  <div
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: 0.15 }}
+              className="space-y-3"
+            >
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold">Existing Templates</h3>
+                <span className="text-xs text-muted-foreground">({profitTemplates.length})</span>
+              </div>
+              <div className="grid gap-1.5 max-h-48 overflow-y-auto custom-scrollbar">
+                {profitTemplates.map((template, i) => (
+                  <motion.div
                     key={template.id}
-                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.2, delay: i * 0.03 }}
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-lg border border-border",
+                      "hover:bg-muted/50 cursor-pointer transition-all duration-150",
+                      "group",
+                      selectedTemplate?.id === template.id && "bg-primary/5 border-primary/30"
+                    )}
                     onClick={() => fetchTemplateWithDistributions(template.id)}
                   >
-                    <div>
-                      <span className="font-medium">{template.name}</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm font-medium">{template.name}</span>
                       {template.description && (
-                        <p className="text-sm text-gray-500 mt-1">{template.description}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{template.description}</p>
                       )}
                     </div>
-                    <Edit className="h-4 w-4 text-gray-400" />
-                  </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0 group-hover:text-foreground transition-colors" />
+                  </motion.div>
                 ))}
               </div>
-            </div>
+            </motion.div>
           )}
         </div>
 
-        <DialogFooter className="pt-6 border-t">
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-border bg-muted/20">
           <div className="flex gap-2 w-full">
             {selectedTemplate && (
-              <Button variant="destructive" onClick={handleDelete} disabled={isPending}>
+              <Button variant="destructive" size="sm" onClick={handleDelete} disabled={isPending} className="gap-1.5">
                 {isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Trash2 className="mr-2 h-4 w-4" />
+                  <Trash2 className="h-3.5 w-3.5" />
                 )}
                 Delete
               </Button>
@@ -398,20 +470,20 @@ export function ProfitTemplateManagementModal({
             <div className="flex-1" />
             
             {isEditing && (
-              <Button variant="outline" onClick={resetForm} disabled={isPending}>
+              <Button variant="outline" size="sm" onClick={resetForm} disabled={isPending}>
                 Cancel
               </Button>
             )}
-            <Button onClick={handleSubmit} disabled={isPending}>
+            <Button size="sm" onClick={handleSubmit} disabled={isPending} className="gap-1.5">
               {isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Save className="mr-2 h-4 w-4" />
+                <Save className="h-3.5 w-3.5" />
               )}
               {isEditing ? "Save Changes" : "Create Template"}
             </Button>
           </div>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   )

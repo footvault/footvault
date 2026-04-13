@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -24,6 +24,7 @@ import { toast } from "@/hooks/use-toast"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { getNextSerialNumber } from "@/lib/utils/serial-number-generator"
+import { motion, type Variants } from "framer-motion"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -96,18 +97,17 @@ interface PreordersPageClientProps {
   error?: string;
 }
 
-// ─── Stagger animation wrapper ──────────────────────────────────────────────
+// ─── Animation variants ─────────────────────────────────────────────────────
 
-function StaggerItem({ children, index, className }: { children: React.ReactNode; index: number; className?: string }) {
-  return (
-    <div
-      className={cn("animate-in fade-in slide-in-from-bottom-2 fill-mode-both", className)}
-      style={{ animationDelay: `${index * 60}ms`, animationDuration: "400ms" }}
-    >
-      {children}
-    </div>
-  );
-}
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
 
 // ─── Status helpers ─────────────────────────────────────────────────────────
 
@@ -656,11 +656,16 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-6"
+    >
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-        {statCards.map((s, i) => (
-          <StaggerItem key={s.label} index={i}>
+        {statCards.map((s) => (
+          <motion.div key={s.label} variants={itemVariants}>
             <Card className="group hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -677,12 +682,12 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                 </p>
               </CardContent>
             </Card>
-          </StaggerItem>
+          </motion.div>
         ))}
       </div>
 
       {/* Controls */}
-      <StaggerItem index={6}>
+      <motion.div variants={itemVariants}>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
@@ -765,10 +770,10 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
             </CardContent>
           </Card>
         </div>
-      </StaggerItem>
+      </motion.div>
 
       {/* Table */}
-      <StaggerItem index={7}>
+      <motion.div variants={itemVariants}>
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -909,21 +914,23 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
             )}
           </CardContent>
         </Card>
-      </StaggerItem>
+      </motion.div>
 
       {/* ═══════════════════════ MODALS ═══════════════════════ */}
 
       {/* Customer Info */}
       <Dialog open={showCustomerModal} onOpenChange={setShowCustomerModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <div className="rounded-full bg-muted p-1.5"><User className="h-4 w-4 text-muted-foreground" /></div>
-              Customer Information
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-md p-0">
+          <div className="px-6 pt-6 pb-4 border-b border-border">
+            <DialogHeader className="p-0">
+              <DialogTitle className="flex items-center gap-2.5 text-base">
+                <div className="rounded-lg bg-blue-500/10 p-2"><User className="h-4 w-4 text-blue-500" /></div>
+                Customer Information
+              </DialogTitle>
+            </DialogHeader>
+          </div>
           {selectedCustomer && (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3 animate-in fade-in duration-200">
+            <div className="px-6 py-4 grid grid-cols-2 gap-x-4 gap-y-3">
               {[
                 { l: "Name", v: selectedCustomer.name },
                 { l: "Email", v: selectedCustomer.email },
@@ -935,8 +942,8 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                 { l: "Country", v: selectedCustomer.country },
               ].map((f) => (
                 <div key={f.l}>
-                  <p className="text-xs font-medium text-muted-foreground mb-0.5">{f.l}</p>
-                  <p className="text-sm">{f.v || "—"}</p>
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">{f.l}</p>
+                  <p className="text-sm font-medium">{f.v || "—"}</p>
                 </div>
               ))}
             </div>
@@ -946,11 +953,18 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
 
       {/* Edit */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Edit Pre-order</DialogTitle></DialogHeader>
+        <DialogContent className="sm:max-w-md p-0">
+          <div className="px-6 pt-6 pb-4 border-b border-border">
+            <DialogHeader className="p-0">
+              <DialogTitle className="flex items-center gap-2.5 text-base">
+                <div className="rounded-lg bg-amber-500/10 p-2"><Edit className="h-4 w-4 text-amber-500" /></div>
+                Edit Pre-order
+              </DialogTitle>
+            </DialogHeader>
+          </div>
           {selectedPreorder && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              <div className="bg-muted/50 border border-border p-3 rounded-lg flex items-center gap-3">
+            <div className="px-6 py-4 space-y-4">
+              <div className="bg-muted/40 border border-border p-3 rounded-lg flex items-center gap-3">
                 <div className="relative h-10 w-10 rounded-md overflow-hidden bg-muted shrink-0">
                   {selectedPreorder.product.image ? (
                     <Image src={selectedPreorder.product.image} alt={selectedPreorder.product.name} fill className="object-cover" />
@@ -966,46 +980,55 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
               </div>
 
               <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="totalAmount" className="text-xs">Total Amount</Label>
-                  <Input id="totalAmount" type="number" step="0.01" value={editForm.total_amount === 0 ? "" : editForm.total_amount} placeholder="0.00" onChange={(e) => { const v = e.target.value === "" ? 0 : parseFloat(e.target.value) || 0; setEditForm((p) => ({ ...p, total_amount: v, remaining_balance: v - p.down_payment })); }} />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="totalAmount" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Total Amount</Label>
+                    <Input id="totalAmount" type="number" step="0.01" value={editForm.total_amount === 0 ? "" : editForm.total_amount} placeholder="0.00" className="h-9 bg-muted/30 border-border" onChange={(e) => { const v = e.target.value === "" ? 0 : parseFloat(e.target.value) || 0; setEditForm((p) => ({ ...p, total_amount: v, remaining_balance: v - p.down_payment })); }} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="downPayment" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Down Payment</Label>
+                    <Input id="downPayment" type="number" step="0.01" value={editForm.down_payment === 0 ? "" : editForm.down_payment} placeholder="0.00" className="h-9 bg-muted/30 border-border" onChange={(e) => { const v = e.target.value === "" ? 0 : parseFloat(e.target.value) || 0; setEditForm((p) => ({ ...p, down_payment: v, remaining_balance: p.total_amount - v })); }} />
+                  </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="downPayment" className="text-xs">Down Payment</Label>
-                  <Input id="downPayment" type="number" step="0.01" value={editForm.down_payment === 0 ? "" : editForm.down_payment} placeholder="0.00" onChange={(e) => { const v = e.target.value === "" ? 0 : parseFloat(e.target.value) || 0; setEditForm((p) => ({ ...p, down_payment: v, remaining_balance: p.total_amount - v })); }} />
+                  <Label htmlFor="remainingBalance" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Remaining Balance</Label>
+                  <Input id="remainingBalance" type="number" value={editForm.remaining_balance === 0 ? "0.00" : editForm.remaining_balance} disabled className="h-9 bg-muted/50 border-border" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="remainingBalance" className="text-xs">Remaining Balance</Label>
-                  <Input id="remainingBalance" type="number" value={editForm.remaining_balance === 0 ? "0.00" : editForm.remaining_balance} disabled className="bg-muted" />
+                  <Label htmlFor="expectedDeliveryDate" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Expected Delivery</Label>
+                  <Input id="expectedDeliveryDate" type="date" value={editForm.expected_delivery_date} className="h-9 bg-muted/30 border-border" onChange={(e) => setEditForm((p) => ({ ...p, expected_delivery_date: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="expectedDeliveryDate" className="text-xs">Expected Delivery Date</Label>
-                  <Input id="expectedDeliveryDate" type="date" value={editForm.expected_delivery_date} onChange={(e) => setEditForm((p) => ({ ...p, expected_delivery_date: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="editNotes" className="text-xs">Notes</Label>
-                  <Textarea id="editNotes" value={editForm.notes} onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Additional notes..." rows={2} className="resize-none" />
+                  <Label htmlFor="editNotes" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Notes</Label>
+                  <Textarea id="editNotes" value={editForm.notes} onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Additional notes..." rows={2} className="resize-none bg-muted/30 border-border" />
                 </div>
               </div>
             </div>
           )}
-          <DialogFooter>
+          <div className="px-6 py-4 border-t border-border bg-muted/20 flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowEditModal(false)}>Cancel</Button>
             <Button size="sm" onClick={submitEdit} disabled={isUpdating || editForm.total_amount <= 0}>{isUpdating ? "Saving..." : "Save Changes"}</Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Status Update */}
       <Dialog open={showStatusModal} onOpenChange={setShowStatusModal}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Update Status</DialogTitle></DialogHeader>
+        <DialogContent className="sm:max-w-sm p-0">
+          <div className="px-6 pt-6 pb-4 border-b border-border">
+            <DialogHeader className="p-0">
+              <DialogTitle className="flex items-center gap-2.5 text-base">
+                <div className="rounded-lg bg-blue-500/10 p-2"><Clock className="h-4 w-4 text-blue-500" /></div>
+                Update Status
+              </DialogTitle>
+            </DialogHeader>
+          </div>
           {selectedPreorder && (
-            <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="px-6 py-4 space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-xs">Status</Label>
+                <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Status</Label>
                 <Select value={statusForm.status} onValueChange={(v) => setStatusForm((p) => ({ ...p, status: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-9 bg-muted/30 border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="confirmed">Confirmed</SelectItem>
@@ -1015,55 +1038,71 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Notes</Label>
-                <Textarea value={statusForm.notes} onChange={(e) => setStatusForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Add any notes..." rows={2} className="resize-none" />
+                <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Notes</Label>
+                <Textarea value={statusForm.notes} onChange={(e) => setStatusForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Add any notes..." rows={2} className="resize-none bg-muted/30 border-border" />
               </div>
             </div>
           )}
-          <DialogFooter>
+          <div className="px-6 py-4 border-t border-border bg-muted/20 flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowStatusModal(false)}>Cancel</Button>
             <Button size="sm" onClick={submitStatusUpdate} disabled={isUpdating}>{isUpdating ? "Updating..." : "Update Status"}</Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Delete */}
       <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle className="text-destructive">Delete Pre-order</DialogTitle></DialogHeader>
+        <DialogContent className="sm:max-w-sm p-0">
+          <div className="px-6 pt-6 pb-4 border-b border-border">
+            <DialogHeader className="p-0">
+              <DialogTitle className="flex items-center gap-2.5 text-base">
+                <div className="rounded-lg bg-destructive/10 p-2"><Trash2 className="h-4 w-4 text-destructive" /></div>
+                Delete Pre-order
+              </DialogTitle>
+            </DialogHeader>
+          </div>
           {selectedPreorder && (
-            <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="px-6 py-4 space-y-3">
               <p className="text-sm text-muted-foreground">This action cannot be undone.</p>
-              <div className="bg-muted/50 border border-border p-3 rounded-lg space-y-1">
+              <div className="bg-muted/40 border border-border p-3 rounded-lg space-y-1">
                 <p className="text-sm font-medium">{selectedPreorder.product.name}</p>
                 <p className="text-xs text-muted-foreground">Customer: {selectedPreorder.customer.name}</p>
                 <p className="text-xs text-muted-foreground">Amount: {formatCurrency(selectedPreorder.total_amount, currency)}</p>
               </div>
             </div>
           )}
-          <DialogFooter>
+          <div className="px-6 py-4 border-t border-border bg-muted/20 flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowDeleteModal(false)}>Cancel</Button>
             <Button variant="destructive" size="sm" onClick={confirmDelete} disabled={isDeleting}>{isDeleting ? "Deleting..." : "Delete"}</Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Cancel & Convert */}
       <Dialog open={showCancelModal} onOpenChange={setShowCancelModal}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader><DialogTitle>Cancel Pre-order</DialogTitle></DialogHeader>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0 custom-scrollbar">
+          <div className="px-6 pt-6 pb-4 border-b border-border">
+            <DialogHeader className="p-0">
+              <DialogTitle className="flex items-center gap-2.5 text-base">
+                <div className="rounded-lg bg-amber-500/10 p-2"><Ban className="h-4 w-4 text-amber-500" /></div>
+                Cancel Pre-order
+              </DialogTitle>
+            </DialogHeader>
+          </div>
           {selectedPreorder && (
-            <div className="flex-1 overflow-y-auto pr-2 space-y-4 animate-in fade-in duration-200">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-4 space-y-4">
               <p className="text-sm text-muted-foreground">This will create a sale from the down payment and cancel the pre-order.</p>
-              <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1 pl-1">
-                <li>Create a product variant from this pre-order</li>
-                <li>Mark the variant as sold immediately</li>
-                <li>Record the down payment ({formatCurrency(selectedPreorder.down_payment || 0, currency)}) as a completed sale</li>
-                <li>Change the pre-order status to &ldquo;cancelled&rdquo;</li>
-              </ul>
+              <div className="bg-muted/30 rounded-lg p-3 space-y-1">
+                <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                  <li>Create a product variant from this pre-order</li>
+                  <li>Mark the variant as sold immediately</li>
+                  <li>Record the down payment ({formatCurrency(selectedPreorder.down_payment || 0, currency)}) as a completed sale</li>
+                  <li>Change the pre-order status to &ldquo;cancelled&rdquo;</li>
+                </ul>
+              </div>
 
               {/* Product card */}
-              <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-900/50 p-4 rounded-lg">
+              <div className="bg-amber-500/5 border border-amber-500/20 p-4 rounded-lg">
                 <div className="flex items-start gap-3">
                   <div className="shrink-0">
                     {selectedPreorder.product.image ? (
@@ -1076,17 +1115,17 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                   </div>
                   <div className="flex-1 min-w-0 space-y-2">
                     <div>
-                      <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-300 truncate">{selectedPreorder.product.name}</h3>
-                      <p className="text-xs text-yellow-700 dark:text-yellow-400/80">{selectedPreorder.product.brand} · Size: {selectedPreorder.size} · {selectedPreorder.customer.name}</p>
+                      <h3 className="text-sm font-medium truncate">{selectedPreorder.product.name}</h3>
+                      <p className="text-xs text-muted-foreground">{selectedPreorder.product.brand} · Size: {selectedPreorder.size} · {selectedPreorder.customer.name}</p>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 pt-2 border-t border-yellow-200 dark:border-yellow-900/50">
+                    <div className="grid grid-cols-2 gap-3 pt-2 border-t border-amber-500/20">
                       <div>
-                        <p className="text-[10px] text-yellow-600 dark:text-yellow-500">Down Payment</p>
-                        <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">{formatCurrency(selectedPreorder.down_payment || 0, currency)}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Down Payment</p>
+                        <p className="text-sm font-medium">{formatCurrency(selectedPreorder.down_payment || 0, currency)}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-yellow-600 dark:text-yellow-500">Total Amount</p>
-                        <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">{formatCurrency(selectedPreorder.total_amount, currency)}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Amount</p>
+                        <p className="text-sm font-medium">{formatCurrency(selectedPreorder.total_amount, currency)}</p>
                       </div>
                     </div>
                   </div>
@@ -1095,9 +1134,9 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
 
               {/* Payment Type */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Payment Type</Label>
+                <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Payment Type</Label>
                 <Select value={cancelForm.paymentType} onValueChange={(v) => setCancelForm((p) => ({ ...p, paymentType: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select payment type" /></SelectTrigger>
+                  <SelectTrigger className="h-9 bg-muted/30 border-border"><SelectValue placeholder="Select payment type" /></SelectTrigger>
                   <SelectContent>
                     {paymentTypes.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
@@ -1111,9 +1150,9 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
 
               {/* Profit Distribution */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Profit Distribution</Label>
+                <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Profit Distribution</Label>
                 <Select value={cancelForm.profitTemplateId} onValueChange={(v) => setCancelForm((p) => ({ ...p, profitTemplateId: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
+                  <SelectTrigger className="h-9 bg-muted/30 border-border"><SelectValue placeholder="Select method" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="main">
                       <div className="flex items-center gap-2">
@@ -1151,7 +1190,7 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
               {/* Distribution Preview */}
               {cancelForm.profitTemplateId && (
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Distribution Preview</Label>
+                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Distribution Preview</Label>
                   <div className="bg-muted/50 border border-border rounded-lg p-3 space-y-2">
                     {(() => {
                       const dp = selectedPreorder.down_payment || 0;
@@ -1190,8 +1229,8 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
                               <span className={cn("font-medium", totalManualPercentage === 100 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>{totalManualPercentage.toFixed(1)}%</span>
                             </div>
                             {totalManualPercentage !== 100 && (
-                              <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-900/50 rounded-md p-2">
-                                <p className="text-xs text-yellow-700 dark:text-yellow-400">Total must equal 100% (currently {totalManualPercentage.toFixed(1)}%)</p>
+                              <div className="bg-amber-500/5 border border-amber-500/20 rounded-md p-2">
+                                <p className="text-xs text-amber-600 dark:text-amber-400">Total must equal 100% (currently {totalManualPercentage.toFixed(1)}%)</p>
                               </div>
                             )}
                           </div>
@@ -1223,26 +1262,34 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
               )}
 
               <div className="space-y-1.5">
-                <Label className="text-xs">Notes</Label>
-                <Textarea value={cancelForm.notes} onChange={(e) => setCancelForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Additional notes..." rows={2} className="resize-none" />
+                <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Notes</Label>
+                <Textarea value={cancelForm.notes} onChange={(e) => setCancelForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Additional notes..." rows={2} className="resize-none bg-muted/30 border-border" />
               </div>
             </div>
           )}
-          <DialogFooter className="shrink-0 flex flex-col sm:flex-row gap-2 pt-4 border-t border-border">
+          <div className="shrink-0 px-6 py-4 border-t border-border bg-muted/20 flex flex-col sm:flex-row gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowCancelModal(false)} className="w-full sm:w-auto">Keep Pre-order</Button>
+            <div className="flex-1" />
             <Button variant="destructive" size="sm" onClick={() => selectedPreorder && processCancelToSale(selectedPreorder)} disabled={isUpdating || !cancelForm.paymentType || !cancelForm.profitTemplateId || (cancelForm.profitTemplateId === "manual" && totalManualPercentage !== 100)} className="w-full sm:w-auto">
               {isUpdating ? "Processing..." : "Cancel & Convert to Sale"}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Void */}
       <Dialog open={showVoidModal} onOpenChange={setShowVoidModal}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Void Pre-order</DialogTitle></DialogHeader>
+        <DialogContent className="sm:max-w-sm p-0">
+          <div className="px-6 pt-6 pb-4 border-b border-border">
+            <DialogHeader className="p-0">
+              <DialogTitle className="flex items-center gap-2.5 text-base">
+                <div className="rounded-lg bg-destructive/10 p-2"><AlertTriangle className="h-4 w-4 text-destructive" /></div>
+                Void Pre-order
+              </DialogTitle>
+            </DialogHeader>
+          </div>
           {selectedPreorder && (
-            <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="px-6 py-4 space-y-3">
               <p className="text-sm text-muted-foreground">Are you sure you want to void this pre-order?</p>
               <div className="bg-destructive/5 border border-destructive/20 p-3 rounded-lg space-y-1">
                 <p className="text-sm font-medium">{selectedPreorder.product.name}</p>
@@ -1251,34 +1298,41 @@ export function PreordersPageClient({ initialPreorders, error }: PreordersPageCl
               </div>
             </div>
           )}
-          <DialogFooter>
+          <div className="px-6 py-4 border-t border-border bg-muted/20 flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowVoidModal(false)}>Cancel</Button>
             <Button variant="destructive" size="sm" onClick={confirmVoid} disabled={isUpdating}>{isUpdating ? "Voiding..." : "Void Pre-order"}</Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Restore */}
       <Dialog open={showRestoreModal} onOpenChange={setShowRestoreModal}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Restore Pre-order</DialogTitle></DialogHeader>
+        <DialogContent className="sm:max-w-sm p-0">
+          <div className="px-6 pt-6 pb-4 border-b border-border">
+            <DialogHeader className="p-0">
+              <DialogTitle className="flex items-center gap-2.5 text-base">
+                <div className="rounded-lg bg-emerald-500/10 p-2"><RotateCcw className="h-4 w-4 text-emerald-500" /></div>
+                Restore Pre-order
+              </DialogTitle>
+            </DialogHeader>
+          </div>
           {selectedPreorder && (
-            <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="px-6 py-4 space-y-3">
               <p className="text-sm text-muted-foreground">This will restore the pre-order back to pending status.</p>
-              <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 p-3 rounded-lg space-y-1">
-                <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">{selectedPreorder.product.name}</p>
-                <p className="text-xs text-emerald-700 dark:text-emerald-400/80">Size: {selectedPreorder.size} · {selectedPreorder.customer.name}</p>
-                <p className="text-xs text-emerald-700 dark:text-emerald-400/80">Amount: {formatCurrency(selectedPreorder.total_amount, currency)}</p>
-                <p className="text-xs text-emerald-700 dark:text-emerald-400/80">Current: {selectedPreorder.status}</p>
+              <div className="bg-emerald-500/5 border border-emerald-500/20 p-3 rounded-lg space-y-1">
+                <p className="text-sm font-medium">{selectedPreorder.product.name}</p>
+                <p className="text-xs text-muted-foreground">Size: {selectedPreorder.size} · {selectedPreorder.customer.name}</p>
+                <p className="text-xs text-muted-foreground">Amount: {formatCurrency(selectedPreorder.total_amount, currency)}</p>
+                <p className="text-xs text-muted-foreground">Current: {selectedPreorder.status}</p>
               </div>
             </div>
           )}
-          <DialogFooter>
+          <div className="px-6 py-4 border-t border-border bg-muted/20 flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowRestoreModal(false)}>Cancel</Button>
             <Button size="sm" onClick={confirmRestore} disabled={isUpdating}>{isUpdating ? "Restoring..." : "Restore Pre-order"}</Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   );
 }

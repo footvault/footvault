@@ -15,11 +15,11 @@ body {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: hsl(0 0% 100% / 0.12);
+  background: hsl(var(--foreground) / 0.12);
   border-radius: 9999px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: hsl(0 0% 100% / 0.22);
+  background: hsl(var(--foreground) / 0.22);
 }
 .custom-scrollbar::-webkit-scrollbar-button {
   display: none;
@@ -31,10 +31,42 @@ body {
 }
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: hsl(0 0% 100% / 0.12) transparent;
+  scrollbar-color: hsl(var(--foreground) / 0.12) transparent;
+}
+
+/* Sidebar scrollbar theme */
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--sidebar-foreground) / 0.2);
+  border-radius: 9999px;
+}
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--sidebar-foreground) / 0.32);
+}
+.sidebar-scrollbar::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.sidebar-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.sidebar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--sidebar-foreground) / 0.2) transparent;
 }
 
 /* Also apply thin scrollbar globally to dialogs / overlays */
+[role="dialog"] ::-webkit-scrollbar,
+[role="dialog"][class*="overflow"] {
+  scrollbar-width: thin;
+}
 [role="dialog"] ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -43,11 +75,11 @@ body {
   background: transparent;
 }
 [role="dialog"] ::-webkit-scrollbar-thumb {
-  background: hsl(0 0% 100% / 0.12);
+  background: hsl(var(--foreground) / 0.12);
   border-radius: 9999px;
 }
 [role="dialog"] ::-webkit-scrollbar-thumb:hover {
-  background: hsl(0 0% 100% / 0.22);
+  background: hsl(var(--foreground) / 0.22);
 }
 [role="dialog"] ::-webkit-scrollbar-button {
   display: none;
@@ -56,6 +88,10 @@ body {
 }
 [role="dialog"] ::-webkit-scrollbar-corner {
   background: transparent;
+}
+[role="dialog"] {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--foreground) / 0.12) transparent;
 }
 
 /* Hide number input spinners globally */
@@ -254,7 +290,7 @@ input[type="number"] {
   animation: landing-glow-2 15s ease-in-out infinite;
 }
 
-/* Subtle inventory page animations */
+/* Subtle page animations */
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -262,6 +298,18 @@ input[type="number"] {
 @keyframes slide-up {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .animate-in {
@@ -272,4 +320,16 @@ input[type="number"] {
 }
 .slide-in-from-top-1 {
   animation-name: slide-up;
+}
+.animate-slide-up {
+  animation: slide-up 0.35s ease-out both;
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.4s ease-out both;
+}
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out both;
+}
+.animate-card-enter {
+  animation: card-enter 0.3s ease-out both;
 }

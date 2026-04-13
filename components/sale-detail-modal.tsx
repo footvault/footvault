@@ -91,7 +91,7 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 custom-scrollbar">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b px-6 py-4">
           <div className="flex items-center justify-between">

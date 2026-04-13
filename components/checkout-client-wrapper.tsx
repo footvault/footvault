@@ -19,7 +19,7 @@ import { useEffect } from "react"
 import { ProfitDistributionCalculator } from "@/components/profit-distribution-calculator"
 
 import { toast } from "@/hooks/use-toast"
-import Link from "next/link"
+
 import { Avatar, ProfitDistributionTemplateDetail } from "@/lib/types"
 import { ConfirmationModal } from "@/components/confirmation-modal"
 import { SaleSuccessModal } from "@/components/sale-success-modal"
@@ -1552,17 +1552,10 @@ export function CheckoutClientWrapper({
         onConfirm={() => deleteModalId && handleDeletePaymentType(deleteModalId)}
         isConfirming={false}
       />
-      <div className="container mx-auto py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold">New Sale Checkout</h1>
-          <Link href="/inventory">
-            <Button variant="outline">Back to Inventory</Button>
-          </Link>
-        </div>
-
+      <div className="w-full">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column: Variant Selection */}
-          <Card className="lg:col-span-2">
+          <Card className="lg:col-span-2 animate-slide-up">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Search className="h-5 w-5" /> Add Items to Sale
@@ -1581,7 +1574,7 @@ export function CheckoutClientWrapper({
               </div>
 
               {/* Filter Controls */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                 <Select value={brandFilter} onValueChange={setBrandFilter}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="All Brands" />
@@ -1714,7 +1707,7 @@ export function CheckoutClientWrapper({
 
               {isFetchingVariants ? (
                 <div className="text-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-4" />
+                  <Loader2 className="h-8 w-8 animate-spin text-emerald-400 mx-auto mb-4" />
                   <p className="text-muted-foreground">Loading available shoes...</p>
                 </div>
               ) : paginatedVariants.length === 0 && searchTerm ? (
@@ -1729,20 +1722,20 @@ export function CheckoutClientWrapper({
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {paginatedVariants.map((variant) => (
-                      <Card key={variant.id} className="flex flex-col">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {paginatedVariants.map((variant, index) => (
+                      <Card key={variant.id} className="flex flex-col group hover:border-emerald-500/30 transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5 animate-card-enter" style={{ animationDelay: `${Math.min(index * 0.03, 0.3)}s` }}>
                         <CardContent className="p-3 flex-grow">
-                          <div className="relative">
+                          <div className="relative aspect-[4/3] w-full mb-1.5 rounded-md overflow-hidden bg-muted/30">
                             <Image
-                              src={variant.productImage || "/placeholder.svg?height=100&width=100"}
+                              src={variant.productImage || "/placeholder.svg?height=150&width=150"}
                               alt={variant.productName || "Placeholder image"}
-                              width={80}
-                              height={80}
-                              className="rounded-md object-cover mx-auto mb-2"
+                              fill
+                              className="rounded-md object-contain p-1"
+                              sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
                             />
                             {variant.isPreorder ? (
-                              <div className="absolute top-1 right-1 bg-yellow-500/20 text-yellow-300 text-xs px-2 py-1 rounded-md shadow-none font-medium">
+                              <div className="absolute top-1.5 right-1.5 bg-yellow-500 text-black text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shadow-md">
                                 PRE-ORDER
                               </div>
                             ) : variant.ownerType === 'consignor' && (
@@ -1753,42 +1746,42 @@ export function CheckoutClientWrapper({
                           </div>
                           <h3 className="font-semibold text-sm line-clamp-2">{variant.productName}</h3>
                           <p className="text-xs text-muted-foreground">{variant.productBrand}</p>
-                          <p className="text-xs font-mono text-muted-foreground">SKU: {variant.productSku}</p>
+                          <p className="text-xs font-mono text-muted-foreground truncate">SKU: {variant.productSku}</p>
                           {variant.isPreorder && variant.preorderData ? (
                             <>
                               <p className="text-xs font-mono text-yellow-400">Pre Order: #{variant.preorderData.pre_order_no}</p>
                               <p className="text-xs text-blue-400">Customer: {variant.preorderData.customer.name}</p>
                               
                               {/* Cost and Pricing Information */}
-                              <div className="mt-2 p-2 bg-muted/50 rounded-md border">
-                                <div className="grid grid-cols-2 gap-1 text-xs">
+                              <div className="mt-2 p-2 bg-muted/50 rounded-md border text-[11px]">
+                                <div className="space-y-1">
                                   <div className="flex justify-between">
                                     <span className="text-muted-foreground">Cost:</span>
-                                    <span className="font-medium">{formatCurrency(variant.preorderData.cost_price, currency)}</span>
+                                    <span className="font-medium tabular-nums">{formatCurrency(variant.preorderData.cost_price, currency)}</span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-muted-foreground">Total:</span>
-                                    <span className="font-medium">{formatCurrency(variant.preorderData.total_amount, currency)}</span>
+                                    <span className="font-medium tabular-nums">{formatCurrency(variant.preorderData.total_amount, currency)}</span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-muted-foreground">Paid:</span>
-                                    <span className="font-medium text-emerald-400">
+                                    <span className="font-medium text-emerald-400 tabular-nums">
                                       {formatCurrency(variant.preorderData.down_payment || 0, currency)}
                                     </span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-muted-foreground">Balance:</span>
-                                    <span className="font-medium text-orange-400">
+                                    <span className="font-medium text-orange-400 tabular-nums">
                                       {formatCurrency(variant.preorderData.remaining_balance, currency)}
                                     </span>
                                   </div>
                                 </div>
                                 
                                 {/* Profit Calculation */}
-                                <div className="mt-2 pt-2 border-t border-border">
-                                  <div className="flex justify-between text-xs">
+                                <div className="mt-1.5 pt-1.5 border-t border-border">
+                                  <div className="flex justify-between">
                                     <span className="text-muted-foreground">Profit:</span>
-                                    <span className={`font-bold ${
+                                    <span className={`font-bold tabular-nums ${
                                       (variant.preorderData.total_amount - variant.preorderData.cost_price) >= 0 
                                         ? 'text-emerald-400' 
                                         : 'text-red-400'
@@ -1815,17 +1808,16 @@ export function CheckoutClientWrapper({
                               Owner: {variant.consignorName}
                             </p>
                           )}
-                          <p className="text-sm font-bold text-emerald-400 mt-2">{formatCurrency(variant.productSalePrice, currency)}</p>
+                          <p className="text-xs font-bold text-emerald-400 mt-1">{formatCurrency(variant.productSalePrice, currency)}</p>
                         </CardContent>
-                        <div className="p-3 border-t">
+                        <div className="p-3 pt-0">
                           <Button
-                            variant="outline"
                             size="sm"
-                            className="w-full"
+                            className="w-full h-8 text-xs bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white border-0 transition-all duration-150"
                             onClick={() => handleAddVariantToCart(variant)}
                           >
-                            <Plus className="h-4 w-4 mr-1" /> 
-                            {variant.isPreorder ? 'Add Pre-order' : 'Add to Cart'}
+                            <Plus className="h-3 w-3 mr-1" /> 
+                            {variant.isPreorder ? 'Pre-order' : 'Add'}
                           </Button>
                         </div>
                       </Card>
@@ -1869,8 +1861,8 @@ export function CheckoutClientWrapper({
           </Card>
 
           {/* Right Column: Cart, Summary, Profit Distribution */}
-          <div className="lg:col-span-1 space-y-6">
-            <Card>
+          <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar animate-slide-in-right">
+            <Card className="animate-card-enter" style={{ animationDelay: '0.05s' }}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <User className="h-5 w-5" /> Customer Information
@@ -1968,7 +1960,7 @@ export function CheckoutClientWrapper({
               }}
             />
 
-            <Card>
+            <Card className="animate-card-enter" style={{ animationDelay: '0.15s' }}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <DollarSign className="h-5 w-5" /> Order Summary
@@ -2291,9 +2283,9 @@ export function CheckoutClientWrapper({
                   </div>
                 )}
 
-                <div className="flex justify-between font-bold text-lg border-t pt-4">
+                <div className="flex justify-between font-bold text-lg border-t pt-4 bg-muted/30 -mx-6 px-6 py-4 rounded-lg">
                   <span>Total</span>
-                  <span>{formatCurrency(totalAmount, currency)}</span>
+                  <span className="text-emerald-400">{formatCurrency(totalAmount, currency)}</span>
                 </div>
 
                 {paymentReceived > 0 && (
@@ -2443,7 +2435,7 @@ export function CheckoutClientWrapper({
 
             {/* Consignment Summary */}
             {selectedVariants.some(v => v.ownerType === 'consignor') && (
-              <Card className="border border-blue-100">
+              <Card className="border border-blue-500/20 animate-card-enter" style={{ animationDelay: '0.2s' }}>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <div className="w-2 h-2 bg-blue-500/100 rounded-full"></div>

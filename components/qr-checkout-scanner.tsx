@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -326,9 +327,9 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
   // Calculate batch total
   const batchTotal = scannedBatch.reduce((sum, v) => sum + v.productSalePrice, 0);
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <Card className="w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-scale-in">
         <CardHeader className="flex-shrink-0">
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -401,7 +402,7 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
         <CardContent className="flex-1 overflow-hidden flex gap-4">
           {/* Scanner Section */}
           <div className="w-1/2 flex flex-col">
-            <div className="bg-gray-100 rounded-lg p-4 mb-4 flex-shrink-0">
+            <div className="bg-muted/50 rounded-lg p-4 mb-4 flex-shrink-0">
               {scannerType === 'camera' ? (
                 // Camera Scanner Interface
                 isScanning ? (
@@ -447,8 +448,8 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
 
                   {isProcessing && (
                     <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                      <div className="bg-white rounded-lg p-3">
-                        <div className="text-center text-sm text-gray-600">
+                      <div className="bg-black/30 rounded-lg p-3">
+                        <div className="text-center text-sm text-muted-foreground">
                           Processing scan...
                         </div>
                       </div>
@@ -457,8 +458,8 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
                 </div>
                 ) : (
                   <div className="text-center py-20">
-                    <Camera className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                    <p className="text-gray-600">Click "Start Scanner" to begin</p>
+                    <Camera className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">Click "Start Scanner" to begin</p>
                   </div>
                 )
               ) : (
@@ -475,24 +476,24 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
                 >
                   <div className="text-center mb-6">
                     <div className="relative">
-                      <ScanLine className={`h-12 w-12 mx-auto mb-4 ${isProcessing ? 'text-blue-600 animate-pulse' : 'text-blue-500'}`} />
+                    <ScanLine className={`h-12 w-12 mx-auto mb-4 ${isProcessing ? 'text-emerald-400 animate-pulse' : 'text-emerald-500'}`} />
                       
                       
                     </div>
                     
-                    <p className="text-gray-600 font-medium">
+                    <p className="text-foreground font-medium">
                       {isProcessing ? 'Processing...' : 'Scanner Ready'}
                     </p>
                     
                     {/* Status-based instructions */}
                     {isProcessing ? (
-                      <p className="text-sm text-gray-500">Please wait</p>
+                      <p className="text-sm text-muted-foreground">Please wait</p>
                     ) : !inputFocused ? (
-                      <p className="text-sm text-orange-600 font-medium">
+                      <p className="text-sm text-orange-400 font-medium">
                         Click here to activate
                       </p>
                     ) : (
-                      <p className="text-sm text-green-600">
+                      <p className="text-sm text-emerald-400">
                         Ready to scan items
                       </p>
                     )}
@@ -501,10 +502,10 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
                   {/* Show recent scans in scanner interface */}
                   {scannedBatch.length > 0 && (
                     <div className="mt-6">
-                      <h4 className="text-sm font-medium text-gray-700 mb-3">Recent Scans</h4>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-3">Recent Scans</h4>
                       <div className="space-y-2 max-h-32 overflow-y-auto">
                         {scannedBatch.slice(-3).map((variant) => (
-                          <div key={variant.id} className="flex items-center gap-3 p-2 bg-white rounded border text-xs">
+                          <div key={variant.id} className="flex items-center gap-3 p-2 bg-background rounded border border-border text-xs">
                             <div className="w-8 h-8 relative rounded overflow-hidden flex-shrink-0">
                               <Image
                                 src={variant.productImage || "/placeholder.svg"}
@@ -515,9 +516,9 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="font-medium truncate">{variant.productBrand} {variant.productName}</p>
-                              <p className="text-gray-500">Size: {variant.size}</p>
+                              <p className="text-muted-foreground">Size: {variant.size}</p>
                             </div>
-                            <span className="text-green-600 font-medium">✓</span>
+                            <span className="text-emerald-400 font-medium">✓</span>
                           </div>
                         ))}
                       </div>
@@ -550,22 +551,22 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
             {/* Last Scan Result */}
             {lastScanResult && (
               <Alert className={`mb-4 ${
-                lastScanResult.type === 'success' ? 'border-green-200 bg-green-50' :
-                lastScanResult.type === 'sold' ? 'border-red-200 bg-red-50' :
-                lastScanResult.type === 'duplicate' || lastScanResult.type === 'already-in-cart' ? 'border-yellow-200 bg-yellow-50' :
-                'border-red-200 bg-red-50'
+                lastScanResult.type === 'success' ? 'border-emerald-500/20 bg-emerald-500/10' :
+                lastScanResult.type === 'sold' ? 'border-red-500/20 bg-red-500/10' :
+                lastScanResult.type === 'duplicate' || lastScanResult.type === 'already-in-cart' ? 'border-amber-500/20 bg-amber-500/10' :
+                'border-red-500/20 bg-red-500/10'
               }`}>
                 <div className="flex items-center gap-2">
                   {lastScanResult.type === 'success' ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <CheckCircle className="h-4 w-4 text-emerald-400" />
                   ) : (
-                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <AlertCircle className="h-4 w-4 text-red-400" />
                   )}
                   <AlertDescription className={`${
-                    lastScanResult.type === 'success' ? 'text-green-800' :
-                    lastScanResult.type === 'sold' ? 'text-red-800' :
-                    lastScanResult.type === 'duplicate' || lastScanResult.type === 'already-in-cart' ? 'text-yellow-800' :
-                    'text-red-800'
+                    lastScanResult.type === 'success' ? 'text-emerald-300' :
+                    lastScanResult.type === 'sold' ? 'text-red-300' :
+                    lastScanResult.type === 'duplicate' || lastScanResult.type === 'already-in-cart' ? 'text-amber-300' :
+                    'text-red-300'
                   }`}>
                     {lastScanResult.message}
                   </AlertDescription>
@@ -579,23 +580,23 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold">Scanned Items ({scannedBatch.length})</h3>
               {scannedBatch.length > 0 && (
-                <div className="text-sm font-medium">
+                <div className="text-sm font-medium text-emerald-400">
                   Total: {formatCurrency(batchTotal, currency)}
                 </div>
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto border rounded-lg">
+            <div className="flex-1 overflow-y-auto border border-border rounded-lg custom-scrollbar">
               {scannedBatch.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <ShoppingCart className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                <div className="text-center py-8 text-muted-foreground">
+                  <ShoppingCart className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
                   <p>No items scanned yet</p>
-                  <p className="text-sm text-gray-400 mt-1">Start scanning QR codes to add items</p>
+                  <p className="text-sm text-muted-foreground/60 mt-1">Start scanning QR codes to add items</p>
                 </div>
               ) : (
                 <div className="p-4 space-y-3">
                   {scannedBatch.map((variant) => (
-                    <div key={variant.scanId} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
+                    <div key={variant.scanId} className="flex gap-3 p-3 bg-muted/50 rounded-lg border border-border">
                       <div className="w-12 h-12 relative rounded overflow-hidden flex-shrink-0">
                         <Image
                           src={variant.productImage || "/placeholder.svg"}
@@ -606,7 +607,7 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-sm truncate">{variant.productName}</h4>
-                        <p className="text-xs text-gray-600">{variant.productBrand}</p>
+                        <p className="text-xs text-muted-foreground">{variant.productBrand}</p>
                         <div className="flex gap-2 mt-1 flex-wrap">
                           <Badge variant="outline" className="text-xs">
                             Size: {variant.size}
@@ -623,14 +624,14 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
                           )}
                         </div>
                         <div className="flex justify-between items-center mt-1">
-                          <span className="text-xs text-gray-500">#{variant.serialNumber}</span>
-                          <span className="text-sm font-semibold">{formatCurrency(variant.productSalePrice, currency)}</span>
+                          <span className="text-xs text-muted-foreground">#{variant.serialNumber}</span>
+                          <span className="text-sm font-semibold text-emerald-400">{formatCurrency(variant.productSalePrice, currency)}</span>
                         </div>
                       </div>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 flex-shrink-0"
+                        className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10 flex-shrink-0"
                         onClick={() => removeFromBatch(variant.id)}
                       >
                         <Trash2 className="h-3 w-3" />
@@ -653,7 +654,7 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
               <Button
                 onClick={completeBatch}
                 disabled={scannedBatch.length === 0}
-                className="flex-1"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 <Check className="h-4 w-4 mr-2" />
                 Add to Cart ({scannedBatch.length})
@@ -662,6 +663,7 @@ export function QRCheckoutScanner({ onBatchComplete, onClose, existingCartItems 
           </div>
         </CardContent>
       </Card>
-    </div>
+    </div>,
+    document.body
   )
 }
