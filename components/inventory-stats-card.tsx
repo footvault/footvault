@@ -2,6 +2,7 @@ import React from "react";
 import { Footprints, Boxes, DollarSign } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
+import { useCountUp } from "@/hooks/useCountUp"
 
 interface InventoryStatsCardProps {
   totalShoes: number;
@@ -12,25 +13,28 @@ interface InventoryStatsCardProps {
 
 export function InventoryStatsCard({ totalShoes, totalVariants, totalValue, loading = false }: InventoryStatsCardProps) {
   const { currency } = useCurrency();
+  const animatedShoes = useCountUp(totalShoes, 800, !loading);
+  const animatedVariants = useCountUp(totalVariants, 800, !loading);
+  const animatedValue = useCountUp(totalValue, 1000, !loading);
 
   const stats = [
     {
       label: "Total Shoes",
-      value: totalShoes,
+      value: animatedShoes,
       icon: Footprints,
       color: "text-blue-500",
       bgColor: "bg-blue-500/10",
     },
     {
       label: "Total Variants",
-      value: totalVariants,
+      value: animatedVariants,
       icon: Boxes,
       color: "text-amber-500",
       bgColor: "bg-amber-500/10",
     },
     {
       label: "Inventory Value",
-      value: formatCurrency(totalValue, currency),
+      value: formatCurrency(animatedValue, currency),
       icon: DollarSign,
       color: "text-emerald-500",
       bgColor: "bg-emerald-500/10",

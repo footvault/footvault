@@ -145,7 +145,7 @@ export function CustomerSelection({
     switch (type) {
       case "vip": return "bg-yellow-100 text-yellow-800 border-yellow-200";
       case "wholesale": return "bg-purple-100 text-purple-800 border-purple-200";
-      default: return "bg-blue-100 text-blue-800 border-blue-200";
+      default: return "bg-blue-500/10 text-blue-300 border-blue-500/20";
     }
   };
 
@@ -166,7 +166,7 @@ export function CustomerSelection({
         <div className="space-y-3">
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search customers by name, email, or phone..."
                 value={searchTerm}
@@ -189,9 +189,9 @@ export function CustomerSelection({
           </div>
 
           {isLoading ? (
-            <div className="text-center py-4 text-gray-500">Loading customers...</div>
+            <div className="text-center py-4 text-muted-foreground">Loading customers...</div>
           ) : filteredCustomers.length === 0 ? (
-            <div className="text-center py-4 text-gray-500">
+            <div className="text-center py-4 text-muted-foreground">
               {searchTerm || customerTypeFilter !== "all" ? "No customers found matching your criteria" : "No customers available"}
             </div>
           ) : (
@@ -200,18 +200,18 @@ export function CustomerSelection({
                 {filteredCustomers.map((customer) => (
                   <Card
                     key={customer.id}
-                    className={`cursor-pointer transition-colors hover:bg-gray-50 ${
-                      selectedCustomerId === customer.id ? 'border-blue-500 bg-blue-50' : ''
+                    className={`cursor-pointer transition-colors hover:bg-muted/50 ${
+                      selectedCustomerId === customer.id ? 'border-blue-500 bg-blue-500/10' : ''
                     }`}
                     onClick={() => onCustomerSelect(customer)}
                   >
                     <CardContent className="p-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 min-w-0">
-                          <User className="h-4 w-4 text-gray-500" />
+                          <User className="h-4 w-4 text-muted-foreground" />
                           <div>
                             <div className="font-medium truncate">{customer.name}</div>
-                            <div className="text-sm text-gray-500 flex items-center gap-2 truncate">
+                            <div className="text-sm text-muted-foreground flex items-center gap-2 truncate">
                               <Phone className="h-3 w-3" />
                               <span className="truncate">{customer.phone}</span>
                             </div>
@@ -239,7 +239,7 @@ export function CustomerSelection({
                 
                 if (totalMatches > showing) {
                   return (
-                    <div className="text-center text-sm text-gray-500 py-2">
+                    <div className="text-center text-sm text-muted-foreground py-2">
                       Showing {showing} of {totalMatches} customers. {searchTerm.length === 0 ? 'Use search to find specific customers.' : 'Refine your search to see more specific results.'}
                     </div>
                   );
@@ -288,7 +288,7 @@ export function CustomerSelection({
             </Select>
           </div>
 
-          <div className="text-sm text-gray-500 bg-blue-50 p-3 rounded-lg border border-blue-200">
+          <div className="text-sm text-muted-foreground bg-blue-500/10 p-3 rounded-lg border border-blue-500/20">
             💡 Customer will be automatically saved when you complete the checkout.
           </div>
         </div>

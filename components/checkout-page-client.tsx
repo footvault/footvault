@@ -14,17 +14,17 @@ interface CheckoutPageClientProps {
 export function CheckoutPageClient({ allVariants, allPreorders, avatars, profitTemplates, error }: CheckoutPageClientProps) {
   if (error) {
     return (
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1 bg-white md:bg-transparent" />
+      <SidebarInset className="overflow-x-hidden">
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 backdrop-blur-sm px-4">
+          <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
-          <h1 className="text-xl font-semibold">Checkout</h1>
+          <h1 className="text-lg font-semibold">Checkout</h1>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">
-          <div className="container mx-auto py-8 text-center text-red-500">
-            <h1 className="text-3xl font-bold mb-4">Error Loading Checkout Page</h1>
-            <p>There was an issue fetching the necessary data. Please try again later.</p>
-            <p className="text-sm text-gray-600">Details: {error}</p>
+        <div className="flex flex-1 flex-col gap-4 p-4 sm:p-6">
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold mb-3">Error Loading Checkout</h2>
+            <p className="text-muted-foreground">There was an issue fetching the necessary data. Please try again later.</p>
+            <p className="text-xs text-muted-foreground mt-2">Details: {error}</p>
           </div>
         </div>
       </SidebarInset>
@@ -32,13 +32,13 @@ export function CheckoutPageClient({ allVariants, allPreorders, avatars, profitT
   }
 
   return (
-    <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1 bg-white md:bg-transparent" />
+    <SidebarInset className="overflow-x-hidden">
+      <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 backdrop-blur-sm px-4">
+        <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
-        <h1 className="text-xl font-semibold">Checkout</h1>
+        <h1 className="text-lg font-semibold">Checkout</h1>
       </header>
-      <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="flex flex-1 flex-col gap-4 p-4 sm:p-6">
         <CheckoutClientWrapper
           initialVariants={allVariants}
           initialPreorders={allPreorders}

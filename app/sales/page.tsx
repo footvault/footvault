@@ -162,25 +162,20 @@ export default async function SalesPage() {
   const initialAvatarProfits = await calculateAvatarProfits(initialSales, initialAvatars);
 
   return (
-     <SidebarInset>
-          {" "}
-          {/* Wrap content with SidebarInset */}
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-            <SidebarTrigger className="-ml-1 bg-white md:bg-transparent" /> {/* Show on mobile with white bg */}
-            <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" /> {/* Add separator */}
-            <h1 className="text-xl font-semibold">Sales</h1>
-          </header>
-          <div className="  py-8 w-full">
-            <div className="container  py-8">
-              <SalesClientWrapper
-      initialSales={initialSales}
-      initialAvatars={initialAvatars}
-      initialProfitTemplates={initialProfitTemplates}
-      initialAvatarProfits={initialAvatarProfits}
-    />
-            </div>
-          </div>
-        </SidebarInset>
-   
+    <SidebarInset className="overflow-x-hidden">
+      <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 backdrop-blur-sm px-4">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
+        <h1 className="text-lg font-semibold">Sales</h1>
+      </header>
+      <div className="p-4 sm:p-6">
+        <SalesClientWrapper
+          initialSales={initialSales}
+          initialAvatars={initialAvatars}
+          initialProfitTemplates={initialProfitTemplates}
+          initialAvatarProfits={initialAvatarProfits}
+        />
+      </div>
+    </SidebarInset>
   );
 }

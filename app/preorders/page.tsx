@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from 'next/navigation';
 import { createClient } from "@/lib/supabase/server";
-import { PreordersPageClient } from "@/components/preorders-page-client";
+import { PreordersPageClient } from "../../components/preorders-page-client";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 
@@ -101,15 +101,13 @@ export default async function PreordersPage() {
     const preorders = await getPreorders()
     return (
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1 bg-white md:bg-transparent" />
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 backdrop-blur-sm px-4">
+          <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
-          <h1 className="text-xl font-semibold">Pre-orders</h1>
+          <h1 className="text-lg font-semibold tracking-tight">Pre-orders</h1>
         </header>
-        <div className="w-full px-2 py-8">
-          <div className="container mx-auto py-8 w-full">
-            <PreordersPageClient initialPreorders={preorders} />
-          </div>
+        <div className="p-4 sm:p-6 animate-in fade-in duration-300">
+          <PreordersPageClient initialPreorders={preorders} />
         </div>
       </SidebarInset>
     )
@@ -117,15 +115,13 @@ export default async function PreordersPage() {
     console.error('Error in PreordersPage:', error)
     return (
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1 bg-white md:bg-transparent" />
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 backdrop-blur-sm px-4">
+          <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
-          <h1 className="text-xl font-semibold">Pre-orders</h1>
+          <h1 className="text-lg font-semibold tracking-tight">Pre-orders</h1>
         </header>
-        <div className="w-full px-2 py-8">
-          <div className="container mx-auto py-8 w-full">
-            <PreordersPageClient initialPreorders={[]} error={error instanceof Error ? error.message : 'Unknown error'} />
-          </div>
+        <div className="p-4 sm:p-6 animate-in fade-in duration-300">
+          <PreordersPageClient initialPreorders={[]} error={error instanceof Error ? error.message : 'Unknown error'} />
         </div>
       </SidebarInset>
     )

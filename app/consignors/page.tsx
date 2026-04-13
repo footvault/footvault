@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,12 +36,17 @@ import {
   Users,
   TrendingUp,
   Package,
-  BarChart3
+  BarChart3,
+  Archive,
+  ArrowUpRight,
+  Wallet,
+  ShoppingBag
 } from 'lucide-react'
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
+  DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -314,119 +319,154 @@ export default function ConsignorsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return <Badge className="bg-green-100 text-green-800">Active</Badge>
+        return <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">Active</Badge>
       case 'inactive':
-        return <Badge variant="secondary">Inactive</Badge>
+        return <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700">Inactive</Badge>
       case 'suspended':
-        return <Badge variant="destructive">Suspended</Badge>
+        return <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800">Suspended</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
   }
 
+  const getPayoutMethodLabel = (consignor: ConsignorDashboardStats) => {
+    if (consignor.payout_method === 'cost_price') return 'Cost Only'
+    if (consignor.payout_method === 'cost_plus_fixed') return `Cost + ${currencySymbol}${consignor.fixed_markup || 0}`
+    if (consignor.payout_method === 'cost_plus_percentage') return `Cost + ${consignor.markup_percentage || 0}%`
+    return '% Split'
+  }
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  }
+
+  const getAvatarColor = (name: string) => {
+    const colors = [
+      'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400',
+      'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400',
+      'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
+      'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
+      'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400',
+      'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-400',
+    ]
+    const index = name.charCodeAt(0) % colors.length
+    return colors[index]
+  }
+
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1 bg-white md:bg-transparent" />
+      {/* Sticky Header */}
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 sticky top-0 z-20 bg-background/95 backdrop-blur-sm">
+        <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
-        <h1 className="text-xl font-semibold">Consignors</h1>
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-semibold">Consignors</h1>
+            {!loading && (
+              <Badge variant="secondary" className="animate-in fade-in duration-300 text-xs">
+                {filteredConsignors.length} {showArchived ? 'archived' : 'total'}
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={() => router.push('/consignors/sales')}
+              className="hidden sm:flex transition-colors duration-200"
+            >
+              <BarChart3 className="mr-2 h-4 w-4" />
+              View Sales
+            </Button>
+            <Button size="sm" onClick={() => setAddModalOpen(true)} className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
+              <Plus className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Add Consignor</span>
+              <span className="sm:hidden">Add</span>
+            </Button>
+          </div>
+        </div>
       </header>
-      <div className="w-full px-2 py-8">
-        <div className="container py-8 w-full">
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <p className="text-muted-foreground">
-                  Manage your consignment partners and track their inventory
+
+      <div className="w-full px-4 sm:px-6 py-6">
+        <div className="space-y-6 animate-in fade-in duration-300">
+          {/* Stats Cards */}
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+            <Card className="animate-in fade-in duration-300 transition-all hover:shadow-md group" style={{ animationDelay: '0ms' }}>
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-10 w-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+                    <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  {summaryStats.active_consignors > 0 && (
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-0.5">
+                      <ArrowUpRight className="h-3 w-3" />
+                      {summaryStats.active_consignors} active
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground font-medium">Total Consignors</p>
+                <p className="text-2xl font-bold tracking-tight mt-0.5">{summaryStats.total_consignors}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="animate-in fade-in duration-300 transition-all hover:shadow-md group" style={{ animationDelay: '50ms' }}>
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+                    <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground font-medium">Total Sales</p>
+                <p className="text-2xl font-bold tracking-tight mt-0.5">{currencySymbol}{summaryStats.total_sales_amount.toFixed(2)}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="animate-in fade-in duration-300 transition-all hover:shadow-md group" style={{ animationDelay: '100ms' }}>
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+                    <Wallet className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  {summaryStats.total_pending_payouts > 0 && (
+                    <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">Awaiting</span>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground font-medium">Pending Payouts</p>
+                <p className="text-2xl font-bold tracking-tight mt-0.5">{currencySymbol}{summaryStats.total_pending_payouts.toFixed(2)}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="animate-in fade-in duration-300 transition-all hover:shadow-md group" style={{ animationDelay: '150ms' }}>
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-10 w-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+                    <ShoppingBag className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground font-medium">Total Items</p>
+                <p className="text-2xl font-bold tracking-tight mt-0.5">{summaryStats.total_variants}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {summaryStats.available_variants} available · {summaryStats.sold_variants} sold
                 </p>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
+          </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Consignors</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summaryStats.total_consignors}</div>
-            <p className="text-xs text-muted-foreground">
-              {summaryStats.active_consignors} active
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {currencySymbol}{summaryStats.total_sales_amount.toFixed(2)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              All-time consignment sales
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Payouts</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {currencySymbol}{summaryStats.total_pending_payouts.toFixed(2)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Awaiting payment
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Items</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {summaryStats.total_variants}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {summaryStats.available_variants} available • {summaryStats.sold_variants} sold
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Consignor List</CardTitle>
-          <CardDescription>
-            Manage your consignment partners and view their performance
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          {/* Filters & Search Bar */}
+          <div className="flex flex-col sm:flex-row gap-3 animate-in fade-in duration-300" style={{ animationDelay: '200ms' }}>
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
-                placeholder="Search consignors..."
+                placeholder="Search by name, email, or phone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 h-10 transition-shadow duration-200 focus:shadow-md"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                <Filter className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Filter by status" />
+              <SelectTrigger className="w-full sm:w-[160px] h-10">
+                <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
@@ -439,158 +479,280 @@ export default function ConsignorsPage() {
               <Button
                 variant={showArchived ? "default" : "outline"}
                 onClick={() => setShowArchived(!showArchived)}
-                className="whitespace-nowrap"
+                className="whitespace-nowrap h-10 transition-all duration-200"
+                size="sm"
               >
-                {showArchived ? "Show Active" : "Show Archived"}
+                <Archive className="mr-2 h-4 w-4" />
+                {showArchived ? "Show Active" : "Archived"}
               </Button>
             )}
             <Button 
               variant="outline"
+              size="sm"
               onClick={() => router.push('/consignors/sales')}
-              className="whitespace-nowrap"
+              className="sm:hidden h-10"
             >
               <BarChart3 className="mr-2 h-4 w-4" />
-              View Sales
-            </Button>
-            <Button onClick={() => setAddModalOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add New Consignor
+              Sales
             </Button>
           </div>
 
-          {/* Table */}
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Commission</TableHead>
-                  <TableHead>Payout Method</TableHead>
-                  <TableHead>Items</TableHead>
-                  <TableHead>Sales</TableHead>
-                  <TableHead>Pending Payout</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-[70px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
-                      Loading consignors...
-                    </TableCell>
-                  </TableRow>
-                ) : filteredConsignors.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
-                      <div className="text-muted-foreground">
-                        <Users className="mx-auto h-8 w-8 mb-2" />
-                        <p>No consignors found</p>
-                        <p className="text-sm">Add your first consignor to get started</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredConsignors.map((consignor) => (
-                    <TableRow key={consignor.id}>
-                      <TableCell className="font-medium">
-                        {consignor.name}
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>{consignor.email || '-'}</div>
-                          <div className="text-muted-foreground">{consignor.phone || '-'}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {consignor.commission_rate}%
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">
-                          {consignor.payout_method === 'cost_price' && 'Cost Only'}
-                          {consignor.payout_method === 'cost_plus_fixed' && `Cost + ${currencySymbol}${consignor.fixed_markup || 0}`}
-                          {consignor.payout_method === 'cost_plus_percentage' && `Cost + ${consignor.markup_percentage || 0}%`}
-                          {(consignor.payout_method === 'percentage_split' || !consignor.payout_method) && '% Split'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>{consignor.available_variants} available</div>
-                          <div className="text-muted-foreground">{consignor.total_variants} total</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>{currencySymbol}{(consignor.total_sales_amount || 0).toFixed(2)}</div>
-                          <div className="text-muted-foreground">{consignor.total_sales} sales</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">
-                          {currencySymbol}{(consignor.pending_payout || 0).toFixed(2)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(consignor.status)}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setViewModal({ open: true, consignor })}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setItemsModal({ open: true, consignor })}>
-                              <Package className="mr-2 h-4 w-4" />
-                              View Items
-                            </DropdownMenuItem>
-                            {(consignor.pending_payout || 0) > 0 && (
-                              <DropdownMenuItem onClick={() => setPayoutModal({ open: true, consignor })}>
-                                <DollarSign className="mr-2 h-4 w-4" />
-                                Process Payout
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem onClick={() => setEditModal({ open: true, consignor })}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            {showArchived && (
-                              <DropdownMenuItem 
-                                onClick={() => setPermanentDeleteModal({ open: true, consignor })}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete Permanently
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem 
-                              onClick={() => setDeleteModal({ open: true, consignor })}
-                              className={showArchived ? "text-green-600" : "text-red-600"}
+          {/* Main Content */}
+          <div className="animate-in fade-in duration-300" style={{ animationDelay: '250ms' }}>
+            {loading ? (
+              /* Loading Skeleton */
+              <div className="space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-4 p-4 rounded-xl border bg-card animate-pulse" style={{ animationDelay: `${i * 75}ms` }}>
+                    <div className="h-10 w-10 rounded-full bg-muted" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-32 bg-muted rounded" />
+                      <div className="h-3 w-48 bg-muted rounded" />
+                    </div>
+                    <div className="hidden md:flex gap-8">
+                      <div className="h-4 w-16 bg-muted rounded" />
+                      <div className="h-4 w-20 bg-muted rounded" />
+                      <div className="h-4 w-16 bg-muted rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredConsignors.length === 0 ? (
+              /* Empty State */
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
+                    <Users className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-1">No consignors found</h3>
+                  <p className="text-sm text-muted-foreground max-w-sm mb-6">
+                    {searchTerm || statusFilter !== 'all' 
+                      ? 'Try adjusting your search or filters to find what you\'re looking for.'
+                      : 'Add your first consignment partner to start tracking inventory and payouts.'}
+                  </p>
+                  {!searchTerm && statusFilter === 'all' && (
+                    <Button onClick={() => setAddModalOpen(true)} className="transition-all duration-200 hover:scale-[1.02]">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Your First Consignor
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden md:block">
+                  <Card>
+                    <div className="rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50 hover:bg-muted/50">
+                            <TableHead className="font-semibold">Consignor</TableHead>
+                            <TableHead className="font-semibold">Commission</TableHead>
+                            <TableHead className="font-semibold">Payout Method</TableHead>
+                            <TableHead className="font-semibold">Items</TableHead>
+                            <TableHead className="font-semibold">Sales</TableHead>
+                            <TableHead className="font-semibold">Pending Payout</TableHead>
+                            <TableHead className="font-semibold">Status</TableHead>
+                            <TableHead className="w-[50px]"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredConsignors.map((consignor, index) => (
+                            <TableRow 
+                              key={consignor.id} 
+                              className="group cursor-pointer transition-colors duration-150 hover:bg-muted/30"
+                              onClick={() => setViewModal({ open: true, consignor })}
+                              style={{ animationDelay: `${index * 30}ms` }}
                             >
-                              {showArchived ? (
-                                <RotateCcw className="mr-2 h-4 w-4" />
-                              ) : (
-                                <Trash2 className="mr-2 h-4 w-4" />
+                              <TableCell>
+                                <div className="flex items-center gap-3">
+                                  <div className={`h-9 w-9 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 transition-transform duration-200 group-hover:scale-105 ${getAvatarColor(consignor.name)}`}>
+                                    {getInitials(consignor.name)}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-medium truncate">{consignor.name}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{consignor.email || consignor.phone || 'No contact'}</p>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className="font-medium">{consignor.commission_rate}%</span>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="font-normal text-xs">
+                                  {getPayoutMethodLabel(consignor)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  <span className="font-medium">{consignor.available_variants}</span>
+                                  <span className="text-muted-foreground"> / {consignor.total_variants}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  <p className="font-medium">{currencySymbol}{(consignor.total_sales_amount || 0).toFixed(2)}</p>
+                                  <p className="text-xs text-muted-foreground">{consignor.total_sales} sales</p>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className={`font-semibold ${(consignor.pending_payout || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                                  {currencySymbol}{(consignor.pending_payout || 0).toFixed(2)}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                {getStatusBadge(consignor.status)}
+                              </TableCell>
+                              <TableCell>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                    <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-48">
+                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setViewModal({ open: true, consignor }) }}>
+                                      <Eye className="mr-2 h-4 w-4" />
+                                      View Details
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setItemsModal({ open: true, consignor }) }}>
+                                      <Package className="mr-2 h-4 w-4" />
+                                      View Items
+                                    </DropdownMenuItem>
+                                    {(consignor.pending_payout || 0) > 0 && (
+                                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setPayoutModal({ open: true, consignor }) }}>
+                                        <DollarSign className="mr-2 h-4 w-4" />
+                                        Process Payout
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditModal({ open: true, consignor }) }}>
+                                      <Edit className="mr-2 h-4 w-4" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                    {showArchived && (
+                                      <DropdownMenuItem 
+                                        onClick={(e) => { e.stopPropagation(); setPermanentDeleteModal({ open: true, consignor }) }}
+                                        className="text-red-600 dark:text-red-400"
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Delete Permanently
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem 
+                                      onClick={(e) => { e.stopPropagation(); setDeleteModal({ open: true, consignor }) }}
+                                      className={showArchived ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}
+                                    >
+                                      {showArchived ? <RotateCcw className="mr-2 h-4 w-4" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                                      {showArchived ? "Restore" : "Archive"}
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </Card>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-3">
+                  {filteredConsignors.map((consignor, index) => (
+                    <Card 
+                      key={consignor.id} 
+                      className="animate-in fade-in duration-300 transition-all hover:shadow-md active:scale-[0.99] cursor-pointer"
+                      style={{ animationDelay: `${index * 40}ms` }}
+                      onClick={() => setViewModal({ open: true, consignor })}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold shrink-0 ${getAvatarColor(consignor.name)}`}>
+                              {getInitials(consignor.name)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold truncate">{consignor.name}</p>
+                                {getStatusBadge(consignor.status)}
+                              </div>
+                              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                {consignor.email || consignor.phone || 'No contact info'}
+                              </p>
+                            </div>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setViewModal({ open: true, consignor }) }}>
+                                <Eye className="mr-2 h-4 w-4" />View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setItemsModal({ open: true, consignor }) }}>
+                                <Package className="mr-2 h-4 w-4" />View Items
+                              </DropdownMenuItem>
+                              {(consignor.pending_payout || 0) > 0 && (
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setPayoutModal({ open: true, consignor }) }}>
+                                  <DollarSign className="mr-2 h-4 w-4" />Process Payout
+                                </DropdownMenuItem>
                               )}
-                              {showArchived ? "Restore" : "Archive"}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditModal({ open: true, consignor }) }}>
+                                <Edit className="mr-2 h-4 w-4" />Edit
+                              </DropdownMenuItem>
+                              {showArchived && (
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setPermanentDeleteModal({ open: true, consignor }) }} className="text-red-600 dark:text-red-400">
+                                  <Trash2 className="mr-2 h-4 w-4" />Delete Permanently
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem 
+                                onClick={(e) => { e.stopPropagation(); setDeleteModal({ open: true, consignor }) }}
+                                className={showArchived ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}
+                              >
+                                {showArchived ? <RotateCcw className="mr-2 h-4 w-4" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                                {showArchived ? "Restore" : "Archive"}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+
+                        {/* Mobile stats row */}
+                        <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Items</p>
+                            <p className="text-sm font-semibold mt-0.5">{consignor.available_variants} <span className="text-muted-foreground font-normal">/ {consignor.total_variants}</span></p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Sales</p>
+                            <p className="text-sm font-semibold mt-0.5">{currencySymbol}{(consignor.total_sales_amount || 0).toFixed(0)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Pending</p>
+                            <p className={`text-sm font-semibold mt-0.5 ${(consignor.pending_payout || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : ''}`}>
+                              {currencySymbol}{(consignor.pending_payout || 0).toFixed(0)}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Results count */}
+                <p className="text-xs text-muted-foreground text-center pt-2">
+                  Showing {filteredConsignors.length} consignor{filteredConsignors.length !== 1 ? 's' : ''}
+                  {(searchTerm || statusFilter !== 'all') && ' (filtered)'}
+                </p>
+              </>
+            )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Add Consignor Modal */}
       <AddConsignorModal
@@ -633,103 +795,123 @@ export default function ConsignorsPage() {
       {/* View Consignor Details Modal */}
       {viewModal.open && viewModal.consignor && (
         <Dialog open={viewModal.open} onOpenChange={(open) => setViewModal({ open, consignor: open ? viewModal.consignor : undefined })}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Consignor Details - {viewModal.consignor.name}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-6">
-              {/* Basic Info */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Email</label>
-                  <p>{viewModal.consignor.email || 'Not provided'}</p>
+              <div className="flex items-center gap-3">
+                <div className={`h-12 w-12 rounded-full flex items-center justify-center text-sm font-bold ${getAvatarColor(viewModal.consignor.name)}`}>
+                  {getInitials(viewModal.consignor.name)}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Phone</label>
-                  <p>{viewModal.consignor.phone || 'Not provided'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Commission Rate</label>
-                  <p>{viewModal.consignor.commission_rate}%</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Payout Method</label>
-                  <p className="mt-1">
-                    <span className="text-sm px-2 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">
-                      {viewModal.consignor.payout_method === 'cost_price' && 'Cost Price Only'}
-                      {viewModal.consignor.payout_method === 'cost_plus_fixed' && `Cost + ${currencySymbol}${viewModal.consignor.fixed_markup || 0} Fixed`}
-                      {viewModal.consignor.payout_method === 'cost_plus_percentage' && `Cost + ${viewModal.consignor.markup_percentage || 0}% Markup`}
-                      {(viewModal.consignor.payout_method === 'percentage_split' || !viewModal.consignor.payout_method) && `${viewModal.consignor.commission_rate}% Commission Split`}
-                    </span>
+                  <DialogTitle className="text-xl">{viewModal.consignor.name}</DialogTitle>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {viewModal.consignor.email || viewModal.consignor.phone || 'No contact info'}
                   </p>
                 </div>
+              </div>
+            </DialogHeader>
+            <div className="space-y-5 mt-2">
+              {/* Quick Info Badges */}
+              <div className="flex flex-wrap gap-2">
+                {getStatusBadge(viewModal.consignor.status)}
+                <Badge variant="outline" className="text-xs">
+                  {viewModal.consignor.commission_rate}% commission
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {getPayoutMethodLabel(viewModal.consignor)}
+                </Badge>
+              </div>
+
+              {/* Contact Details */}
+              <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-muted/50">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Status</label>
-                  <div className="mt-1">{getStatusBadge(viewModal.consignor.status)}</div>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Email</p>
+                  <p className="text-sm font-medium mt-1">{viewModal.consignor.email || 'Not provided'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Phone</p>
+                  <p className="text-sm font-medium mt-1">{viewModal.consignor.phone || 'Not provided'}</p>
                 </div>
               </div>
 
               {/* Performance Stats */}
               <div className="grid grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Inventory</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Items:</span>
-                      <span className="font-medium">{viewModal.consignor.total_variants}</span>
+                <Card className="border-0 bg-muted/30">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <p className="text-sm font-semibold">Inventory</p>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Available:</span>
-                      <span className="font-medium">{viewModal.consignor.available_variants}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Products:</span>
-                      <span className="font-medium">{viewModal.consignor.total_products}</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Total Items</span>
+                        <span className="text-sm font-semibold">{viewModal.consignor.total_variants}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Available</span>
+                        <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{viewModal.consignor.available_variants}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Products</span>
+                        <span className="text-sm font-semibold">{viewModal.consignor.total_products}</span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Sales & Payouts</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Sales:</span>
-                      <span className="font-medium">{currencySymbol}{(viewModal.consignor.total_sales_amount || 0).toFixed(2)}</span>
+                <Card className="border-0 bg-muted/30">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      <p className="text-sm font-semibold">Sales & Payouts</p>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Earned:</span>
-                      <span className="font-medium">{currencySymbol}{(viewModal.consignor.total_earned || 0).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Pending Payout:</span>
-                      <span className="font-medium text-orange-600">{currencySymbol}{(viewModal.consignor.pending_payout || 0).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Paid Out:</span>
-                      <span className="font-medium text-green-600">{currencySymbol}{(viewModal.consignor.paid_out || 0).toFixed(2)}</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Total Sales</span>
+                        <span className="text-sm font-semibold">{currencySymbol}{(viewModal.consignor.total_sales_amount || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Total Earned</span>
+                        <span className="text-sm font-semibold">{currencySymbol}{(viewModal.consignor.total_earned || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Pending</span>
+                        <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">{currencySymbol}{(viewModal.consignor.pending_payout || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Paid Out</span>
+                        <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{currencySymbol}{(viewModal.consignor.paid_out || 0).toFixed(2)}</span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-2 pt-4 border-t">
+              <div className="flex flex-wrap gap-2 pt-4 border-t">
                 {(viewModal.consignor.pending_payout || 0) > 0 && (
                   <Button 
                     onClick={() => {
                       setPayoutModal({ open: true, consignor: viewModal.consignor })
                       setViewModal({ open: false })
                     }}
-                    className="bg-green-600 hover:bg-green-700"
+                    className="bg-emerald-600 hover:bg-emerald-700 transition-colors duration-200"
                   >
                     <DollarSign className="mr-2 h-4 w-4" />
                     Process Payout ({currencySymbol}{(viewModal.consignor.pending_payout || 0).toFixed(2)})
                   </Button>
                 )}
+                <Button 
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setItemsModal({ open: true, consignor: viewModal.consignor })
+                    setViewModal({ open: false })
+                  }}
+                  className="transition-colors duration-200"
+                >
+                  <Package className="mr-2 h-4 w-4" />
+                  View Items
+                </Button>
                 <Button 
                   variant="outline"
                   onClick={() => {
@@ -753,7 +935,6 @@ export default function ConsignorsPage() {
                         description: `Portal link has been copied to clipboard. Share this link with ${consignor.name} along with their password.`,
                       })
                     }).catch(() => {
-                      // Fallback for older browsers
                       const textArea = document.createElement('textarea')
                       textArea.value = portalUrl
                       document.body.appendChild(textArea)
@@ -767,9 +948,21 @@ export default function ConsignorsPage() {
                       })
                     })
                   }}
+                  className="transition-colors duration-200"
                 >
                   <Eye className="mr-2 h-4 w-4" />
                   Share Portal Link
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setEditModal({ open: true, consignor: viewModal.consignor })
+                    setViewModal({ open: false })
+                  }}
+                  className="transition-colors duration-200"
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
                 </Button>
               </div>
             </div>
@@ -791,9 +984,6 @@ export default function ConsignorsPage() {
         onOpenChange={(open) => setItemsModal({ open, consignor: open ? itemsModal.consignor : undefined })}
         consignor={itemsModal.consignor ? { id: itemsModal.consignor.id.toString(), name: itemsModal.consignor.name } : null}
       />
-          </div>
-        </div>
-      </div>
     </SidebarInset>
   )
 }

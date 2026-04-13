@@ -6,6 +6,68 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Custom scrollbar — thin, dark themed */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(0 0% 100% / 0.12);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(0 0% 100% / 0.22);
+}
+.custom-scrollbar::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.custom-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(0 0% 100% / 0.12) transparent;
+}
+
+/* Also apply thin scrollbar globally to dialogs / overlays */
+[role="dialog"] ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+[role="dialog"] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+[role="dialog"] ::-webkit-scrollbar-thumb {
+  background: hsl(0 0% 100% / 0.12);
+  border-radius: 9999px;
+}
+[role="dialog"] ::-webkit-scrollbar-thumb:hover {
+  background: hsl(0 0% 100% / 0.22);
+}
+[role="dialog"] ::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+[role="dialog"] ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Hide number input spinners globally */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
@@ -151,7 +213,7 @@ body {
 
 /* Black Spinner - Your Design */
 .loader {
-  border: 8px solid #000000;
+  border: 8px solid #10b981;
   animation:
     l20-1 0.8s infinite linear alternate,
     l20-2 1.6s infinite linear;

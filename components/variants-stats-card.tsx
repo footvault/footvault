@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/card";
 import { formatCurrency, getCurrencySymbol } from "@/lib/utils/currency"
 import { useCurrency } from "@/context/CurrencyContext"
+import { useCountUp } from "@/hooks/useCountUp"
+
 interface VariantsStatsCardProps {
   totalVariants: number;
   totalCostValue: number;
@@ -19,27 +21,29 @@ interface VariantsStatsCardProps {
 }
 
 export function VariantsStatsCard({ totalVariants, totalCostValue, totalSaleValue, profit, loading = false }: VariantsStatsCardProps) {
-  // Debug logging
-  console.log('VariantsStatsCard props:', { totalVariants, totalCostValue, totalSaleValue, loading });
-
-  const { currency } = useCurrency(); // Get the user's selected currency
+  const { currency } = useCurrency();
   const currencySymbol = getCurrencySymbol(currency);
 
   const potentialProfit = typeof profit === 'number' ? profit : totalSaleValue - totalCostValue;
+
+  const animatedVariants = useCountUp(totalVariants, 800, !loading);
+  const animatedCost = useCountUp(totalCostValue, 1000, !loading);
+  const animatedSale = useCountUp(totalSaleValue, 1000, !loading);
+  const animatedProfit = useCountUp(potentialProfit, 1000, !loading);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 ">
       <Card className="@container/card">
         <CardHeader>
           <CardDescription className="flex items-center gap-2">
-            <Boxes className="w-4 h-4 text-blue-600" />
+            <Boxes className="w-4 h-4 text-blue-400" />
             Total Variants
           </CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             {loading ? (
-              <div className="h-8 bg-gray-200 rounded animate-pulse w-16" />
+              <div className="h-8 bg-muted rounded animate-pulse w-16" />
             ) : (
-              totalVariants
+              animatedVariants
             )}
           </CardTitle>
         </CardHeader>
@@ -47,14 +51,14 @@ export function VariantsStatsCard({ totalVariants, totalCostValue, totalSaleValu
       <Card className="@container/card">
         <CardHeader>
           <CardDescription className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4 text-green-600" />
+            <DollarSign className="w-4 h-4 text-emerald-400" />
             Total Cost Value
           </CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
               {loading ? (
-              <div className="h-8 bg-gray-200 rounded animate-pulse w-20" />
+              <div className="h-8 bg-muted rounded animate-pulse w-20" />
             ) : (
-              formatCurrency(totalCostValue, currency)
+              formatCurrency(animatedCost, currency)
             )}
           </CardTitle>
         </CardHeader>
@@ -62,20 +66,20 @@ export function VariantsStatsCard({ totalVariants, totalCostValue, totalSaleValu
       <Card className="@container/card">
         <CardHeader>
           <CardDescription className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-purple-600" />
+            <TrendingUp className="w-4 h-4 text-purple-400" />
             Total Sale Value
           </CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             {loading ? (
-              <div className="h-8 bg-gray-200 rounded animate-pulse w-20" />
+              <div className="h-8 bg-muted rounded animate-pulse w-20" />
             ) : (
-              formatCurrency(totalSaleValue, currency)
+              formatCurrency(animatedSale, currency)
             )}
           </CardTitle>
         </CardHeader>
         <CardFooter className="pt-0">
           <div className="text-xs text-muted-foreground">
-            Profit: {formatCurrency(potentialProfit, currency)}
+            Profit: {formatCurrency(animatedProfit, currency)}
           </div>
         </CardFooter>
       </Card>

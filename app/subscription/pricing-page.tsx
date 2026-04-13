@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Check, HelpCircle } from "lucide-react"
+import { Check, HelpCircle, Sparkles, Shield, Zap, Crown } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -15,7 +15,13 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { pricingTiers } from "@/lib/pricing-tiers"
 import { cn } from "@/lib/utils"
-import PHPricingPage from "@/components/ph-pricing-page"
+
+const tierIcons: Record<string, any> = {
+  free: Shield,
+  individual: Zap,
+  team: Crown,
+  store: Sparkles,
+}
 
 export default function PricingPage() {
   const [isYearly, setIsYearly] = useState(false)
@@ -23,50 +29,13 @@ export default function PricingPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [pendingCancelPlan, setPendingCancelPlan] = useState<string | null>(null)
-  const [isPhilippines, setIsPhilippines] = useState(false)
-  const [isLocationLoading, setIsLocationLoading] = useState(true)
 
   useEffect(() => {
-    const fetchUserPlan = async () => {
-      try {
-        const res = await fetch('/api/user-plan')
-        const data = await res.json()
-
-        if (data.success) {
-          setUserActivePlan(data.plan.toLowerCase())
-        } else {
-          setUserActivePlan(null)
-        }
-      } catch (error) {
-        console.error('Failed to fetch user plan:', error)
-        setUserActivePlan(null)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    const detectLocation = async () => {
-      try {
-        const response = await fetch('https://ipapi.co/json/')
-        const data = await response.json()
-        
-        if (data.country_code === 'PH') {
-          setIsPhilippines(true)
-        }
-      } catch (error) {
-        console.log('Failed to detect location:', error)
-        // Fallback: try to detect from timezone
-        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
-        if (timezone.includes('Manila') || timezone.includes('Asia/Manila')) {
-          setIsPhilippines(true)
-        }
-      } finally {
-        setIsLocationLoading(false)
-      }
-    }
-
-    fetchUserPlan()
-    detectLocation()
+    fetch('/api/user-plan')
+      .then(r => r.json())
+      .then(data => setUserActivePlan(data.success ? data.plan.toLowerCase() : null))
+      .catch(() => setUserActivePlan(null))
+      .finally(() => setIsLoading(false))
   }, [])
 
   const handleSubscribe = async (planType: string) => {
@@ -117,166 +86,130 @@ export default function PricingPage() {
     const isFree = tier.planType === 'free'
 
     if (isFree) {
-      return {
-        text: tier.buttonText,
-        disabled: true,
-        onClick: () => {},
-        variant: 'default'
-      }
+      return { text: tier.buttonText, disabled: true, onClick: () => {}, variant: 'default' }
     }
-
     if (isActivePlan) {
-      return {
-        text: 'Cancel Subscription',
-        disabled: false,
-        onClick: () => handleCancelSubscription(tier.planType),
-        variant: 'destructive'
-      }
+      return { text: 'Cancel Subscription', disabled: false, onClick: () => handleCancelSubscription(tier.planType), variant: 'destructive' }
     }
-
-    return {
-      text: tier.buttonText,
-      disabled: false,
-      onClick: () => handleSubscribe(tier.planType),
-      variant: 'default'
-    }
-  }
-
-  // Show loading while detecting location
-  if (isLocationLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Show Philippines pricing page if user is from Philippines
-  if (isPhilippines) {
-    return <PHPricingPage />
+    return { text: tier.buttonText, disabled: false, onClick: () => handleSubscribe(tier.planType), variant: 'default' }
   }
 
   return (
     <TooltipProvider>
       {/* Cancel Subscription Modal */}
       <Dialog open={showCancelModal} onOpenChange={setShowCancelModal}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader className="space-y-3">
-            <DialogTitle className="text-xl font-semibold">Cancel Subscription</DialogTitle>
-            <DialogDescription className="text-base">
-              Are you sure you want to cancel your subscription?
-            </DialogDescription>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader className="space-y-2">
+            <DialogTitle className="text-lg font-semibold">Cancel Subscription</DialogTitle>
+            <DialogDescription>Are you sure you want to cancel?</DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-800">
-                <strong>Warning:</strong> If you cancel your subscription, you will:
-              </p>
-              <ul className="mt-2 text-sm text-red-700 space-y-1">
+          <div className="py-3">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm">
+              <p className="text-red-800 font-medium">You will:</p>
+              <ul className="mt-1.5 text-red-700 space-y-0.5 text-xs">
                 <li>• Lose access to all premium features</li>
                 <li>• Be downgraded to the Free plan</li>
                 <li>• Have variant limits reduced immediately</li>
               </ul>
-              <p className="mt-2 text-sm text-red-800 font-medium">
-                This action cannot be undone.
-              </p>
             </div>
           </div>
-          <DialogFooter className="space-x-2">
-            <Button variant="outline" onClick={() => setShowCancelModal(false)}>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowCancelModal(false)}>
               Keep Subscription
             </Button>
-            <Button variant="destructive" onClick={confirmCancelSubscription}>
+            <Button variant="destructive" size="sm" onClick={confirmCancelSubscription}>
               Cancel Subscription
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <section id="pricing" className="w-full min-h-screen bg-background">
-        <div className="container px-4 md:px-6 max-w-6xl mx-auto py-20">
+      <section id="pricing" className="w-full">
+        <div className="max-w-5xl mx-auto px-4 py-10">
+
           {/* Header */}
-          <div className="text-center space-y-6 mb-20">
-            <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
-              Simple pricing
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Start for free. Scale as you grow. Cancel anytime.
+          <div className="text-center mb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium mb-4">
+              <Sparkles className="w-3.5 h-3.5" />
+              Simple, transparent pricing
+            </div>
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">
+              Find the plan that fits{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-green-500">
+                your scale
+              </span>
+            </h2>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              Start free. Upgrade when you&apos;re ready. Cancel anytime.
             </p>
           </div>
 
-          {/* Yearly/Monthly Toggle */}
-          <div className="flex items-center justify-center space-x-6 mb-16">
-            <span className={cn("text-lg font-medium transition-all duration-200", !isYearly ? "text-foreground" : "text-muted-foreground")}>
+          {/* Toggle */}
+          <div className="flex items-center justify-center gap-3 mb-10 animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100">
+            <span className={cn("text-xs font-semibold", !isYearly ? "text-emerald-500" : "text-muted-foreground")}>
               Monthly
             </span>
-            <div className="relative">
-              <Switch
-                id="pricing-toggle"
-                checked={isYearly}
-                onCheckedChange={setIsYearly}
-              />
-            </div>
-            <span className={cn("text-lg font-medium transition-all duration-200", isYearly ? "text-foreground" : "text-muted-foreground")}>
+            <Switch
+              id="pricing-toggle"
+              checked={isYearly}
+              onCheckedChange={setIsYearly}
+              className="data-[state=checked]:bg-emerald-600 scale-90"
+            />
+            <span className={cn("text-xs font-semibold", isYearly ? "text-emerald-500" : "text-muted-foreground")}>
               Yearly
             </span>
-            {isYearly && (
-              <Badge variant="secondary" className="ml-4">
-                Save 25%
+            <div className={cn(
+              "transition-all duration-300 overflow-hidden",
+              isYearly ? "opacity-100 max-w-[100px]" : "opacity-0 max-w-0"
+            )}>
+              <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/15 whitespace-nowrap text-[10px] px-2 py-0.5">
+                Save ~17%
               </Badge>
-            )}
+            </div>
           </div>
 
-          {/* Loading State */}
+          {/* Pricing Cards */}
           {isLoading ? (
-            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[1, 2, 3, 4].map((i) => (
-                <Card key={i} className="animate-pulse">
-                  <CardHeader className="space-y-4">
-                    <div className="h-6 bg-muted rounded w-3/4"></div>
-                    <div className="h-4 bg-muted rounded w-full"></div>
-                    <div className="h-8 bg-muted rounded w-1/2"></div>
+                <Card key={i} className="animate-pulse rounded-2xl">
+                  <CardHeader className="space-y-3 pb-4">
+                    <div className="h-9 w-9 bg-muted rounded-lg" />
+                    <div className="h-4 bg-muted rounded w-1/3" />
+                    <div className="h-3 bg-muted rounded w-2/3" />
+                    <div className="h-8 bg-muted rounded w-1/4" />
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {[1, 2, 3, 4].map((j) => (
-                        <div key={j} className="h-4 bg-muted rounded w-full"></div>
-                      ))}
-                    </div>
-                  </CardContent>
-                  <CardFooter>
-                    <div className="h-10 bg-muted rounded w-full"></div>
-                  </CardFooter>
+                  <CardContent><div className="space-y-2">{[1,2,3].map(j=><div key={j} className="h-3 bg-muted rounded"/>)}</div></CardContent>
+                  <CardFooter><div className="h-10 bg-muted rounded-lg w-full"/></CardFooter>
                 </Card>
               ))}
             </div>
           ) : (
-            /* Pricing Cards */
-            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
-              {pricingTiers.map((tier) => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {pricingTiers.map((tier, idx) => {
                 const buttonConfig = getButtonConfig(tier)
                 const isActivePlan = userActivePlan === tier.planType
                 const isPopular = tier.planType === 'team'
                 const isFree = tier.planType === 'free'
+                const TierIcon = tierIcons[tier.planType] || Shield
 
                 return (
-                  <div key={tier.name} className="relative">
-                    {/* Popular Badge */}
+                  <div
+                    key={tier.name}
+                    className="relative animate-in fade-in slide-in-from-bottom-4 duration-500"
+                    style={{ animationDelay: `${150 + idx * 75}ms`, animationFillMode: "backwards" }}
+                  >
+                    {/* Badges */}
                     {isPopular && !isActivePlan && (
-                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-10">
-                        <Badge className="px-3 py-1.5 text-xs font-medium">
+                      <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-10">
+                        <Badge className="bg-gradient-to-r from-emerald-600 to-green-500 text-white border-0 shadow-md shadow-emerald-900/30 px-3 py-0.5 text-[10px] font-semibold">
                           Most Popular
                         </Badge>
                       </div>
                     )}
-
-                    {/* Active Plan Badge */}
                     {isActivePlan && (
-                      <div className="absolute -top-4 right-4 z-10">
-                        <Badge variant="secondary" className="px-3 py-1.5 text-xs font-medium">
+                      <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-10">
+                        <Badge className="bg-emerald-600 text-white border-0 shadow-md shadow-emerald-900/30 px-3 py-0.5 text-[10px] font-semibold">
                           Current Plan
                         </Badge>
                       </div>
@@ -284,56 +217,61 @@ export default function PricingPage() {
 
                     <Card
                       className={cn(
-                        "relative h-full transition-all duration-300 hover:shadow-lg",
-                        isActivePlan && "ring-2 ring-primary shadow-lg",
-                        isPopular && !isActivePlan && "ring-2 ring-primary shadow-lg scale-105"
+                        "relative h-full rounded-2xl border transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 group overflow-hidden",
+                        (isActivePlan || isPopular) && "ring-2 ring-emerald-500/70 shadow-lg shadow-emerald-500/10",
+                        !isActivePlan && !isPopular && "border-border/50 hover:border-emerald-500/40"
                       )}
                     >
-                      {/* Card Header */}
-                      <CardHeader className="text-center pb-6">
-                        <CardTitle className="text-2xl font-bold">{tier.name}</CardTitle>
-                        <CardDescription className="text-muted-foreground text-base">
-                          {tier.subtitle}
-                        </CardDescription>
-                        
-                        {/* Pricing */}
-                        <div className="pt-4">
-                          <div className="flex items-baseline justify-center space-x-1">
-                            <span className="text-5xl font-bold tracking-tight">
+                      {(isPopular || isActivePlan) && (
+                        <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/10 to-transparent pointer-events-none" />
+                      )}
+
+                      <CardHeader className="relative pb-3 pt-6">
+                        <div className={cn(
+                          "w-9 h-9 rounded-lg flex items-center justify-center mb-2 transition-transform duration-200 group-hover:scale-110",
+                          (isPopular || isActivePlan) ? "bg-emerald-500/15" : "bg-muted"
+                        )}>
+                          <TierIcon className={cn("w-4 h-4", (isPopular || isActivePlan) ? "text-emerald-400" : "text-muted-foreground")} />
+                        </div>
+                        <CardTitle className="text-lg font-bold">{tier.name}</CardTitle>
+                        <CardDescription className="text-xs">{tier.subtitle}</CardDescription>
+                        <div className="pt-2">
+                          <div className="flex items-baseline gap-0.5">
+                            <span className="text-3xl font-extrabold tracking-tight">
                               ${isYearly ? tier.yearlyPrice : tier.monthlyPrice}
                             </span>
-                            <span className="text-xl text-muted-foreground font-medium">
-                              /{isYearly ? "year" : "month"}
+                            <span className="text-xs text-muted-foreground font-medium">
+                              /{isYearly ? "yr" : "mo"}
                             </span>
                           </div>
                           {isYearly && tier.monthlyPrice > 0 && (
-                            <div className="mt-2">
-                              <Badge variant="outline" className="text-xs">
-                                Save ${(tier.monthlyPrice * 12) - tier.yearlyPrice}/year
-                              </Badge>
-                            </div>
+                            <p className="text-[11px] text-emerald-400 font-medium mt-0.5">
+                              Save ${(tier.monthlyPrice * 12) - tier.yearlyPrice}/yr
+                            </p>
                           )}
                         </div>
                       </CardHeader>
 
-                      {/* Features List */}
-                      <CardContent className="flex-grow pt-0">
-                        <ul className="space-y-4">
-                          {tier.features.slice(0, 4).map((feature, index) => (
-                            <li key={index} className="flex items-start gap-3">
-                              <div className="flex-shrink-0 mt-0.5">
-                                <Check className="w-5 h-5 text-primary" />
+                      <div className="mx-5 border-t border-border/30" />
+
+                      <CardContent className="relative pt-4 pb-2 flex-grow">
+                        <ul className="space-y-2">
+                          {tier.features.map((feature, index) => (
+                            <li key={index} className="flex items-start gap-2">
+                              <div className={cn(
+                                "flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center mt-0.5",
+                                (isPopular || isActivePlan) ? "bg-emerald-500/15" : "bg-muted"
+                              )}>
+                                <Check className={cn("w-2.5 h-2.5", (isPopular || isActivePlan) ? "text-emerald-400" : "text-muted-foreground")} />
                               </div>
                               <div className="flex items-start gap-1 min-w-0">
-                                <span className="text-sm leading-6 text-muted-foreground">
-                                  {feature.label}
-                                </span>
+                                <span className="text-xs leading-5 text-foreground/75">{feature.label}</span>
                                 {feature.tooltip && (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help flex-shrink-0 mt-0.5" />
+                                      <HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help flex-shrink-0 mt-0.5" />
                                     </TooltipTrigger>
-                                    <TooltipContent side="top" className="max-w-[280px] text-sm">
+                                    <TooltipContent side="top" className="max-w-[220px] text-xs">
                                       {feature.tooltip}
                                     </TooltipContent>
                                   </Tooltip>
@@ -341,28 +279,22 @@ export default function PricingPage() {
                               </div>
                             </li>
                           ))}
-                          {tier.features.length > 4 && (
-                            <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <span>+{tier.features.length - 4} more features</span>
-                            </li>
-                          )}
                         </ul>
                       </CardContent>
 
-                      {/* Action Button */}
-                      <CardFooter className="pt-6">
+                      <CardFooter className="relative pt-3 pb-5 px-5">
                         <Button
                           className={cn(
-                            "w-full h-12 text-base font-semibold transition-all duration-200",
-                            buttonConfig.variant === 'destructive' 
-                              ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                              : isPopular && !isActivePlan
-                              ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+                            "w-full h-9 rounded-lg text-xs font-semibold transition-all duration-200",
+                            buttonConfig.variant === 'destructive'
+                              ? "bg-red-600 hover:bg-red-700 text-white"
+                              : (isPopular && !isActivePlan)
+                              ? "bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-700 hover:to-green-600 text-white shadow-md shadow-emerald-900/30"
                               : isActivePlan
-                              ? "bg-secondary hover:bg-secondary/80 text-secondary-foreground"
+                              ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20"
                               : isFree
                               ? "bg-muted text-muted-foreground cursor-not-allowed"
-                              : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                              : "bg-emerald-600 hover:bg-emerald-700 text-white"
                           )}
                           onClick={buttonConfig.onClick}
                           disabled={buttonConfig.disabled}
@@ -378,43 +310,21 @@ export default function PricingPage() {
             </div>
           )}
 
-          {/* FAQ Section */}
-          <div className="mt-24">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold tracking-tight mb-4">Frequently Asked Questions</h2>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Everything you need to know about FootVault
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-3">What counts towards my variant limit?</h3>
-                <p className="text-muted-foreground">
-                  Only shoes with "Available" status count towards your limit. Once you sell a shoe, it no longer affects your quota.
-                </p>
-              </Card>
-              
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-3">Can I change plans anytime?</h3>
-                <p className="text-muted-foreground">
-                  Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately.
-                </p>
-              </Card>
-              
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-3">What happens if I exceed my variant limit?</h3>
-                <p className="text-muted-foreground">
-                  You'll receive warnings when approaching your limit. Simply upgrade your plan to continue adding inventory.
-                </p>
-              </Card>
-              
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-3">Is my data secure?</h3>
-                <p className="text-muted-foreground">
-                  Yes. We use enterprise-grade security and never share your data with third parties.
-                </p>
-              </Card>
+          {/* FAQ */}
+          <div className="mt-16 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: "500ms", animationFillMode: "backwards" }}>
+            <h3 className="text-lg font-bold text-center mb-6">FAQ</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-3xl mx-auto">
+              {[
+                { q: "What counts towards my variant limit?", a: "Only shoes with \"Available\" status. Sold shoes don't count." },
+                { q: "Can I change plans anytime?", a: "Yes — upgrade or downgrade instantly. Changes take effect immediately." },
+                { q: "What if I exceed my limit?", a: "You'll get a warning. Upgrade your plan to keep adding inventory." },
+                { q: "Is my data secure?", a: "Enterprise-grade security. We never share your data with third parties." }
+              ].map((item, i) => (
+                <Card key={i} className="p-4 rounded-xl border-border/50 hover:border-emerald-500/40 transition-colors duration-200">
+                  <h4 className="text-sm font-semibold mb-1">{item.q}</h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{item.a}</p>
+                </Card>
+              ))}
             </div>
           </div>
         </div>

@@ -122,13 +122,13 @@ export function ConsignorItemsModal({ open, onOpenChange, consignor }: Consignor
   const getStatusBadge = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'available':
-        return <Badge className="bg-green-100 text-green-800 border-green-200">Available</Badge>
+        return <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">Available</Badge>
       case 'sold':
-        return <Badge className="bg-blue-100 text-blue-800 border-blue-200">Sold</Badge>
+        return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800">Sold</Badge>
       case 'damaged':
-        return <Badge variant="destructive">Damaged</Badge>
+        return <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800">Damaged</Badge>
       case 'returned':
-        return <Badge variant="secondary">Returned</Badge>
+        return <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700">Returned</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -147,8 +147,10 @@ export function ConsignorItemsModal({ open, onOpenChange, consignor }: Consignor
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            {consignor?.name}'s Inventory
+            <div className="h-8 w-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+              <Package className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            </div>
+            {consignor?.name}&apos;s Inventory
           </DialogTitle>
         </DialogHeader>
 
@@ -179,39 +181,32 @@ export function ConsignorItemsModal({ open, onOpenChange, consignor }: Consignor
           ) : (
             <div className="space-y-4">
               {/* Summary Stats */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Inventory Summary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Total Items</p>
-                      <p className="text-xl font-semibold">{filteredItems.length}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Available</p>
-                      <p className="text-xl font-semibold text-green-600">
-                        {filteredItems.filter(item => item.status?.toLowerCase() === 'available').length}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Total Value</p>
-                      <p className="text-xl font-semibold">
-                        {currencySymbol}{formatNumber(filteredItems.reduce((sum, item) => sum + (getProduct(item)?.sale_price || 0), 0))}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Available Value</p>
-                      <p className="text-xl font-semibold text-green-600">
-                        {currencySymbol}{formatNumber(filteredItems
-                          .filter(item => item.status?.toLowerCase() === 'available')
-                          .reduce((sum, item) => sum + (getProduct(item)?.sale_price || 0), 0))}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-4 rounded-xl bg-muted/50 transition-all hover:bg-muted/70">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Items</p>
+                  <p className="text-xl font-bold mt-1">{filteredItems.length}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-muted/50 transition-all hover:bg-muted/70">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Available</p>
+                  <p className="text-xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">
+                    {filteredItems.filter(item => item.status?.toLowerCase() === 'available').length}
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl bg-muted/50 transition-all hover:bg-muted/70">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Value</p>
+                  <p className="text-xl font-bold mt-1">
+                    {currencySymbol}{formatNumber(filteredItems.reduce((sum, item) => sum + (getProduct(item)?.sale_price || 0), 0))}
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl bg-muted/50 transition-all hover:bg-muted/70">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Available Value</p>
+                  <p className="text-xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">
+                    {currencySymbol}{formatNumber(filteredItems
+                      .filter(item => item.status?.toLowerCase() === 'available')
+                      .reduce((sum, item) => sum + (getProduct(item)?.sale_price || 0), 0))}
+                  </p>
+                </div>
+              </div>
 
               {/* Items Table */}
               <Card>
@@ -239,16 +234,16 @@ export function ConsignorItemsModal({ open, onOpenChange, consignor }: Consignor
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow className="border-b">
-                          <TableHead className="w-[80px]">Image</TableHead>
-                          <TableHead>Product</TableHead>
-                          <TableHead>SKU</TableHead>
-                          <TableHead>Size</TableHead>
-                          <TableHead>Category</TableHead>
-                          <TableHead>Price</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Location</TableHead>
-                          <TableHead>Added</TableHead>
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
+                          <TableHead className="w-[80px] font-semibold">Image</TableHead>
+                          <TableHead className="font-semibold">Product</TableHead>
+                          <TableHead className="font-semibold">SKU</TableHead>
+                          <TableHead className="font-semibold">Size</TableHead>
+                          <TableHead className="font-semibold">Category</TableHead>
+                          <TableHead className="font-semibold">Price</TableHead>
+                          <TableHead className="font-semibold">Status</TableHead>
+                          <TableHead className="font-semibold">Location</TableHead>
+                          <TableHead className="font-semibold">Added</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -265,7 +260,7 @@ export function ConsignorItemsModal({ open, onOpenChange, consignor }: Consignor
                           </TableRow>
                         ) : (
                           filteredItems.map((item) => (
-                          <TableRow key={item.id} className="border-b">
+                          <TableRow key={item.id} className="transition-colors duration-150 hover:bg-muted/30">
                             <TableCell>
                               <div className="w-20 h-20 bg-muted rounded-lg overflow-hidden flex items-center justify-center">
                                 {getProduct(item)?.image ? (

@@ -1577,7 +1577,7 @@ export function CheckoutClientWrapper({
                   className="pl-10"
                   disabled={isLoadingVariants}
                 />
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               </div>
 
               {/* Filter Controls */}
@@ -1708,22 +1708,22 @@ export function CheckoutClientWrapper({
               </div>
 
               {/* Results count */}
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-muted-foreground">
                 Showing {paginatedVariants.length} of {actualTotalCount} available shoes
               </div>
 
               {isFetchingVariants ? (
                 <div className="text-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-4" />
-                  <p className="text-gray-600">Loading available shoes...</p>
+                  <p className="text-muted-foreground">Loading available shoes...</p>
                 </div>
               ) : paginatedVariants.length === 0 && searchTerm ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   <X className="h-12 w-12 mx-auto mb-4" />
                   <p>No matching available shoes found.</p>
                 </div>
               ) : paginatedVariants.length === 0 && !searchTerm ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
                   <p>All available shoes are in the cart or inventory is empty.</p>
                 </div>
@@ -1742,56 +1742,56 @@ export function CheckoutClientWrapper({
                               className="rounded-md object-cover mx-auto mb-2"
                             />
                             {variant.isPreorder ? (
-                              <div className="absolute top-1 right-1 bg-yellow-400 text-yellow-900 text-xs px-2 py-1 rounded-md shadow-sm font-medium">
+                              <div className="absolute top-1 right-1 bg-yellow-500/20 text-yellow-300 text-xs px-2 py-1 rounded-md shadow-none font-medium">
                                 PRE-ORDER
                               </div>
                             ) : variant.ownerType === 'consignor' && (
-                              <div className="absolute top-1 right-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs px-2 py-1 rounded-md shadow-sm">
+                              <div className="absolute top-1 right-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs px-2 py-1 rounded-md shadow-none">
                                 Consigned
                               </div>
                             )}
                           </div>
                           <h3 className="font-semibold text-sm line-clamp-2">{variant.productName}</h3>
-                          <p className="text-xs text-gray-600">{variant.productBrand}</p>
-                          <p className="text-xs font-mono text-gray-500">SKU: {variant.productSku}</p>
+                          <p className="text-xs text-muted-foreground">{variant.productBrand}</p>
+                          <p className="text-xs font-mono text-muted-foreground">SKU: {variant.productSku}</p>
                           {variant.isPreorder && variant.preorderData ? (
                             <>
-                              <p className="text-xs font-mono text-yellow-700">Pre Order: #{variant.preorderData.pre_order_no}</p>
-                              <p className="text-xs text-blue-600">Customer: {variant.preorderData.customer.name}</p>
+                              <p className="text-xs font-mono text-yellow-400">Pre Order: #{variant.preorderData.pre_order_no}</p>
+                              <p className="text-xs text-blue-400">Customer: {variant.preorderData.customer.name}</p>
                               
                               {/* Cost and Pricing Information */}
-                              <div className="mt-2 p-2 bg-gray-50 rounded-md border">
+                              <div className="mt-2 p-2 bg-muted/50 rounded-md border">
                                 <div className="grid grid-cols-2 gap-1 text-xs">
                                   <div className="flex justify-between">
-                                    <span className="text-gray-600">Cost:</span>
+                                    <span className="text-muted-foreground">Cost:</span>
                                     <span className="font-medium">{formatCurrency(variant.preorderData.cost_price, currency)}</span>
                                   </div>
                                   <div className="flex justify-between">
-                                    <span className="text-gray-600">Total:</span>
+                                    <span className="text-muted-foreground">Total:</span>
                                     <span className="font-medium">{formatCurrency(variant.preorderData.total_amount, currency)}</span>
                                   </div>
                                   <div className="flex justify-between">
-                                    <span className="text-gray-600">Paid:</span>
-                                    <span className="font-medium text-green-600">
+                                    <span className="text-muted-foreground">Paid:</span>
+                                    <span className="font-medium text-emerald-400">
                                       {formatCurrency(variant.preorderData.down_payment || 0, currency)}
                                     </span>
                                   </div>
                                   <div className="flex justify-between">
-                                    <span className="text-gray-600">Balance:</span>
-                                    <span className="font-medium text-orange-600">
+                                    <span className="text-muted-foreground">Balance:</span>
+                                    <span className="font-medium text-orange-400">
                                       {formatCurrency(variant.preorderData.remaining_balance, currency)}
                                     </span>
                                   </div>
                                 </div>
                                 
                                 {/* Profit Calculation */}
-                                <div className="mt-2 pt-2 border-t border-gray-200">
+                                <div className="mt-2 pt-2 border-t border-border">
                                   <div className="flex justify-between text-xs">
-                                    <span className="text-gray-600">Profit:</span>
+                                    <span className="text-muted-foreground">Profit:</span>
                                     <span className={`font-bold ${
                                       (variant.preorderData.total_amount - variant.preorderData.cost_price) >= 0 
-                                        ? 'text-green-600' 
-                                        : 'text-red-600'
+                                        ? 'text-emerald-400' 
+                                        : 'text-red-400'
                                     }`}>
                                       {formatCurrency(variant.preorderData.total_amount - variant.preorderData.cost_price, currency)}
                                     </span>
@@ -1800,22 +1800,22 @@ export function CheckoutClientWrapper({
                               </div>
                             </>
                           ) : (
-                            <p className="text-xs font-mono text-gray-500">Serial: {variant.serialNumber}</p>
+                            <p className="text-xs font-mono text-muted-foreground">Serial: {variant.serialNumber}</p>
                           )}
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-muted-foreground">
                             Size: {variant.size} ({variant.sizeLabel})
                           </p>
                           {!variant.isPreorder && (
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-muted-foreground">
                               Location: {variant.location || 'Not specified'}
                             </p>
                           )}
                           {variant.ownerType === 'consignor' && variant.consignorName && !variant.isPreorder && (
-                            <p className="text-xs text-blue-600 font-medium mt-1">
+                            <p className="text-xs text-blue-400 font-medium mt-1">
                               Owner: {variant.consignorName}
                             </p>
                           )}
-                          <p className="text-sm font-bold text-green-600 mt-2">{formatCurrency(variant.productSalePrice, currency)}</p>
+                          <p className="text-sm font-bold text-emerald-400 mt-2">{formatCurrency(variant.productSalePrice, currency)}</p>
                         </CardContent>
                         <div className="p-3 border-t">
                           <Button
@@ -1879,21 +1879,21 @@ export function CheckoutClientWrapper({
               <CardContent className="space-y-4">
                 {/* Show pre-order customer info if pre-orders are in cart */}
                 {selectedPreorders.length > 0 && (
-                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <h4 className="font-medium text-blue-800 mb-2">Pre-order Customer(s):</h4>
+                  <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                    <h4 className="font-medium text-blue-300 mb-2">Pre-order Customer(s):</h4>
                     <div className="space-y-2">
                       {selectedPreorders.map(preorder => (
                         <div key={preorder.id} className="text-sm">
                           <span className="font-medium">{preorder.customer.name}</span>
                           {preorder.customer.phone && (
-                            <span className="text-gray-600 ml-2">• {preorder.customer.phone}</span>
+                            <span className="text-muted-foreground ml-2">• {preorder.customer.phone}</span>
                           )}
-                          <span className="text-blue-600 ml-2">• Pre-order #{preorder.pre_order_no}</span>
+                          <span className="text-blue-400 ml-2">• Pre-order #{preorder.pre_order_no}</span>
                         </div>
                       ))}
                     </div>
                     {selectedVariants.length > 0 && (
-                      <p className="text-xs text-blue-600 mt-2">
+                      <p className="text-xs text-blue-400 mt-2">
                         Additional customer info needed for regular items below ↓
                       </p>
                     )}
@@ -1931,7 +1931,7 @@ export function CheckoutClientWrapper({
 
                 {/* When only pre-orders are in cart */}
                 {selectedPreorders.length > 0 && selectedVariants.length === 0 && (
-                  <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                  <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
                     <span className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-green-500" />
                       Customer information is already available from pre-order(s).
@@ -1982,26 +1982,26 @@ export function CheckoutClientWrapper({
 
                 {/* Pre-order Down Payment Summary */}
                 {selectedPreorders.length > 0 && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
-                    <div className="text-sm font-medium text-blue-900">Pre-order Down Payments</div>
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 space-y-2">
+                    <div className="text-sm font-medium text-blue-300">Pre-order Down Payments</div>
                     {selectedPreorders.map((preorder) => (
                       <div key={preorder.id} className="flex justify-between items-start text-xs">
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-gray-700 font-medium">
+                          <span className="text-foreground/80 font-medium">
                             Pre-order #{preorder.pre_order_no}
                           </span>
                           {preorder.down_payment_method && (
-                            <span className="text-blue-600 text-xs">
+                            <span className="text-blue-400 text-xs">
                               via {preorder.down_payment_method}
                             </span>
                           )}
                         </div>
-                        <span className="text-green-600 font-medium">
+                        <span className="text-emerald-400 font-medium">
                           {formatCurrency(preorder.down_payment || 0, currency)}
                         </span>
                       </div>
                     ))}
-                    <div className="flex justify-between text-sm font-semibold text-blue-900 border-t border-blue-300 pt-2">
+                    <div className="flex justify-between text-sm font-semibold text-blue-300 border-t border-blue-500/30 pt-2">
                       <span>Total Down Payments</span>
                       <span>
                         {formatCurrency(totalDownPayments, currency)}
@@ -2018,9 +2018,9 @@ export function CheckoutClientWrapper({
                       type="text"
                       value={formatCurrency(remainingBalance, currency)}
                       disabled
-                      className="mt-1 bg-gray-100 font-semibold text-lg"
+                      className="mt-1 bg-muted font-semibold text-lg"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {formatCurrency(remainingBalanceBase, currency)} + {formatCurrency(paymentFee, currency)} {selectedPayment.name} fee
                     </p>
                   </div>
@@ -2029,7 +2029,7 @@ export function CheckoutClientWrapper({
                 {/* Payment Type Dropdown */}
                 <div className="mb-2">
                   <Label className="block text-sm font-medium mb-1">
-                    Payment Type {selectedPreorders.length > 0 && <span className="text-gray-500 font-normal">(for remaining balance)</span>}
+                    Payment Type {selectedPreorders.length > 0 && <span className="text-muted-foreground font-normal">(for remaining balance)</span>}
                   </Label>
                   <div className="flex gap-2">
                     <Select value={selectedPaymentType} onValueChange={value => setSelectedPaymentType(value)}>
@@ -2042,15 +2042,15 @@ export function CheckoutClientWrapper({
                             <div className="flex items-center gap-2">
                               <span>{pt.name}</span>
                               {pt.name === 'Cash' && (
-                                <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">Default</span>
+                                <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Default</span>
                               )}
                               {pt.feeType !== "none" && pt.feeValue > 0 && (
-                                <span className="text-xs text-gray-500">{pt.feeType === "percent" ? `${pt.feeValue}%` : `${currency}${pt.feeValue}`}</span>
+                                <span className="text-xs text-muted-foreground">{pt.feeType === "percent" ? `${pt.feeValue}%` : `${currency}${pt.feeValue}`}</span>
                               )}
                             </div>
                           </SelectItem>
                         ))}
-                        <SelectItem value="__add_new__" className="text-blue-600">+ Add new...</SelectItem>
+                        <SelectItem value="__add_new__" className="text-blue-400">+ Add new...</SelectItem>
                       </SelectContent>
                     </Select>
                     {selectedPaymentType && selectedPaymentType !== "__add_new__" && paymentTypes.length > 0 && (
@@ -2196,7 +2196,7 @@ export function CheckoutClientWrapper({
                     />
                   </div>
                   {calculatedDiscount > 0 && (
-                    <div className="text-xs text-gray-600 mt-1 space-y-1">
+                    <div className="text-xs text-muted-foreground mt-1 space-y-1">
                       <p>Applied: -{formatCurrency(calculatedDiscount, currency)} (
                       {discountType === "percentage" ? `${discountValue}%` : formatCurrency(discountValue, currency)})</p>
                       <p className="italic">Reduces both sales revenue and profit</p>
@@ -2226,7 +2226,7 @@ export function CheckoutClientWrapper({
                     className="mt-1"
                   />
                   {additionalCharge > 0 && (
-                    <div className="text-xs text-gray-600 mt-1">
+                    <div className="text-xs text-muted-foreground mt-1">
                       <p>Additional charge of {formatCurrency(additionalCharge, currency)} added to total</p>
                     </div>
                   )}
@@ -2262,30 +2262,30 @@ export function CheckoutClientWrapper({
                     placeholder={totalAmount.toFixed(2)}
                     step="0.01"
                     min="0"
-                    className={`mt-1 ${paymentReceived > 0 && paymentReceived < totalAmount ? 'border-red-300 bg-red-50' : ''}`}
+                    className={`mt-1 ${paymentReceived > 0 && paymentReceived < totalAmount ? 'border-red-500/30 bg-red-500/10' : ''}`}
                   />
                   {paymentReceived > 0 && (
-                    <div className="text-xs text-gray-600 mt-1">
+                    <div className="text-xs text-muted-foreground mt-1">
                       <p>Payment received: {formatCurrency(paymentReceived, currency)}</p>
                       {paymentReceived < totalAmount && (
-                        <p className="text-red-600 font-medium">⚠️ Short by {formatCurrency(totalAmount - paymentReceived, currency)}</p>
+                        <p className="text-red-400 font-medium">⚠️ Short by {formatCurrency(totalAmount - paymentReceived, currency)}</p>
                       )}
                       {changeAmount > 0 && (
-                        <p className="text-green-600">Change to give: {formatCurrency(changeAmount, currency)}</p>
+                        <p className="text-emerald-400">Change to give: {formatCurrency(changeAmount, currency)}</p>
                       )}
                     </div>
                   )}
                 </div>
 
                 {calculatedDiscount > 0 && (
-                  <div className="flex justify-between text-sm text-red-600 font-medium">
+                  <div className="flex justify-between text-sm text-red-400 font-medium">
                     <span>Discount Applied</span>
                     <span>-{formatCurrency(calculatedDiscount, currency)}</span>
                   </div>
                 )}
 
                 {additionalCharge > 0 && (
-                  <div className="flex justify-between text-sm text-green-600 font-medium">
+                  <div className="flex justify-between text-sm text-emerald-400 font-medium">
                     <span>Additional Charge</span>
                     <span>+{formatCurrency(additionalCharge, currency)}</span>
                   </div>
@@ -2298,12 +2298,12 @@ export function CheckoutClientWrapper({
 
                 {paymentReceived > 0 && (
                   <>
-                    <div className="flex justify-between text-sm text-blue-600 font-medium">
+                    <div className="flex justify-between text-sm text-blue-400 font-medium">
                       <span>Payment Received</span>
                       <span>{formatCurrency(paymentReceived, currency)}</span>
                     </div>
                     {changeAmount > 0 && (
-                      <div className="flex justify-between text-sm text-green-600 font-medium">
+                      <div className="flex justify-between text-sm text-emerald-400 font-medium">
                         <span>Change Amount</span>
                         <span>{formatCurrency(changeAmount, currency)}</span>
                       </div>
@@ -2311,22 +2311,22 @@ export function CheckoutClientWrapper({
                   </>
                 )}
 
-                <div className="flex justify-between text-sm text-gray-700">
+                <div className="flex justify-between text-sm text-foreground/80">
                   <span>Total Cost</span>
                   <span>{formatCurrency(totalCost, currency)}</span>
                 </div>
                 {selectedPreorders.length > 0 && (
                   <>
-                    <div className="flex justify-between text-sm text-gray-700">
+                    <div className="flex justify-between text-sm text-foreground/80">
                       <span>Down Payment</span>
                       <span>{formatCurrency(totalDownPayments, currency)}</span>
                     </div>
-                    <div className="flex justify-between text-sm text-gray-700">
+                    <div className="flex justify-between text-sm text-foreground/80">
                       <span>Remaining Balance</span>
                       <span>
                         {formatCurrency(remainingBalance, currency)}
                         {paymentFee > 0 && (
-                          <span className="text-xs text-gray-500"> (incl. {formatCurrency(paymentFee, currency)} {selectedPayment.name} fee)</span>
+                          <span className="text-xs text-muted-foreground"> (incl. {formatCurrency(paymentFee, currency)} {selectedPayment.name} fee)</span>
                         )}
                       </span>
                     </div>
@@ -2334,7 +2334,7 @@ export function CheckoutClientWrapper({
                 )}
                 <div className="flex justify-between font-semibold text-base">
                   <span>Store Profit {selectedVariants.some(v => v.ownerType === 'consignor') ? '(for team distribution)' : ''}</span>
-                  <span className={netProfit < 0 ? "text-red-600" : "text-green-600"}>{formatCurrency(netProfit, currency)}</span>
+                  <span className={netProfit < 0 ? "text-red-400" : "text-emerald-400"}>{formatCurrency(netProfit, currency)}</span>
                 </div>
 
                 {/* Shipping Toggle */}
@@ -2344,7 +2344,7 @@ export function CheckoutClientWrapper({
                       <Label htmlFor="shipping-toggle" className="text-sm font-medium">
                         Shipping Order / COD
                       </Label>
-                      <span className="text-xs text-gray-500 mt-1">
+                      <span className="text-xs text-muted-foreground mt-1">
                         {selectedPreorders.length > 0 
                           ? 'Customer pays remaining balance on delivery'
                           : 'Customer pays down payment now, remaining on delivery'}
@@ -2360,9 +2360,9 @@ export function CheckoutClientWrapper({
                   </div>
                   
                   {shippingMode && (
-                    <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="space-y-4 p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
                       <div className="flex justify-between items-start">
-                        <p className="text-sm text-blue-700 font-medium">
+                        <p className="text-sm text-blue-400 font-medium">
                           {selectedPreorders.length > 0 
                             ? 'COD: Customer will pay remaining balance on delivery'
                             : 'Shipping Mode: Customer will pay down payment now, remaining balance on delivery'}
@@ -2376,17 +2376,17 @@ export function CheckoutClientWrapper({
                       
                       {/* Down Payment Input or Remaining Balance Display */}
                       {selectedPreorders.length > 0 ? (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
                           <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-gray-700">Amount to collect on delivery:</span>
-                            <span className="text-lg font-bold text-green-700">{formatCurrency(remainingBalance, currency)}</span>
+                            <span className="text-sm font-medium text-foreground/80">Amount to collect on delivery:</span>
+                            <span className="text-lg font-bold text-emerald-400">{formatCurrency(remainingBalance, currency)}</span>
                           </div>
                           {paymentFee > 0 && (
-                            <p className="text-xs text-gray-600 mt-1">
+                            <p className="text-xs text-muted-foreground mt-1">
                               Includes {formatCurrency(paymentFee, currency)} {selectedPayment.name} payment fee
                             </p>
                           )}
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-muted-foreground mt-1">
                             Down payment of {formatCurrency(totalDownPayments, currency)} already received
                           </p>
                         </div>
@@ -2409,7 +2409,7 @@ export function CheckoutClientWrapper({
                             placeholder="Enter down payment amount"
                             className="mt-1"
                           />
-                          <p className="text-xs text-gray-600 mt-1">
+                          <p className="text-xs text-muted-foreground mt-1">
                             Remaining: {formatCurrency(totalAmount - shippingDetails.downPaymentAmount, currency)}
                           </p>
                         </div>
@@ -2427,7 +2427,7 @@ export function CheckoutClientWrapper({
                       </Button>
                       
                       {shippingDetails.address && (
-                        <div className="text-sm text-gray-600 bg-white p-3 rounded border">
+                        <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded border">
                           <p className="font-medium">{shippingDetails.customerName || 'No Name'}</p>
                           <p>{shippingDetails.address}</p>
                           <p>{shippingDetails.city}, {shippingDetails.state} {shippingDetails.zipCode}</p>
@@ -2446,7 +2446,7 @@ export function CheckoutClientWrapper({
               <Card className="border border-blue-100">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-lg">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <div className="w-2 h-2 bg-blue-500/100 rounded-full"></div>
                     Consignment Summary
                   </CardTitle>
                 </CardHeader>
@@ -2540,23 +2540,23 @@ export function CheckoutClientWrapper({
 
                     return (
                       <>
-                        <div className="text-sm text-gray-600 mb-3">
+                        <div className="text-sm text-muted-foreground mb-3">
                           {consignedItems.length} consigned item{consignedItems.length !== 1 ? 's' : ''} • Total: {formatCurrency(totalSale, currency)}
                         </div>
                         
                         <div className="grid grid-cols-2 gap-4">
-                          <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-100">
-                            <p className="text-sm text-gray-600 mb-1">Your Commission</p>
-                            <p className="text-lg font-bold text-green-600">{formatCurrency(actualStoreCommission, currency)}</p>
+                          <div className="text-center p-4 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                            <p className="text-sm text-muted-foreground mb-1">Your Commission</p>
+                            <p className="text-lg font-bold text-emerald-400">{formatCurrency(actualStoreCommission, currency)}</p>
                           </div>
-                          <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-                            <p className="text-sm text-gray-600 mb-1">Consignor Payout</p>
-                            <p className="text-lg font-bold text-blue-600">{formatCurrency(actualConsignorPayout, currency)}</p>
+                          <div className="text-center p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                            <p className="text-sm text-muted-foreground mb-1">Consignor Payout</p>
+                            <p className="text-lg font-bold text-blue-400">{formatCurrency(actualConsignorPayout, currency)}</p>
                           </div>
                         </div>
                         
-                        <div className="text-xs text-gray-600 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
-                          <span className="text-amber-600">💡</span>
+                        <div className="text-xs text-muted-foreground bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 flex items-start gap-2">
+                          <span className="text-amber-400">💡</span>
                           <span>Only your commission earnings ({formatCurrency(actualStoreCommission, currency)}) will be distributed to team members, not the full profit amount.</span>
                         </div>
                       </>

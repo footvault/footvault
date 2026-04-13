@@ -36,7 +36,7 @@ export default function QRScannerComponent({ onScanResult }: QRScannerProps) {
 
   return (
     <>
-      <Button variant="outline" size="icon" onClick={handleOpen}>
+      <Button variant="outline" size="icon" onClick={handleOpen} className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300">
         <QrCode className="h-4 w-4" />
       </Button>
 

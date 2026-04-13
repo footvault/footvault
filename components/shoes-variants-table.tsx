@@ -556,12 +556,10 @@ export function ShoesVariantsTable() {
       id: "select",
       header: () => (
         <div className="flex items-center justify-center">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={isAllSelected}
-            onChange={toggleSelectAll}
+            onCheckedChange={toggleSelectAll}
             aria-label="Select all"
-            className="w-4 h-4 accent-black"
           />
         </div>
       ),
@@ -569,12 +567,10 @@ export function ShoesVariantsTable() {
         const variant = info.row.original as any;
         return (
           <div className="flex items-center justify-center">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={selectedIds.includes(variant.id)}
-              onChange={() => toggleSelectOne(variant.id)}
+              onCheckedChange={() => toggleSelectOne(variant.id)}
               aria-label="Select row"
-              className="w-4 h-4 accent-black"
             />
           </div>
         );
@@ -837,22 +833,22 @@ export function ShoesVariantsTable() {
         
         switch (status) {
           case "Available":
-            badgeClass = "bg-green-100 text-green-800 border-green-200 hover:bg-green-200";
+            badgeClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
             break;
           case "Sold":
-            badgeClass = "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200";
+            badgeClass = "bg-muted text-muted-foreground border-border";
             break;
           case "PullOut":
-            badgeClass = "bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200";
+            badgeClass = "bg-orange-500/10 text-orange-400 border-orange-500/20";
             break;
           case "Reserved":
-            badgeClass = "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200";
+            badgeClass = "bg-blue-500/10 text-blue-400 border-blue-500/20";
             break;
           case "PreOrder":
-            badgeClass = "bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200";
+            badgeClass = "bg-purple-500/10 text-purple-400 border-purple-500/20";
             break;
           default:
-            badgeClass = "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200";
+            badgeClass = "bg-muted text-muted-foreground border-border";
         }
         
         return (
@@ -882,7 +878,7 @@ export function ShoesVariantsTable() {
             {isStore ? (
               <span className="text-sm font-medium">You</span>
             ) : (
-              <span className="text-sm font-medium text-blue-600">
+              <span className="text-sm font-medium text-blue-400">
                 {variant.consignor?.name || `Consignor ${variant.consignor_id}`}
               </span>
             )}
@@ -1036,7 +1032,7 @@ export function ShoesVariantsTable() {
   })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full overflow-hidden">
       {/* Stats Cards */}
       <VariantsStatsCard 
         totalVariants={calculateLocalStats.totalVariants}
@@ -1049,9 +1045,9 @@ export function ShoesVariantsTable() {
       
       {/* Bulk actions bar */}
       {selectedIds.length > 0 && (
-        <div className="flex items-center gap-4 bg-muted px-4 py-2 rounded mb-2">
-          <span>{selectedIds.length} selected</span>
-          <Button size="sm" variant="destructive" onClick={async () => {
+        <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-lg mb-2">
+          <span className="text-sm text-emerald-400">{selectedIds.length} selected</span>
+          <Button size="sm" variant="destructive" className="rounded-md" onClick={async () => {
             // Check if any selected variants have sales history
             const { data: saleItems } = await supabase
               .from('sale_items')
@@ -1069,7 +1065,7 @@ export function ShoesVariantsTable() {
             size="sm" 
             variant={userPlan === 'free' ? "outline" : "default"} 
             onClick={handleBulkPdfGeneration}
-            className={userPlan === 'free' ? "opacity-75" : ""}
+            className={userPlan === 'free' ? "opacity-75 rounded-md" : "bg-emerald-600 hover:bg-emerald-700 text-white rounded-md"}
           >
             {userPlan === 'free' && <Lock className="w-4 h-4 mr-2" />}
             Bulk Generate Labels
@@ -1079,7 +1075,7 @@ export function ShoesVariantsTable() {
       )}
 
       {/* Filters - search left, filters right, responsive */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full mb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full min-w-0 mb-2">
         {/* Search bar left */}
         <div className="flex-1 flex items-center min-w-0">
           <InventorySearchWithQR
@@ -1090,12 +1086,12 @@ export function ShoesVariantsTable() {
           />
         </div>
         {/* Filters right, responsive */}
-        <div className="flex flex-row gap-2 items-center mt-2 sm:mt-0">
+        <div className="flex flex-row gap-2 items-center mt-2 sm:mt-0 shrink-0">
           {/* Export Button */}
           <Button
             size="sm"
             onClick={handleExportClick}
-            className={`bg-black hover:bg-gray-800 text-white shrink-0 `}
+            className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md"
           >
            
             <Download className="w-4 h-4 mr-2" />
@@ -1113,7 +1109,7 @@ export function ShoesVariantsTable() {
                 <svg className="ml-2 h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none"><path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[220px] max-h-72 overflow-y-auto p-0">
+            <PopoverContent className="w-[220px] max-h-72 overflow-y-auto custom-scrollbar p-0">
               <div className="px-2 py-1">
                 <Input
                   placeholder="Search size..."
@@ -1262,13 +1258,13 @@ export function ShoesVariantsTable() {
       </div>
 
       {/* Table with horizontal scroll */}
-      <div className="overflow-x-auto rounded-md border">
+      <div className="overflow-x-auto rounded-xl border bg-card custom-scrollbar">
         <Table className="min-w-[1000px] w-full">
           <TableHeader>
             {table.getHeaderGroups().map(headerGroup => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="border-b bg-muted/30 hover:bg-muted/30">
                 {headerGroup.headers.map(header => (
-                  <TableHead key={header.id} className="whitespace-nowrap">
+                  <TableHead key={header.id} className="whitespace-nowrap text-xs font-medium text-muted-foreground uppercase tracking-wider h-10">
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
@@ -1298,17 +1294,17 @@ export function ShoesVariantsTable() {
               <TableRow>
                 <TableCell colSpan={columns.length} className="text-center h-32">
                   <div className="flex flex-col items-center justify-center space-y-4 py-8">
-                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
-                      <Plus className="w-8 h-8 text-gray-400" />
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                      <Plus className="w-8 h-8 text-muted-foreground" />
                     </div>
                     <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-gray-900">No variant sizes added yet</h3>
-                      <p className="text-sm text-gray-500 max-w-sm">
+                      <h3 className="text-lg font-semibold">No variant sizes added yet</h3>
+                      <p className="text-sm text-muted-foreground max-w-sm">
                         Start tracking individual shoes by adding variants with specific sizes, costs, and locations to your products.
                       </p>
                     </div>
                     <Link href="/add-product">
-                      <Button className="mt-2">
+                      <Button className="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white">
                         <Plus className="w-4 h-4 mr-2" />
                         Add Product with Variants
                       </Button>
@@ -1322,32 +1318,32 @@ export function ShoesVariantsTable() {
       </div>
 
       {/* Pagination */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="text-sm text-muted-foreground">
-          Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{" "}
-          {Math.min(
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-xs text-muted-foreground">
+          {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}&ndash;{Math.min(
             (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
             table.getFilteredRowModel().rows.length
-          )}{" "}
-          of {table.getFilteredRowModel().rows.length} entries
-        </div>
-        <div className="flex items-center space-x-2">
+          )} of {table.getFilteredRowModel().rows.length}
+        </p>
+        <div className="flex items-center gap-1.5">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
+            className="h-7 text-xs px-2"
           >
-            Previous
+            Prev
           </Button>
-          <div className="text-sm">
-            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-          </div>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {table.getState().pagination.pageIndex + 1}/{table.getPageCount()}
+          </span>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
+            className="h-7 text-xs px-2"
           >
             Next
           </Button>
@@ -1461,7 +1457,7 @@ export function ShoesVariantsTable() {
 
       {/* Export Modal */}
       <Dialog open={exportModal} onOpenChange={setExportModal}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto custom-scrollbar">
           <DialogHeader>
             <DialogTitle>Export Variants</DialogTitle>
             <DialogDescription>

@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
-import { MoreHorizontal, Eye, Trash2, RotateCcw, Filter, X, Search, Printer, Download, Star, Lock, Check, Truck } from "lucide-react"
+import { MoreHorizontal, Eye, Trash2, RotateCcw, Filter, X, Search, Printer, Download, Star, Lock, Check, Truck, ChevronLeft, ChevronRight } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -36,6 +36,7 @@ import { useTimezone } from "@/context/TimezoneContext"
 import type { DateRange } from "react-day-picker"
 import { useToast } from "@/hooks/use-toast"
 import PremiumFeatureModal from "@/components/PremiumFeatureModal"
+import { motion, AnimatePresence } from "framer-motion"
 
 interface SalesListProps {
   sales: Sale[]
@@ -885,33 +886,28 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
   return (
     <div className="space-y-4">
       {/* Search and Filter Controls */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 p-4 pb-0">
         {/* Search Bar */}
-        <div className="relative mt-2 px-1">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
-            placeholder="Search by sale ID, product, serial number, pre-order number, or customer name..."
+            placeholder="Search by sale #, product, serial number, or customer..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-9 h-9 text-sm bg-muted/30 border-border/60 focus:bg-background transition-colors"
           />
         </div>
 
         {/* Filter Row */}
-        <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Filters:</span>
-          </div>
-
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2">
           <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
             {/* Payment Type Filter */}
             <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
-              <SelectTrigger className="w-full sm:w-[140px]">
+              <SelectTrigger className="w-full sm:w-[140px] h-8 text-xs">
                 <SelectValue placeholder="Payment Type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Payment Types</SelectItem>
+                <SelectItem value="all">All Payments</SelectItem>
                 {uniquePaymentTypes.map((type) => (
                   <SelectItem key={type} value={type}>{type}</SelectItem>
                 ))}
@@ -920,7 +916,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
 
             {/* Status Filter */}
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[120px]">
+              <SelectTrigger className="w-full sm:w-[120px] h-8 text-xs">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -939,11 +935,11 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                 <Button
                   variant={"outline"}
                   className={cn(
-                    "w-full sm:w-[240px] justify-start text-left font-normal",
+                    "w-full sm:w-[220px] justify-start text-left font-normal h-8 text-xs",
                     !dateRange?.from && !dateRange?.to && "text-muted-foreground"
                   )}
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  <CalendarIcon className="mr-2 h-3.5 w-3.5" />
                   {dateRange?.from ? (
                     dateRange.to ? (
                       <>
@@ -973,47 +969,50 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
             {/* Clear Filters Button */}
             {hasActiveFilters && (
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={clearFilters}
-                className="h-10 px-3 w-full sm:w-auto"
+                className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground w-full sm:w-auto"
               >
-                <X className="h-4 w-4 mr-2" />
-                Clear Filters
+                <X className="h-3.5 w-3.5 mr-1" />
+                Clear
               </Button>
             )}
 
             {/* Export Button */}
             <Button
+              variant="outline"
               size="sm"
               onClick={handleExportClick}
-              className={`bg-black hover:bg-gray-800 text-white h-10 px-3 w-full sm:w-auto `}
+              className="h-8 px-3 text-xs w-full sm:w-auto gap-1.5"
             >
-          
-              <Download className="w-4 h-4 mr-2" />
+              <Download className="w-3.5 h-3.5" />
               Export
-       
-              {userPlan === 'free' && <Star className="w-3 h-3 ml-2 fill-current" />}
+              {userPlan === 'free' && <Star className="w-3 h-3 fill-current text-amber-500" />}
             </Button>
           </div>
         </div>
 
         {/* Sales Count */}
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Showing {paginatedSales.length} of {filteredAndSortedSales.length} filtered sales
-          </div>
+        <div className="flex items-center justify-between pb-2">
+          <p className="text-xs text-muted-foreground">
+            Showing {paginatedSales.length} of {filteredAndSortedSales.length} sales
+          </p>
         </div>
       </div>
 
       {/* Mobile Card Layout - visible only on very small screens */}
-      <div className="block sm:hidden space-y-3">
+      <div className="block sm:hidden space-y-2 px-4">
         {paginatedSales.length === 0 ? (
-          <div className="text-center py-10 text-gray-500 border rounded-md">
-            {hasActiveFilters ? "No sales match the current search or filters." : "No sales yet."}
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="rounded-full bg-muted/50 p-4 mb-3">
+              <Search className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <p className="text-sm font-medium text-foreground mb-1">{hasActiveFilters ? "No matching sales" : "No sales yet"}</p>
+            <p className="text-xs text-muted-foreground">{hasActiveFilters ? "Try adjusting your filters" : "Create your first sale to get started"}</p>
           </div>
         ) : (
-          paginatedSales.map((sale) => {
+          paginatedSales.map((sale, index) => {
             // Get payment type name (using same logic as existing code)
             let paymentTypeName = "";
             if (sale.payment_type && typeof sale.payment_type === "object") {
@@ -1038,12 +1037,18 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
             const shouldStrikeThrough = sale.status === 'voided' || sale.status === 'refunded';
 
             return (
-              <div key={sale.id} className={`border rounded-lg p-4 bg-card space-y-3 ${shouldStrikeThrough ? "opacity-60" : ""}`}>
+              <motion.div
+                key={sale.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: index * 0.03 }}
+                className={`rounded-xl border bg-card p-4 space-y-3 transition-all duration-200 hover:shadow-sm ${shouldStrikeThrough ? "opacity-50" : ""}`}
+              >
                 {/* Header with Sale # and Actions Menu */}
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <div className={`font-semibold text-base ${shouldStrikeThrough ? "line-through" : ""}`}>Sale {formatSalesNo(sale.sales_no)}</div>
-                    <div className={`text-sm text-muted-foreground mt-1 ${shouldStrikeThrough ? "line-through" : ""}`}>
+                    <div className={`font-semibold text-sm ${shouldStrikeThrough ? "line-through" : ""}`}>Sale {formatSalesNo(sale.sales_no)}</div>
+                    <div className={`text-xs text-muted-foreground mt-0.5 ${shouldStrikeThrough ? "line-through" : ""}`}>
                       {formatDateInTimezone(sale.sale_date || sale.date)}
                     </div>
                   </div>
@@ -1125,8 +1130,8 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                 {/* Customer info */}
                 <div className="space-y-1">
                   <div className={`text-sm ${shouldStrikeThrough ? "line-through" : ""}`}>
-                    <span className="font-medium text-gray-600">Customer:</span>{" "}
-                    {sale.customer_name || <span className="text-gray-400 italic">No name</span>}
+                    <span className="font-medium text-muted-foreground">Customer:</span>{" "}
+                    {sale.customer_name || <span className="text-muted-foreground/60 italic">No name</span>}
                   </div>
                   
                   {/* Serial Numbers / Pre-Order Numbers */}
@@ -1196,7 +1201,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                             {badgesData[0].content}
                           </Badge>
                           <details className="text-xs">
-                            <summary className="cursor-pointer hover:text-blue-600 text-muted-foreground">
+                            <summary className="cursor-pointer hover:text-foreground text-muted-foreground transition-colors">
                               +{badgesData.length - 1} more
                             </summary>
                             <div className="mt-1 flex flex-wrap gap-1">
@@ -1219,14 +1224,14 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                 
                 {/* Items with expandable view */}
                 <div className="space-y-2">
-                  <div className="text-sm font-medium text-gray-600">Items:</div>
+                  <div className="text-xs font-medium text-muted-foreground">Items:</div>
                   {sale.items && sale.items.length > 0 ? (
                     <div className="text-sm space-y-1">
                       {/* Show first item always */}
-                      <div className="p-2 bg-gray-50 rounded">
+                      <div className="p-2 bg-muted/30 rounded-lg">
                         {(() => {
                           const item = sale.items[0];
-                          if (!item?.variant) return <span className="text-gray-400 italic">Invalid item</span>;
+                          if (!item?.variant) return <span className="text-muted-foreground/60 italic">Invalid item</span>;
                           
                           const isPreorderItem = (item.variant as any).type === 'Pre-order';
                           const isDownpaymentItem = (item.variant as any).type === 'downpayment';
@@ -1252,7 +1257,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                       {/* Show item count and expandable details */}
                       {sale.items.length > 1 && (
                         <details className="text-sm">
-                          <summary className="cursor-pointer hover:text-blue-600 text-blue-600 font-medium">
+                          <summary className="cursor-pointer hover:text-foreground text-muted-foreground font-medium transition-colors">
                             Show {sale.items.length - 1} more items
                           </summary>
                           <div className="mt-2 space-y-1">
@@ -1272,7 +1277,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                               }
                               
                               return (
-                                <div key={item.id} className="p-2 bg-gray-50 rounded">
+                                <div key={item.id} className="p-2 bg-muted/30 rounded-lg">
                                   <div className="font-medium text-sm">{item.variant.productName}</div>
                                   <div className="text-xs text-muted-foreground">{identifier}</div>
                                 </div>
@@ -1283,14 +1288,14 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                       )}
                     </div>
                   ) : (
-                    <span className="text-gray-400 italic text-sm">No items</span>
+                    <span className="text-muted-foreground/60 italic text-sm">No items</span>
                   )}
                 </div>
                 
                 {/* Status and payment info */}
                 <div className="space-y-1">
                   <div className="text-sm">
-                    <span className="font-medium text-gray-600">Type:</span>{" "}
+                    <span className="font-medium text-muted-foreground">Type:</span>{" "}
                     {(() => {
                       const isDownPaymentStatus = sale.status === 'downpayment';
                       const hasDownpaymentType = sale.items && sale.items.some((item: any) => 
@@ -1309,15 +1314,15 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                     })()}
                   </div>
                   <div className="text-sm">
-                    <span className="font-medium text-gray-600">Payment:</span> {paymentTypeName}
+                    <span className="font-medium text-muted-foreground">Payment:</span> {paymentTypeName}
                   </div>
                   <div className="text-sm">
-                    <span className="font-medium text-gray-600">Status:</span>{" "}
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      sale.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      sale.status === 'downpayment' ? 'bg-yellow-100 text-yellow-800' :
-                      sale.status === 'refunded' ? 'bg-red-100 text-red-800' :
-                      'bg-gray-100 text-gray-800'
+                    <span className="font-medium text-muted-foreground">Status:</span>{" "}
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      sale.status === 'completed' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' :
+                      sale.status === 'downpayment' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' :
+                      sale.status === 'refunded' ? 'bg-red-500/10 text-red-700 dark:text-red-400' :
+                      'bg-muted text-muted-foreground'
                     }`}>
                       {sale.status ? sale.status.charAt(0).toUpperCase() + sale.status.slice(1) : 'N/A'}
                     </span>
@@ -1325,83 +1330,89 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                 </div>
                 
                 {/* Total and Profit at bottom */}
-                <div className="pt-2 border-t border-gray-200">
+                <div className="pt-2 border-t border-border">
                   <div className="flex justify-between items-center">
                     <div className="text-left">
-                      <div className="text-sm text-muted-foreground">Total</div>
-                      <div className={`text-lg font-bold ${shouldStrikeThrough ? "line-through text-gray-500" : ""}`}>
+                      <div className="text-xs text-muted-foreground">Total</div>
+                      <div className={`text-base font-bold ${shouldStrikeThrough ? "line-through text-muted-foreground" : "text-foreground"}`}>
                         {formatCurrency((sale.total_amount || sale.total || 0), currency)}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm text-muted-foreground">Profit</div>
-                      <div className={`text-lg font-semibold text-green-600 ${shouldStrikeThrough ? "line-through text-gray-500" : ""}`}>
+                      <div className="text-xs text-muted-foreground">Profit</div>
+                      <div className={`text-base font-semibold ${shouldStrikeThrough ? "line-through text-muted-foreground" : (sale.net_profit || sale.profit || 0) < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>
                         {formatCurrency((sale.net_profit || sale.profit || 0), currency)}
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           })
         )}
       </div>
       {/* Desktop Table Layout - hidden on very small screens */}
-      <div className="hidden sm:block rounded-md border overflow-hidden">
+      <div className="hidden sm:block overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
           <TableHeader>
-            <TableRow>
-            <TableHead className="cursor-pointer select-none" onClick={() => {
+            <TableRow className="border-b bg-muted/30 hover:bg-muted/30">
+            <TableHead className="cursor-pointer select-none text-xs font-medium text-muted-foreground uppercase tracking-wider h-10" onClick={() => {
                 if (sortBy === 'sales_no') setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
                 else { setSortBy('sales_no'); setSortDir('desc'); }
               }}>
                 Sale #
                 {sortBy === 'sales_no' && (
-                  <span className="ml-1" style={{ fontWeight: 'bold' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>
+                  <span className="ml-1 text-foreground">{sortDir === 'asc' ? '▲' : '▼'}</span>
                 )}
               </TableHead>
-              <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => {
+              <TableHead className="cursor-pointer select-none whitespace-nowrap text-xs font-medium text-muted-foreground uppercase tracking-wider h-10" onClick={() => {
                 if (sortBy === 'date') setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
                 else { setSortBy('date'); setSortDir('desc'); }
               }}>
                 Date
                 {sortBy === 'date' && (
-                  <span className="ml-1" style={{ fontWeight: 'bold' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>
+                  <span className="ml-1 text-foreground">{sortDir === 'asc' ? '▲' : '▼'}</span>
                 )}
               </TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead className="hidden md:table-cell whitespace-nowrap">Serial/Pre-Order</TableHead>
-              <TableHead>Items</TableHead>
-              <TableHead className="hidden xl:table-cell">Type</TableHead>
-              <TableHead className="hidden lg:table-cell">Payment</TableHead>
-              <TableHead className="hidden lg:table-cell">Status</TableHead>
-              <TableHead className="text-right cursor-pointer select-none" onClick={() => {
+              <TableHead className="text-xs font-medium text-muted-foreground uppercase tracking-wider h-10">Customer</TableHead>
+              <TableHead className="hidden md:table-cell whitespace-nowrap text-xs font-medium text-muted-foreground uppercase tracking-wider h-10">Serial/Pre-Order</TableHead>
+              <TableHead className="text-xs font-medium text-muted-foreground uppercase tracking-wider h-10">Items</TableHead>
+              <TableHead className="hidden xl:table-cell text-xs font-medium text-muted-foreground uppercase tracking-wider h-10">Type</TableHead>
+              <TableHead className="hidden lg:table-cell text-xs font-medium text-muted-foreground uppercase tracking-wider h-10">Payment</TableHead>
+              <TableHead className="hidden lg:table-cell text-xs font-medium text-muted-foreground uppercase tracking-wider h-10">Status</TableHead>
+              <TableHead className="text-right cursor-pointer select-none text-xs font-medium text-muted-foreground uppercase tracking-wider h-10" onClick={() => {
                 if (sortBy === 'total') setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
                 else { setSortBy('total'); setSortDir('desc'); }
               }}>
                 Total
                 {sortBy === 'total' && (
-                  <span className="ml-1" style={{ fontWeight: 'bold' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>
+                  <span className="ml-1 text-foreground">{sortDir === 'asc' ? '▲' : '▼'}</span>
                 )}
               </TableHead>
-              <TableHead className="text-right cursor-pointer select-none" onClick={() => {
+              <TableHead className="text-right cursor-pointer select-none text-xs font-medium text-muted-foreground uppercase tracking-wider h-10" onClick={() => {
                 if (sortBy === 'profit') setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
                 else { setSortBy('profit'); setSortDir('desc'); }
               }}>
                 Profit
                 {sortBy === 'profit' && (
-                  <span className="ml-1" style={{ fontWeight: 'bold' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>
+                  <span className="ml-1 text-foreground">{sortDir === 'asc' ? '▲' : '▼'}</span>
                 )}
               </TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider h-10">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedSales.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-10 text-gray-500">
-                  {hasActiveFilters ? "No sales match the current search or filters." : "No sales yet."}
+                <TableCell colSpan={11} className="h-32">
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <div className="rounded-full bg-muted/50 p-3 mb-2">
+                      <Search className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium text-foreground">{hasActiveFilters ? "No matching sales" : "No sales yet"}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{hasActiveFilters ? "Try adjusting your filters" : "Create your first sale to get started"}</p>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
@@ -1439,10 +1450,10 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                 const shouldStrikeThrough = sale.status === 'voided' || sale.status === 'refunded';
                 
                 return (
-                  <TableRow key={sale.id} className={shouldStrikeThrough ? "opacity-60" : ""}>
-                    <TableCell className={`font-mono text-sm ${shouldStrikeThrough ? "line-through" : ""}`}>{customId}</TableCell>
-                    <TableCell className={`whitespace-nowrap ${shouldStrikeThrough ? "line-through" : ""}`}>{formatDateInTimezone(sale.sale_date || sale.date)}</TableCell>
-                    <TableCell className={shouldStrikeThrough ? "line-through" : ""}>{sale.customer_name || <span className="text-gray-400 italic">No name</span>}</TableCell>
+                  <TableRow key={sale.id} className={`group transition-colors ${shouldStrikeThrough ? "opacity-50" : "hover:bg-muted/30"}`}>
+                    <TableCell className={`font-mono text-xs ${shouldStrikeThrough ? "line-through" : ""}`}>{customId}</TableCell>
+                    <TableCell className={`whitespace-nowrap text-sm ${shouldStrikeThrough ? "line-through" : ""}`}>{formatDateInTimezone(sale.sale_date || sale.date)}</TableCell>
+                    <TableCell className={`text-sm ${shouldStrikeThrough ? "line-through" : ""}`}>{sale.customer_name || <span className="text-muted-foreground/60 italic">No name</span>}</TableCell>
                     <TableCell className="hidden md:table-cell">
                       {sale.items && sale.items.length > 0 ? (
                         (() => {
@@ -1482,7 +1493,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                             .sort((a, b) => a.sortValue - b.sortValue);
 
                           if (badgesData.length === 0) {
-                            return <span className="text-gray-400 italic text-xs">No items</span>;
+                            return <span className="text-muted-foreground/60 italic text-xs">No items</span>;
                           }
 
                           if (badgesData.length === 1) {
@@ -1508,7 +1519,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                                 {badgesData[0].content}
                               </Badge>
                               <details className="text-xs">
-                                <summary className="cursor-pointer hover:text-blue-600 text-muted-foreground">
+                                <summary className="cursor-pointer hover:text-foreground text-muted-foreground transition-colors">
                                   +{badgesData.length - 1} more
                                 </summary>
                                 <div className="mt-1 flex flex-wrap gap-1">
@@ -1527,7 +1538,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                           );
                         })()
                       ) : (
-                        <span className="text-gray-400 italic text-xs">No items</span>
+                        <span className="text-muted-foreground/60 italic text-xs">No items</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -1537,7 +1548,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                           <div className="mb-1">
                             {(() => {
                               const item = sale.items[0];
-                              if (!item?.variant) return <span className="text-gray-400 italic">Invalid item</span>;
+                              if (!item?.variant) return <span className="text-muted-foreground/60 italic">Invalid item</span>;
                               
                               const isPreorderItem = (item.variant as any).type === 'Pre-order';
                               const isDownpaymentItem = (item.variant as any).type === 'downpayment';
@@ -1562,10 +1573,10 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                           {/* Show item count and expandable details */}
                           {sale.items.length > 1 && (
                             <details className="text-xs text-muted-foreground">
-                              <summary className="cursor-pointer hover:text-blue-600">
+                              <summary className="cursor-pointer hover:text-foreground text-muted-foreground transition-colors">
                                 +{sale.items.length - 1} more items
                               </summary>
-                              <div className="mt-2 space-y-1 ml-2 border-l-2 border-gray-100 pl-2">
+                              <div className="mt-2 space-y-1 ml-2 border-l-2 border-border pl-2">
                                 {sale.items.slice(1).map((item: any) => {
                                   if (!item?.variant) return null;
                                   
@@ -1620,7 +1631,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                           </div>
                         </div>
                       ) : (
-                        <span className="text-gray-400 italic">No items</span>
+                        <span className="text-muted-foreground/60 italic">No items</span>
                       )}
                     </TableCell>
                     <TableCell className="hidden xl:table-cell">
@@ -1640,19 +1651,19 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                         // Determine the appropriate label and styling
                         if (isDownPaymentStatus || hasDownpaymentType) {
                           return (
-                            <span className="px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-700 dark:text-blue-400 whitespace-nowrap">
                               Downpayment
                             </span>
                           );
                         } else if (hasPreOrderType) {
                           return (
-                            <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800 whitespace-nowrap">
-                              Pre-order Completed
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                              Pre-order
                             </span>
                           );
                         } else {
                           return (
-                            <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-700 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground whitespace-nowrap">
                               In Stock
                             </span>
                           );
@@ -1662,27 +1673,27 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
                     <TableCell className="hidden lg:table-cell">{paymentTypeName}</TableCell>
                     <TableCell className="hidden lg:table-cell">
                       {sale.status ? (
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          sale.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          sale.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          sale.status === 'refunded' ? 'bg-orange-100 text-orange-800' :
-                          sale.status === 'voided' ? 'bg-gray-200 text-gray-700' :
-                          sale.status === 'downpayment' ? 'bg-blue-100 text-blue-800' :
-                          'bg-gray-100 text-gray-800'
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          sale.status === 'completed' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' :
+                          sale.status === 'pending' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' :
+                          sale.status === 'refunded' ? 'bg-orange-500/10 text-orange-700 dark:text-orange-400' :
+                          sale.status === 'voided' ? 'bg-muted text-muted-foreground' :
+                          sale.status === 'downpayment' ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400' :
+                          'bg-muted text-muted-foreground'
                         }`}>
                           {sale.status === 'pending' && (sale as any).shipping_address ? 'Shipping Pending' : 
                            sale.status.charAt(0).toUpperCase() + sale.status.slice(1)}
                         </span>
                       ) : (
-                        <span className="text-gray-400 italic">N/A</span>
+                        <span className="text-muted-foreground/60 italic">N/A</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right font-medium">
-                      <span className={hasDownpaymentType || shouldStrikeThrough ? "line-through text-gray-500" : ""}>
+                    <TableCell className="text-right font-medium text-sm">
+                      <span className={hasDownpaymentType || shouldStrikeThrough ? "line-through text-muted-foreground" : ""}>
                         {formatCurrency(sale.total_amount || sale.total || 0, currency)}
                       </span>
                     </TableCell>
-                    <TableCell className={`text-right font-medium ${sale.net_profit < 0 ? "text-red-600" : "text-green-600"} ${shouldStrikeThrough ? "line-through" : ""}`}>
+                    <TableCell className={`text-right font-medium text-sm ${sale.net_profit < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"} ${shouldStrikeThrough ? "line-through" : ""}`}>
                       {formatCurrency(sale.net_profit || sale.profit || 0, currency)}
                     </TableCell>
                     <TableCell className="text-right">
@@ -1772,27 +1783,49 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onRefunded, onDeleted, onC
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+        <div className="flex items-center justify-center gap-2 px-4 pb-4 pt-2">
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
+            className="h-8 w-8"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="w-full sm:w-auto"
           >
-            Previous
+            <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm whitespace-nowrap">
-            Page {page} of {totalPages}
-          </span>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              let pageNum: number;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (page <= 3) {
+                pageNum = i + 1;
+              } else if (page >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = page - 2 + i;
+              }
+              return (
+                <Button
+                  key={pageNum}
+                  variant={page === pageNum ? "default" : "ghost"}
+                  size="icon"
+                  className={`h-8 w-8 text-xs ${page === pageNum ? "" : "text-muted-foreground"}`}
+                  onClick={() => setPage(pageNum)}
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+          </div>
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
+            className="h-8 w-8"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="w-full sm:w-auto"
           >
-            Next
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       )}

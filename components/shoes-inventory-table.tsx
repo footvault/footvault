@@ -1745,121 +1745,100 @@ function AddVariantsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Add Variants</DialogTitle>
-          <DialogDescription>
-            Add new variants for {product.name}
+      <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
+        <DialogHeader className="px-5 pt-5 pb-3 border-b shrink-0">
+          <DialogTitle className="text-base">Add Variants</DialogTitle>
+          <DialogDescription className="text-xs">
+            {product.name} &middot; {productSizeCategory}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Size Category (Non-editable) */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 custom-scrollbar">
+          {/* Size Label + Sizes — grouped together */}
           <div className="space-y-2">
-            <Label>Size Category</Label>
-            <Input 
-              value={productSizeCategory} 
-              disabled 
-              className="bg-muted text-muted-foreground"
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-medium">Sizes</Label>
+              <Select value={sizeLabel} onValueChange={setSizeLabel}>
+                <SelectTrigger className="h-7 w-20 text-xs px-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="US">US</SelectItem>
+                  <SelectItem value="UK">UK</SelectItem>
+                  <SelectItem value="EU">EU</SelectItem>
+                  <SelectItem value="CM">CM</SelectItem>
+                  <SelectItem value="YC">YC</SelectItem>
+                  <SelectItem value="TD">TD</SelectItem>
+                  <SelectItem value="Clothing">Clothing</SelectItem>
+                  <SelectItem value="Standard">Standard</SelectItem>
+                  <SelectItem value="Series">Series</SelectItem>
+                  <SelectItem value="Limited">Limited</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Input
+              placeholder="Search sizes..."
+              value={sizeSearch}
+              onChange={(e) => setSizeSearch(e.target.value)}
+              className="h-8 text-xs"
             />
-          </div>
-
-          {/* Size Label (Editable) */}
-          <div className="space-y-2">
-            <Label>Size Label</Label>
-            <Select value={sizeLabel} onValueChange={setSizeLabel}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="US">US</SelectItem>
-                <SelectItem value="UK">UK</SelectItem>
-                <SelectItem value="EU">EU</SelectItem>
-                <SelectItem value="CM">CM</SelectItem>
-                <SelectItem value="YC">YC</SelectItem>
-                <SelectItem value="TD">TD</SelectItem>
-                <SelectItem value="Clothing">Clothing</SelectItem>
-                <SelectItem value="Standard">Standard</SelectItem>
-                <SelectItem value="Series">Series</SelectItem>
-                <SelectItem value="Limited">Limited</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Size Selection */}
-          <div className="space-y-2">
-            <Label>Select Sizes</Label>
-            <div className="border rounded-md p-2 max-h-40 overflow-y-auto">
-              <Input
-                placeholder="Search sizes..."
-                value={sizeSearch}
-                onChange={(e) => setSizeSearch(e.target.value)}
-                className="mb-2"
-              />
-              <div className="space-y-1">
-                {filteredSizes.map((size) => (
-                  <div key={size} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`size-${size}`}
-                      checked={selectedSizes.includes(size)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedSizes(prev => [...prev, size]);
-                        } else {
-                          setSelectedSizes(prev => prev.filter(s => s !== size));
-                        }
-                      }}
-                    />
-                    <Label htmlFor={`size-${size}`} className="text-sm cursor-pointer">
-                      {size}
-                    </Label>
-                  </div>
-                ))}
-              </div>
+            <div className="grid grid-cols-4 gap-1.5 max-h-36 overflow-y-auto custom-scrollbar rounded-lg border p-2">
+              {filteredSizes.map((size) => {
+                const isSelected = selectedSizes.includes(size);
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedSizes(prev => prev.filter(s => s !== size));
+                      } else {
+                        setSelectedSizes(prev => [...prev, size]);
+                      }
+                    }}
+                    className={`
+                      rounded-md px-2 py-1.5 text-xs font-medium transition-all duration-100
+                      ${isSelected
+                        ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30"
+                        : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }
+                    `}
+                  >
+                    {size}
+                  </button>
+                );
+              })}
             </div>
             {selectedSizes.length > 0 && (
-              <div className="text-sm text-muted-foreground">
-                Selected: {selectedSizes.join(", ")}
-              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {selectedSizes.length} selected: {selectedSizes.join(", ")}
+              </p>
             )}
           </div>
 
-          {/* Location Selection */}
-          <div className="space-y-2">
-            <Label>Location *</Label>
-            
+          {/* Location */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Location</Label>
             {showAddLocationInput ? (
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 <Input
                   value={newLocation}
                   onChange={(e) => setNewLocation(e.target.value)}
-                  placeholder="Enter new location"
-                  className="h-9"
+                  placeholder="New location name"
+                  className="h-8 text-xs flex-1"
+                  autoFocus
                 />
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleAddLocation}
-                  disabled={!newLocation.trim()}
-                >
+                <Button type="button" size="sm" className="h-8 text-xs px-3" onClick={handleAddLocation} disabled={!newLocation.trim()}>
                   Add
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setShowAddLocationInput(false);
-                    setNewLocation("");
-                  }}
-                >
+                <Button type="button" variant="ghost" size="sm" className="h-8 text-xs px-2" onClick={() => { setShowAddLocationInput(false); setNewLocation(""); }}>
                   Cancel
                 </Button>
               </div>
             ) : (
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 <Select value={location} onValueChange={setLocation}>
-                  <SelectTrigger className="flex-1">
+                  <SelectTrigger className="flex-1 h-8 text-xs">
                     <SelectValue placeholder="Select location" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1868,66 +1847,56 @@ function AddVariantsModal({
                     ))}
                   </SelectContent>
                 </Select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAddLocationInput(true)}
-                >
-                  Add New
+                <Button type="button" variant="outline" size="sm" className="h-8 text-xs px-3 shrink-0" onClick={() => setShowAddLocationInput(true)}>
+                  + New
                 </Button>
               </div>
             )}
           </div>
 
-          {/* Quantity */}
-          <div className="space-y-2">
-            <Label>Quantity per Size</Label>
-            <Input
-              type="number"
-              min="1"
-              value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-full"
-            />
-            <div className="text-sm text-muted-foreground">
-              Total variants: {selectedSizes.length * quantity}
+          {/* Quantity + Pricing — compact 2-column grid */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Qty / Size</Label>
+              <Input
+                type="number"
+                min="1"
+                value={quantity}
+                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Cost Price</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={costPrice}
+                onChange={(e) => setCostPrice(e.target.value)}
+                placeholder="0.00"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Sale Price</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={salePrice}
+                onChange={(e) => setSalePrice(e.target.value)}
+                placeholder="0.00"
+                className="h-8 text-xs"
+              />
             </div>
           </div>
 
-          {/* Cost Price */}
-          <div className="space-y-2">
-            <Label>Cost Price (per variant)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={costPrice}
-              onChange={(e) => setCostPrice(e.target.value)}
-              placeholder="0.00"
-              className="w-full"
-            />
-          </div>
-
-          {/* Sale Price */}
-          <div className="space-y-2">
-            <Label>Sale Price (per variant)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={salePrice}
-              onChange={(e) => setSalePrice(e.target.value)}
-              placeholder="0.00"
-              className="w-full"
-            />
-          </div>
-
           {/* Status */}
-          <div className="space-y-2">
-            <Label>Status</Label>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Status</Label>
             <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger>
+              <SelectTrigger className="h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1940,22 +1909,33 @@ function AddVariantsModal({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isSubmitting || selectedSizes.length === 0 || !location}
-          >
-            {isSubmitting ? "Creating..." : `Add ${selectedSizes.length * quantity} Variants`}
-          </Button>
+        <DialogFooter className="px-5 py-3 border-t shrink-0">
+          <div className="flex items-center justify-between w-full">
+            <p className="text-[11px] text-muted-foreground tabular-nums">
+              {selectedSizes.length * quantity} variant{selectedSizes.length * quantity !== 1 ? "s" : ""} total
+            </p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onOpenChange(false)}
+                disabled={isSubmitting}
+                className="h-8 text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSubmit}
+                disabled={isSubmitting || selectedSizes.length === 0 || !location}
+                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {isSubmitting ? "Creating..." : "Add Variants"}
+              </Button>
+            </div>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

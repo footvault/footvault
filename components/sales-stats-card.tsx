@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { DollarSign, Package, CalendarIcon, TrendingUp } from "lucide-react"
+import { DollarSign, Package, CalendarIcon, TrendingUp, Clock } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,8 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { useCurrency } from "@/context/CurrencyContext"
 import { formatCurrency } from "@/lib/utils/currency"
 import { Skeleton } from "@/components/ui/skeleton"
+import { motion } from "framer-motion"
+import { useCountUp } from "@/hooks/useCountUp"
 
 interface SalesStats {
   totalSalesAmount: number
@@ -118,165 +120,211 @@ export function SalesStatsCard({
     }
   }, [dateRangeOption]) // Only re-run when dateRangeOption changes
 
+  // Count-up animations for stat values
+  const animatedSalesAmount = useCountUp(Math.round(stats.totalSalesAmount * 100), 800, !isLoading)
+  const animatedPendingAmount = useCountUp(Math.round((stats.totalPendingAmount || 0) * 100), 800, !isLoading)
+  const animatedNetProfit = useCountUp(Math.round(stats.totalNetProfit * 100), 800, !isLoading)
+  const animatedNumberOfSales = useCountUp(stats.numberOfSales, 600, !isLoading)
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg font-bold">Sales Overview</CardTitle>
-        <Select value={dateRangeOption} onValueChange={(value: DateRangeOption) => setDateRangeOption(value)}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Select Date Range" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today">Today</SelectItem>
-            <SelectItem value="this-month">This Month</SelectItem>
-            <SelectItem value="this-year">This Year</SelectItem>
-            <SelectItem value="custom">Custom Range</SelectItem>
-          </SelectContent>
-        </Select>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {dateRangeOption === "custom" && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                id="date"
-                variant={"outline"}
-                className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {date?.from ? (
-                  date.to ? (
-                    <>
-                      {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
-                    </>
-                  ) : (
-                    format(date.from, "LLL dd, y")
-                  )
-                ) : (
-                  <span>Pick a date range</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={date?.from}
-                 // @ts-ignore
-                selected={date}
-                onSelect={setDate}
-                numberOfMonths={2}
-              />
-            </PopoverContent>
-          </Popover>
-        )}
-        <div className={`grid grid-cols-1 gap-4 ${(isLoading || (stats.totalPendingAmount || 0) > 0) ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'}`}>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Completed Sales</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <Skeleton className="h-8 w-32 mb-2" />
-              ) : (
-                <div className="text-2xl font-bold"> {formatCurrency(stats.totalSalesAmount, currency)}</div>
-              )}
-              <p className="text-xs text-muted-foreground">Revenue from completed sales</p>
-            </CardContent>
-          </Card>
-
-          {/* Only show Amount Pending card if there is a pending amount or loading */}
-          {(isLoading || (stats.totalPendingAmount || 0) > 0) && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Amount Pending</CardTitle>
-                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <Skeleton className="h-8 w-32 mb-2" />
-                ) : (
-                  <div className="text-2xl font-bold text-yellow-600">
-                    {formatCurrency(stats.totalPendingAmount || 0, currency)}
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground">Outstanding from pending sales</p>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Net Profit</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <Skeleton className="h-8 w-32 mb-2" />
-              ) : (
-                <div className={`text-2xl font-bold ${stats.totalNetProfit < 0 ? "text-red-600" : "text-green-600"}`}>
-                  {formatCurrency(stats.totalNetProfit, currency)}
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">Profit after cost of goods sold</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Number of Sales</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <Skeleton className="h-8 w-16 mb-2" />
-              ) : (
-                <div className="text-2xl font-bold">{stats.numberOfSales}</div>
-              )}
-              <p className="text-xs text-muted-foreground">Completed transactions</p>
-            </CardContent>
-          </Card>
+    <div className="space-y-4">
+      {/* Date Range Selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h2 className="text-lg font-semibold text-foreground">Sales Overview</h2>
+        <div className="flex items-center gap-2">
+          <Select value={dateRangeOption} onValueChange={(value: DateRangeOption) => setDateRangeOption(value)}>
+            <SelectTrigger className="w-[160px] h-9 text-sm">
+              <SelectValue placeholder="Select Date Range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Today</SelectItem>
+              <SelectItem value="this-month">This Month</SelectItem>
+              <SelectItem value="this-year">This Year</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
+      </div>
 
-        {/* New section for avatar profits */}
-        {(isLoading || (avatarProfits && avatarProfits.length > 0)) && (
-          <div className="mt-6">
-            <h3 className="text-lg font-semibold mb-4">Profit Distribution by Avatar</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      {dateRangeOption === "custom" && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              id="date"
+              variant={"outline"}
+              className={cn("w-full sm:w-auto justify-start text-left font-normal h-9 text-sm", !date && "text-muted-foreground")}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {date?.from ? (
+                date.to ? (
+                  <>
+                    {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
+                  </>
+                ) : (
+                  format(date.from, "LLL dd, y")
+                )
+              ) : (
+                <span>Pick a date range</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              initialFocus
+              mode="range"
+              defaultMonth={date?.from}
+               // @ts-ignore
+              selected={date}
+              onSelect={setDate}
+              numberOfMonths={2}
+            />
+          </PopoverContent>
+        </Popover>
+      )}
+
+      {/* Stats Grid */}
+      <div className={`grid grid-cols-1 gap-3 ${(isLoading || (stats.totalPendingAmount || 0) > 0) ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3'}`}>
+        {/* Completed Sales */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0 }}
+        >
+          <div className="group relative flex items-center gap-3 rounded-xl border bg-card p-4 transition-all duration-200 hover:shadow-md hover:border-border/80">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 transition-transform duration-200 group-hover:scale-105">
+              <DollarSign className="h-5 w-5 text-emerald-500" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground">Completed Sales</p>
               {isLoading ? (
-                // Show skeleton loading cards
+                <Skeleton className="h-7 w-28 mt-0.5" />
+              ) : (
+                <p className="text-xl font-bold text-foreground truncate">{formatCurrency(animatedSalesAmount / 100, currency)}</p>
+              )}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Amount Pending */}
+        {(isLoading || (stats.totalPendingAmount || 0) > 0) && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.05 }}
+          >
+            <div className="group relative flex items-center gap-3 rounded-xl border bg-card p-4 transition-all duration-200 hover:shadow-md hover:border-border/80">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 transition-transform duration-200 group-hover:scale-105">
+                <Clock className="h-5 w-5 text-amber-500" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-muted-foreground">Amount Pending</p>
+                {isLoading ? (
+                  <Skeleton className="h-7 w-28 mt-0.5" />
+                ) : (
+                  <p className="text-xl font-bold text-amber-600 dark:text-amber-400 truncate">{formatCurrency(animatedPendingAmount / 100, currency)}</p>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Total Net Profit */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
+          <div className="group relative flex items-center gap-3 rounded-xl border bg-card p-4 transition-all duration-200 hover:shadow-md hover:border-border/80">
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 ${
+              stats.totalNetProfit < 0 ? 'bg-red-500/10' : 'bg-blue-500/10'
+            }`}>
+              <TrendingUp className={`h-5 w-5 ${stats.totalNetProfit < 0 ? 'text-red-500' : 'text-blue-500'}`} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground">Net Profit</p>
+              {isLoading ? (
+                <Skeleton className="h-7 w-28 mt-0.5" />
+              ) : (
+                <p className={`text-xl font-bold truncate ${stats.totalNetProfit < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+                  {formatCurrency(animatedNetProfit / 100, currency)}
+                </p>
+              )}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Number of Sales */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.15 }}
+        >
+          <div className="group relative flex items-center gap-3 rounded-xl border bg-card p-4 transition-all duration-200 hover:shadow-md hover:border-border/80">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 transition-transform duration-200 group-hover:scale-105">
+              <Package className="h-5 w-5 text-purple-500" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground">Total Sales</p>
+              {isLoading ? (
+                <Skeleton className="h-7 w-16 mt-0.5" />
+              ) : (
+                <p className="text-xl font-bold text-foreground">{animatedNumberOfSales}</p>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Avatar Profits Section */}
+      {(isLoading || (avatarProfits && avatarProfits.length > 0)) && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+        >
+          <div className="rounded-xl border bg-card p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3">Profit by Avatar</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {isLoading ? (
                 Array.from({ length: 4 }).map((_, index) => (
-                  <Card key={index} className="flex flex-col items-center p-4">
-                    <Skeleton className="h-16 w-16 rounded-full mb-2" />
-                    <Skeleton className="h-4 w-20 mb-1" />
-                    <Skeleton className="h-5 w-16" />
-                  </Card>
+                  <div key={index} className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+                    <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <Skeleton className="h-3.5 w-16 mb-1" />
+                      <Skeleton className="h-5 w-14" />
+                    </div>
+                  </div>
                 ))
               ) : (
-                avatarProfits?.map((avatar) => (
-                  <Card key={avatar.name} className="flex flex-col items-center p-4">
-                    <Avatar className="h-16 w-16 mb-2">
-                      <AvatarImage
-                        src={
-                          
-                          `https://avatar-placeholder.iran.liara.run/api?name=${encodeURIComponent(avatar.name)}&background=random`
-                        }
-                        alt={avatar.name}
-                      />
-                      <AvatarFallback>{avatar.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <p className="text-sm font-medium text-center">{avatar.name}</p>
-                    <p className={`text-lg font-bold ${avatar.profit < 0 ? "text-red-600" : "text-green-600"}`}>
-                      {formatCurrency(avatar.profit, currency)}
-                    </p>
-                  </Card>
+                avatarProfits?.map((avatar, index) => (
+                  <motion.div
+                    key={avatar.name}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.25, delay: 0.25 + index * 0.05 }}
+                  >
+                    <div className="group flex items-center gap-3 rounded-lg border bg-muted/30 p-3 transition-all duration-200 hover:bg-muted/50 hover:shadow-sm">
+                      <Avatar className="h-10 w-10 shrink-0 transition-transform duration-200 group-hover:scale-105">
+                        <AvatarImage
+                          src={`https://avatar-placeholder.iran.liara.run/api?name=${encodeURIComponent(avatar.name)}&background=random`}
+                          alt={avatar.name}
+                        />
+                        <AvatarFallback className="text-xs font-medium">{avatar.name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-muted-foreground truncate">{avatar.name}</p>
+                        <p className={`text-sm font-bold truncate ${avatar.profit < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+                          {formatCurrency(avatar.profit, currency)}
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
                 ))
               )}
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </motion.div>
+      )}
+    </div>
   )
 }

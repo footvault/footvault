@@ -54,7 +54,7 @@ export default function ClientLayout({ children, user }: ClientLayoutProps) {
         <AppSidebar>
           <AuthForm user={user} />
         </AppSidebar>
-        <main className="flex-1">
+        <main className="flex-1 min-w-0 overflow-x-hidden">
           {children}
         </main>
         <Toaster />

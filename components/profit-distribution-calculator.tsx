@@ -201,7 +201,7 @@ export function ProfitDistributionCalculator({
           <div className="space-y-3">
             {(() => {
               const mainAccount = avatars.find((a) => (a as any).type === "Main")
-              if (!mainAccount) return <p className="text-sm text-gray-500">No Main Account avatar found.</p>
+              if (!mainAccount) return <p className="text-sm text-muted-foreground">No Main Account avatar found.</p>
               return (
                 <div className="flex items-center gap-2">
                   <UIAvatar className="h-6 w-6">
@@ -210,8 +210,8 @@ export function ProfitDistributionCalculator({
                   </UIAvatar>
                   <span>{mainAccount.name}</span>
                   <div className="relative w-24">
-                    <Input type="number" value={100} readOnly disabled className="pr-6 bg-gray-100" />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                    <Input type="number" value={100} readOnly disabled className="pr-6 bg-muted" />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
                   </div>
                 </div>
               )
@@ -279,10 +279,10 @@ export function ProfitDistributionCalculator({
                     step="0.01"
                     className="pr-6"
                   />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => handleRemoveManualDistribution(item.id)}>
-                  <Trash2 className="h-4 w-4 text-red-500" />
+                  <Trash2 className="h-4 w-4 text-red-400" />
                 </Button>
               </div>
             ))}
@@ -296,7 +296,7 @@ export function ProfitDistributionCalculator({
           <div className="space-y-3">
             <h4 className="text-sm font-semibold">Template Participants:</h4>
             {currentDistribution.length === 0 ? (
-              <p className="text-sm text-gray-500">This template has no participants defined.</p>
+              <p className="text-sm text-muted-foreground">This template has no participants defined.</p>
             ) : (
               currentDistribution.map((item) => {
                 const avatar = avatars.find((a) => a.id === item.avatarId)
@@ -311,7 +311,7 @@ export function ProfitDistributionCalculator({
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{item.percentage.toFixed(2)}%</span>
-                      <span className="text-gray-500">({formatCurrency(item.amount, currency)})</span>
+                      <span className="text-muted-foreground">({formatCurrency(item.amount, currency)})</span>
                     </div>
                   </div>
                 )
@@ -323,22 +323,22 @@ export function ProfitDistributionCalculator({
         <div className="border-t pt-4 space-y-2">
           <div className="flex justify-between text-sm font-medium">
             <span>Total Profit:</span>
-            <span className={netProfit < 0 ? "text-red-600" : "text-green-600"}>{formatCurrency(netProfit, currency)}</span>
+            <span className={netProfit < 0 ? "text-red-400" : "text-emerald-400"}>{formatCurrency(netProfit, currency)}</span>
           </div>
           <div className="flex justify-between text-sm font-medium">
             <span>Total Distributed Percentage:</span>
-            <span className={totalDistributedPercentage !== 100 ? "text-red-500" : "text-green-600"}>
+            <span className={totalDistributedPercentage !== 100 ? "text-red-400" : "text-emerald-400"}>
               {totalDistributedPercentage.toFixed(2)}%
             </span>
           </div>
           <div className="flex justify-between text-sm font-medium">
             <span>Total Distributed Amount:</span>
-            <span className={Math.abs(totalDistributedAmount - netProfit) > 0.01 ? "text-red-500" : "text-green-600"}>
+            <span className={Math.abs(totalDistributedAmount - netProfit) > 0.01 ? "text-red-400" : "text-emerald-400"}>
               {formatCurrency(totalDistributedAmount, currency)}
             </span>
           </div>
           {Math.abs(totalDistributedAmount - netProfit) > 0.01 && (
-            <p className="text-xs text-red-500">
+            <p className="text-xs text-red-400">
               Warning: Distributed amount does not match net profit. Adjust percentages.
             </p>
           )}
@@ -346,12 +346,12 @@ export function ProfitDistributionCalculator({
 
         {/* Shipping validation errors display */}
         {shippingMode && !isShippingValid && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
             <p className="text-sm font-medium text-red-800 mb-2">Shipping details incomplete:</p>
             <ul className="text-sm text-red-700 space-y-1">
               {shippingValidationErrors.map((error, index) => (
                 <li key={index} className="flex items-start">
-                  <span className="text-red-500 mr-2">•</span>
+                  <span className="text-red-400 mr-2">•</span>
                   {error}
                 </li>
               ))}

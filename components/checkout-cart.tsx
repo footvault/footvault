@@ -202,7 +202,7 @@ export function CheckoutCart({
 
         {/* Cart Items */}
         {totalItems === 0 ? (
-          <p className="text-center text-gray-500 py-8">No items in cart</p>
+          <p className="text-center text-muted-foreground py-8">No items in cart</p>
         ) : (
           <>
             {/* Compact View */}
@@ -212,7 +212,7 @@ export function CheckoutCart({
                   if (unifiedItem.type === 'preorder') {
                     const preorder = unifiedItem.item as Preorder;
                     return (
-                      <div key={unifiedItem.id} className="p-2 bg-blue-50 rounded-md border border-blue-200">
+                      <div key={unifiedItem.id} className="p-2 bg-blue-500/10 rounded-md border border-blue-500/20">
                         {/* Responsive header: stacks on small screens */}
                         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -226,9 +226,9 @@ export function CheckoutCart({
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{preorder.product.brand} {preorder.product.name}</p>
-                              <p className="text-xs text-blue-600 truncate">Customer: {preorder.customer.name}</p>
-                              <div className="flex flex-wrap gap-1 text-xs text-blue-600 mt-1">
-                                <Badge variant="outline" className="bg-yellow-100 border-yellow-300 text-yellow-800 text-xs px-1 py-0">PRE-ORDER</Badge>
+                              <p className="text-xs text-blue-400 truncate">Customer: {preorder.customer.name}</p>
+                              <div className="flex flex-wrap gap-1 text-xs text-blue-400 mt-1">
+                                <Badge variant="outline" className="bg-yellow-500/10 border-yellow-500/30 text-yellow-300 text-xs px-1 py-0">PRE-ORDER</Badge>
                                 <span className="whitespace-nowrap">Size: {preorder.size_label || preorder.size}</span>
                                 <span className="whitespace-nowrap">PO: #{preorder.pre_order_no}</span>
                               </div>
@@ -238,7 +238,7 @@ export function CheckoutCart({
                           <div className="flex items-center gap-2 flex-shrink-0 mt-2 md:mt-0">
                             <div className="text-right">
                               <span className="text-sm font-medium block">{formatCurrency(preorder.total_amount, currency)}</span>
-                              <span className="text-xs text-gray-500">total sale</span>
+                              <span className="text-xs text-muted-foreground">total sale</span>
                             </div>
                             {onRemovePreorder && (
                               <Button
@@ -256,28 +256,28 @@ export function CheckoutCart({
                         {/* Details grid - 2x2 layout with labels above values */}
                         <div className="grid grid-cols-2 gap-3 text-xs">
                           <div>
-                            <div className="text-gray-500 font-medium mb-1">Cost Price</div>
-                            <div className="text-gray-700 font-medium">{formatCurrency(preorder.cost_price, currency)}</div>
+                            <div className="text-muted-foreground font-medium mb-1">Cost Price</div>
+                            <div className="text-foreground/80 font-medium">{formatCurrency(preorder.cost_price, currency)}</div>
                           </div>
                           <div>
-                            <div className="text-gray-500 font-medium mb-1">Total Amount</div>
-                            <div className="text-gray-700 font-medium">{formatCurrency(preorder.total_amount, currency)}</div>
+                            <div className="text-muted-foreground font-medium mb-1">Total Amount</div>
+                            <div className="text-foreground/80 font-medium">{formatCurrency(preorder.total_amount, currency)}</div>
                           </div>
                           <div>
-                            <div className="text-gray-500 font-medium mb-1">Down Payment</div>
-                            <div className="text-green-600 font-medium">{formatCurrency(preorder.down_payment || 0, currency)}</div>
+                            <div className="text-muted-foreground font-medium mb-1">Down Payment</div>
+                            <div className="text-emerald-400 font-medium">{formatCurrency(preorder.down_payment || 0, currency)}</div>
                             {preorder.down_payment_method && (
-                              <div className="text-xs text-gray-500 mt-0.5">via {preorder.down_payment_method}</div>
+                              <div className="text-xs text-muted-foreground mt-0.5">via {preorder.down_payment_method}</div>
                             )}
                           </div>
                           <div>
-                            <div className="text-gray-500 font-medium mb-1">Remaining</div>
+                            <div className="text-muted-foreground font-medium mb-1">Remaining</div>
                             <div className="text-orange-600 font-medium">{formatCurrency(preorder.remaining_balance, currency)}</div>
                           </div>
                           <div className="col-span-2 pt-2 border-t">
-                            <div className="text-gray-500 font-medium mb-1">Expected Profit</div>
+                            <div className="text-muted-foreground font-medium mb-1">Expected Profit</div>
                             <div className={`font-bold ${
-                              (preorder.total_amount - preorder.cost_price) >= 0 ? 'text-green-600' : 'text-red-600'
+                              (preorder.total_amount - preorder.cost_price) >= 0 ? 'text-emerald-400' : 'text-red-400'
                             }`}>
                               {formatCurrency(preorder.total_amount - preorder.cost_price, currency)}
                             </div>
@@ -288,7 +288,7 @@ export function CheckoutCart({
                   } else {
                     const variant = unifiedItem.item as TransformedVariant;
                     return (
-                      <div key={variant.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                      <div key={variant.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           <div className="w-8 h-8 relative rounded overflow-hidden flex-shrink-0">
                             <Image
@@ -300,7 +300,7 @@ export function CheckoutCart({
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{variant.productName}</p>
-                            <div className="flex gap-2 text-xs text-gray-500">
+                            <div className="flex gap-2 text-xs text-muted-foreground">
                               <span>Size: {variant.size}</span>
                               {variant.isPreorder && variant.preorderData ? (
                                 <span>PO-{variant.preorderData.pre_order_no}</span>
@@ -309,7 +309,7 @@ export function CheckoutCart({
                               ) : null}
                             </div>
                             {variant.ownerType === 'consignor' && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 mt-1">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 mt-1">
                                 Consigned
                               </span>
                             )}
@@ -320,7 +320,7 @@ export function CheckoutCart({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 text-red-500 hover:text-red-600 hover:bg-red-50"
+                            className="h-6 w-6 text-red-400 hover:text-red-400 hover:bg-red-500/100/10"
                             onClick={() => onRemove(variant.id)}
                           >
                             <Trash2 className="h-3 w-3" />
@@ -338,7 +338,7 @@ export function CheckoutCart({
                   if (unifiedItem.type === 'preorder') {
                     const preorder = unifiedItem.item as Preorder;
                     return (
-                      <li key={unifiedItem.id} className="flex gap-4 items-start p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <li key={unifiedItem.id} className="flex gap-4 items-start p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
                         <div className="w-16 h-16 relative rounded-md overflow-hidden flex-shrink-0">
                           <Image
                             src={preorder.product.image || "/placeholder.svg"}
@@ -349,10 +349,10 @@ export function CheckoutCart({
                         </div>
                         <div className="flex-grow">
                           <h4 className="font-medium line-clamp-1">{preorder.product.brand} {preorder.product.name}</h4>
-                          <p className="text-sm text-blue-600">Customer: {preorder.customer.name}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">Pre Order: #{preorder.pre_order_no}</p>
+                          <p className="text-sm text-blue-400">Customer: {preorder.customer.name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Pre Order: #{preorder.pre_order_no}</p>
                           <div className="flex gap-2 mt-1 flex-wrap">
-                            <Badge variant="outline" className="bg-yellow-100 border-yellow-300 text-yellow-800 text-xs">
+                            <Badge variant="outline" className="bg-yellow-500/10 border-yellow-500/30 text-yellow-300 text-xs">
                               PRE-ORDER
                             </Badge>
                             <Badge variant="outline" className="text-xs">
@@ -361,10 +361,10 @@ export function CheckoutCart({
                           </div>
                           
                           {/* Enhanced cost and profit information */}
-                          <div className="mt-2 p-2 bg-white rounded border border-gray-200">
+                          <div className="mt-2 p-2 bg-muted/50 rounded border border-border">
                             <div className="grid grid-cols-2 gap-4 text-sm">
                               <div>
-                                <div className="text-gray-500 font-medium mb-1">Cost Price *</div>
+                                <div className="text-muted-foreground font-medium mb-1">Cost Price *</div>
                                 <Input
                                   type="number"
                                   step="0.01"
@@ -379,23 +379,23 @@ export function CheckoutCart({
                                   placeholder="Enter cost"
                                   className="h-8 text-sm"
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Enter actual cost</p>
+                                <p className="text-xs text-muted-foreground mt-1">Enter actual cost</p>
                               </div>
                               <div>
-                                <div className="text-gray-500 font-medium mb-1">Total Amount</div>
+                                <div className="text-muted-foreground font-medium mb-1">Total Amount</div>
                                 <div className="font-medium">{formatCurrency(preorder.total_amount, currency)}</div>
                               </div>
                               <div>
-                                <div className="text-gray-500 font-medium mb-1">Down Payment</div>
-                                <div className="font-medium text-green-600">
+                                <div className="text-muted-foreground font-medium mb-1">Down Payment</div>
+                                <div className="font-medium text-emerald-400">
                                   {formatCurrency(preorder.down_payment || 0, currency)}
                                 </div>
                                 {preorder.down_payment_method && (
-                                  <div className="text-xs text-gray-500 mt-0.5">via {preorder.down_payment_method}</div>
+                                  <div className="text-xs text-muted-foreground mt-0.5">via {preorder.down_payment_method}</div>
                                 )}
                               </div>
                               <div>
-                                <div className="text-gray-500 font-medium mb-1">Remaining</div>
+                                <div className="text-muted-foreground font-medium mb-1">Remaining</div>
                                 <div className="font-medium text-orange-600">
                                   {formatCurrency(preorder.remaining_balance, currency)}
                                 </div>
@@ -403,13 +403,13 @@ export function CheckoutCart({
                             </div>
                             
                             {/* Profit calculation */}
-                            <div className="mt-2 pt-2 border-t border-gray-200">
+                            <div className="mt-2 pt-2 border-t border-border">
                               <div className="flex justify-between text-xs">
-                                <span className="text-gray-600">Expected Profit:</span>
+                                <span className="text-muted-foreground">Expected Profit:</span>
                                 <span className={`font-bold ${
                                   (preorder.total_amount - (preorderCosts[preorder.id] ?? preorder.cost_price ?? 0)) >= 0 
-                                    ? 'text-green-600' 
-                                    : 'text-red-600'
+                                    ? 'text-emerald-400' 
+                                    : 'text-red-400'
                                 }`}>
                                   {formatCurrency(preorder.total_amount - (preorderCosts[preorder.id] ?? preorder.cost_price ?? 0), currency)}
                                 </span>
@@ -419,14 +419,14 @@ export function CheckoutCart({
                           
                           {/* Main price display */}
                           <div className="flex justify-between items-center mt-2">
-                            <p className="text-sm font-semibold text-blue-700">Sale Price: {formatCurrency(preorder.total_amount, currency)}</p>
+                            <p className="text-sm font-semibold text-blue-400">Sale Price: {formatCurrency(preorder.total_amount, currency)}</p>
                           </div>
                         </div>
                         {onRemovePreorder && (
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="flex-shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                            className="flex-shrink-0 text-red-400 hover:text-red-400 hover:bg-red-500/100/10"
                             onClick={() => onRemovePreorder(preorder.id)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -448,11 +448,11 @@ export function CheckoutCart({
                         </div>
                         <div className="flex-grow">
                           <h4 className="font-medium line-clamp-1">{variant.productName}</h4>
-                          <p className="text-sm text-gray-600">{variant.productBrand}</p>
+                          <p className="text-sm text-muted-foreground">{variant.productBrand}</p>
                           {variant.isPreorder && variant.preorderData ? (
-                            <p className="text-xs text-gray-500 mt-0.5">PO-{variant.preorderData.pre_order_no}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">PO-{variant.preorderData.pre_order_no}</p>
                           ) : variant.serialNumber ? (
-                            <p className="text-xs text-gray-500 mt-0.5">Serial: #{variant.serialNumber}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Serial: #{variant.serialNumber}</p>
                           ) : null}
                           <div className="flex gap-2 mt-1 flex-wrap">
                             <Badge variant="outline" className="text-xs">
@@ -464,7 +464,7 @@ export function CheckoutCart({
                               </Badge>
                             )}
                             {variant.ownerType === 'consignor' && (
-                              <Badge className="text-xs bg-blue-500 hover:bg-blue-600 text-white border-0">
+                              <Badge className="text-xs bg-blue-500/100 hover:bg-blue-500 text-white border-0">
                                 Consigned by {variant.consignorName || 'Unknown'}
                               </Badge>
                             )}
@@ -472,8 +472,8 @@ export function CheckoutCart({
                           
                           {/* Consignment payout method selector */}
                           {variant.ownerType === 'consignor' && onPayoutMethodChange && (
-                            <div className="mt-3 p-3 bg-blue-50 rounded-md border border-blue-200 space-y-2">
-                              <Label className="text-xs font-semibold text-blue-900">Payout Method</Label>
+                            <div className="mt-3 p-3 bg-blue-500/10 rounded-md border border-blue-500/20 space-y-2">
+                              <Label className="text-xs font-semibold text-blue-300">Payout Method</Label>
                               <Select
                                 value={variantPayoutMethods[variant.id] || variant.variantPayoutMethod || variant.consignorPayoutMethod || 'percentage_split'}
                                 onValueChange={(value: any) => onPayoutMethodChange(variant.id, value)}
@@ -493,25 +493,25 @@ export function CheckoutCart({
                                   <SelectItem value="cost_price">
                                     <div className="flex flex-col">
                                       <span>Cost Price Only</span>
-                                      <span className="text-xs text-gray-500">Consignor gets back only their cost</span>
+                                      <span className="text-xs text-muted-foreground">Consignor gets back only their cost</span>
                                     </div>
                                   </SelectItem>
                                   <SelectItem value="cost_plus_fixed">
                                     <div className="flex flex-col">
                                       <span>Cost + Fixed Markup</span>
-                                      <span className="text-xs text-gray-500">Consignor gets cost + fixed amount</span>
+                                      <span className="text-xs text-muted-foreground">Consignor gets cost + fixed amount</span>
                                     </div>
                                   </SelectItem>
                                   <SelectItem value="cost_plus_percentage">
                                     <div className="flex flex-col">
                                       <span>Cost + % Markup</span>
-                                      <span className="text-xs text-gray-500">Consignor gets cost + percentage of cost</span>
+                                      <span className="text-xs text-muted-foreground">Consignor gets cost + percentage of cost</span>
                                     </div>
                                   </SelectItem>
                                   <SelectItem value="percentage_split">
                                     <div className="flex flex-col">
                                       <span>% Split</span>
-                                      <span className="text-xs text-gray-500">Consignor gets sale minus your commission</span>
+                                      <span className="text-xs text-muted-foreground">Consignor gets sale minus your commission</span>
                                     </div>
                                   </SelectItem>
                                 </SelectContent>
@@ -520,7 +520,7 @@ export function CheckoutCart({
                               {/* Show fixed markup input */}
                               {(variantPayoutMethods[variant.id] || variant.variantPayoutMethod || variant.consignorPayoutMethod) === 'cost_plus_fixed' && onFixedMarkupChange && (
                                 <div className="space-y-1">
-                                  <Label className="text-xs text-gray-600">Fixed Markup</Label>
+                                  <Label className="text-xs text-muted-foreground">Fixed Markup</Label>
                                   <Input
                                     type="number"
                                     value={variantFixedMarkups[variant.id] !== undefined ? variantFixedMarkups[variant.id] : (variant.variantFixedMarkup ?? variant.consignorFixedMarkup ?? 0)}
@@ -534,7 +534,7 @@ export function CheckoutCart({
                               {/* Show percentage markup input */}
                               {(variantPayoutMethods[variant.id] || variant.variantPayoutMethod || variant.consignorPayoutMethod) === 'cost_plus_percentage' && onMarkupPercentageChange && (
                                 <div className="space-y-1">
-                                  <Label className="text-xs text-gray-600">Markup Percentage (%)</Label>
+                                  <Label className="text-xs text-muted-foreground">Markup Percentage (%)</Label>
                                   <Input
                                     type="number"
                                     value={variantMarkupPercentages[variant.id] !== undefined ? variantMarkupPercentages[variant.id] : (variant.variantMarkupPercentage ?? variant.consignorMarkupPercentage ?? 0)}
@@ -547,7 +547,7 @@ export function CheckoutCart({
                               
                               {/* Show commission rate for percentage split */}
                               {(variantPayoutMethods[variant.id] || variant.variantPayoutMethod || variant.consignorPayoutMethod) === 'percentage_split' && (
-                                <div className="text-xs text-gray-600">
+                                <div className="text-xs text-muted-foreground">
                                   Store Commission: {variant.consignorCommissionRate || 20}%
                                 </div>
                               )}
@@ -561,7 +561,7 @@ export function CheckoutCart({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="flex-shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          className="flex-shrink-0 text-red-400 hover:text-red-400 hover:bg-red-500/100/10"
                           onClick={() => onRemove(variant.id)}
                         >
                           <Trash2 className="h-4 w-4" />

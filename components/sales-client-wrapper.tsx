@@ -3,7 +3,7 @@
 import { useState, useMemo, useTransition, useEffect } from "react"
 import type { Avatar } from "@/lib/types"
 import type { ProfitDistributionTemplateDetail, Sale, SalesStats } from "@/lib/types"
-
+import { motion } from "framer-motion"
 
 import { SalesStatsCard } from "@/components/sales-stats-card"
 import { AvatarManagementModal } from "@/components/avatar-management-modal"
@@ -12,7 +12,7 @@ import { ProfitTemplateManagementModal } from "@/components/profit-template-mana
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Plus, Search, Filter, Loader2 } from "lucide-react"
+import { Plus, Search, Filter, Loader2, Users, LayoutTemplate } from "lucide-react"
 import Link from "next/link"
 import { SaleDetailModal } from "@/components/sale-detail-modal"
 import  SalesList from "@/components/sales-list"
@@ -26,6 +26,22 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { createClient } from "@/lib/supabase/client"
 import PremiumFeatureModal from "./PremiumFeatureModal"
+
+const containerVariants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.08 },
+  },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] },
+  },
+}
 
 interface SalesClientWrapperProps {
   initialSales: Sale[]
@@ -348,12 +364,26 @@ export function SalesClientWrapper({
   }, []);
 
   return (
-    <div className="container mx-auto py-4 px-2 sm:px-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold">Sales History</h1>
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      {/* Header Section */}
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Sales History</h1>
+          <p className="text-sm text-muted-foreground mt-1">Track your revenue, manage transactions, and analyze performance</p>
+        </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Button variant="outline" onClick={() => setIsProfitTemplateModalOpen(true)} className="w-full sm:w-auto">
-            Manage Templates
+          <Button
+            variant="outline"
+            onClick={() => setIsProfitTemplateModalOpen(true)}
+            className="w-full sm:w-auto gap-2 transition-all duration-200 hover:shadow-sm"
+          >
+            <LayoutTemplate className="h-4 w-4" />
+            Templates
           </Button>
           <Button
             variant="outline"
@@ -366,51 +396,43 @@ export function SalesClientWrapper({
                 setIsAvatarModalOpen(true);
               }
             }}
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto gap-2 transition-all duration-200 hover:shadow-sm"
           >
-            Manage Avatars
+            <Users className="h-4 w-4" />
+            Avatars
           </Button>
           <Link href="/checkout" className="w-full sm:w-auto">
-            <Button className="w-full sm:w-auto">
-              <Plus className="h-4 w-4 mr-2" /> New Sale
+            <Button className="w-full sm:w-auto gap-2 bg-primary text-primary-foreground shadow-sm hover:shadow-md transition-all duration-200">
+              <Plus className="h-4 w-4" /> New Sale
             </Button>
           </Link>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="mb-6">
+      {/* Stats Section */}
+      <motion.div variants={itemVariants}>
         <SalesStatsCard stats={salesStats} onDateRangeChange={handleDateRangeChange} avatarProfits={avatarProfits} isLoading={isFetchingStats} />
-      </div>
+      </motion.div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Search className="h-5 w-5" /> Search Sales
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-        
-
+      {/* Sales List Section */}
+      <motion.div variants={itemVariants}>
+        <div className="rounded-xl border bg-card overflow-hidden">
           {isRefreshingData ? (
-            <div className="text-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-4" />
-              <p className="text-gray-600">Refreshing data...</p>
+            <div className="flex flex-col items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-3" />
+              <p className="text-sm text-muted-foreground">Refreshing data...</p>
             </div>
           ) : (
-            // @ts-ignore
-            <div className="overflow-x-auto">
-              
-              <SalesList sales={filteredSales}
+            <SalesList sales={filteredSales}
               onRefunded={() => fetchSalesFromApi(true)}
               onDeleted={() => fetchSalesFromApi(true)}
               onCompleted={() => fetchSalesFromApi(true)}
               onVoided={() => fetchSalesFromApi(true)}
               // @ts-ignore
               onSelectSale={handleViewDetails} />
-            </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </motion.div>
    
       {selectedSale && (
         <SaleDetailModal
@@ -466,6 +488,6 @@ export function SalesClientWrapper({
         onOpenChange={setShowPremiumModal}
         featureName={userPlan === "team" ? "Up to 5 Avatars allowed on Team plan. Upgrade for more." : "Avatar Management"}
       />
-    </div>
+    </motion.div>
   )
 }

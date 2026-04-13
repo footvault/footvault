@@ -1,13 +1,14 @@
 "use client"
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DollarSign, Package, Users, Calendar, MapPin } from "lucide-react" // Added MapPin for shipping
+import { DollarSign, Package, Users, Calendar, MapPin, CreditCard, Hash, User, Phone, Truck, FileText } from "lucide-react"
 import Image from "next/image"
 import { useCurrency } from "@/context/CurrencyContext"
 import { useTimezone } from "@/context/TimezoneContext"
 import { formatCurrency } from "@/lib/utils/currency"
+import { motion } from "framer-motion"
 
 // IMPORTANT: If sale.items is empty in the modal, the issue is likely in the data fetching function
 // that populates the 'sale' prop for this modal. Ensure that function uses
@@ -90,286 +91,329 @@ export function SaleDetailModal({ open, onOpenChange, sale }: SaleDetailModalPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-6">
-        <DialogHeader className="mb-6">
-          <DialogTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5" /> Sale Details - {saleNumber}
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                <Hash className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <DialogHeader className="p-0 space-y-0">
+                  <DialogTitle className="text-lg font-semibold">Sale {saleNumber}</DialogTitle>
+                </DialogHeader>
+                <p className="text-xs text-muted-foreground">{formatDateInTimezone(sale.sale_date)}</p>
+              </div>
+            </div>
+            {sale.status && (
+              <Badge variant="outline" className={`text-xs font-medium ${
+                sale.status === 'completed' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' :
+                sale.status === 'pending' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20' :
+                sale.status === 'refunded' ? 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20' :
+                sale.status === 'voided' ? 'bg-muted text-muted-foreground border-border' :
+                sale.status === 'downpayment' ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20' :
+                'bg-muted text-muted-foreground border-border'
+              }`}>
+                {sale.status.charAt(0).toUpperCase() + sale.status.slice(1)}
+              </Badge>
+            )}
+          </div>
+        </div>
 
-        <div className="grid grid-cols-1 gap-6">
-          {/* Sale Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Calendar className="h-5 w-5" /> Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between text-sm">
-                <span>Sale Date:</span>
-                <span className="font-medium">{formatDateInTimezone(sale.sale_date)}</span>
-              </div>
-              {sale.customer_name && (
-                <div className="flex justify-between text-sm">
-                  <span>Customer Name:</span>
-                  <span className="font-medium">{sale.customer_name}</span>
-                </div>
-              )}
-              {sale.customer_phone && (
-                <div className="flex justify-between text-sm">
-                  <span>Customer Phone:</span>
-                  <span className="font-medium">{sale.customer_phone}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-sm">
-                <span>Total Items:</span>
-                <span className="font-medium">{items.length}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Payment Type:</span>
-                <span className="font-medium">
-                  {(() => {
-                    if (!sale.payment_type) return 'N/A';
-                    
-                    if (typeof sale.payment_type === 'object' && sale.payment_type !== null) {
-                      // Handle new JSONB format { "type": "uuid" }
-                      if (sale.payment_type.type) {
-                        // This would need to be looked up from payment types, but for now show fallback
-                        return 'Cash'; // TODO: Implement payment type lookup by ID
-                      }
-                      // Handle legacy format with name property
-                      if (sale.payment_type.name) {
-                        return sale.payment_type.name;
-                      }
-                      return 'Cash';
-                    }
-                    
-                    // Handle string format
-                    if (typeof sale.payment_type === 'string') {
-                      return sale.payment_type.charAt(0).toUpperCase() + sale.payment_type.slice(1);
-                    }
-                    
-                    return 'N/A';
-                  })()}
-                  {typeof sale.payment_type === 'object' && sale.payment_type?.feeType && typeof sale.payment_type?.feeValue === 'number' && sale.payment_type?.feeValue > 0 && (
-                    <>
-                      <span className="text-xs text-gray-500 ml-2">
-                        ({sale.payment_type.feeType === 'percent' ? `${sale.payment_type.feeValue}%` : `₱${sale.payment_type.feeValue}`} fee)
-                      </span>
-                      <div className="text-xs text-gray-500 mt-1">
-                        Fee Amount: {(() => {
-                          // For pre-orders, calculate fee on remaining balance instead of total amount
-                          const baseAmount = sale.down_payment != null && sale.down_payment > 0 
-                            ? (sale.remaining_balance || 0) 
-                            : sale.total_amount;
-                          
-                          if (sale.payment_type.feeType === 'percent') {
-                            return formatCurrency((sale.payment_type.feeValue / 100) * baseAmount, currency);
-                          } else {
-                            return formatCurrency(sale.payment_type.feeValue, currency);
-                          }
-                        })()}
-                      </div>
-                    </>
-                  )}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Subtotal:</span>
-                <span className="font-medium">{formatCurrency((sale.total_amount + sale.total_discount), currency)}</span>
-              </div>
-              <div className="flex justify-between text-sm ">
-                <span>Discount:</span>
-                <span className="font-medium">{formatCurrency(sale.total_discount, currency)}</span>
-              </div>
-              <div className="flex justify-between font-bold text-lg border-t pt-3">
-                <span>Total Amount:</span>
-                <span>{formatCurrency(sale.total_amount, currency)}</span>
-              </div>
-              {/* Show down payment and remaining balance for pre-orders/COD */}
-              {sale.down_payment != null && sale.down_payment > 0 && (
-                <>
-                  <div className="flex justify-between text-sm text-gray-700 bg-blue-50 p-2 rounded">
-                    <span>Down Payment:</span>
-                    <span className="font-medium">{formatCurrency(sale.down_payment, currency)}</span>
+        <div className="px-6 pb-6 space-y-6">
+          {/* Summary Grid */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.05 }}
+          >
+            <div className="grid grid-cols-2 gap-3">
+              {/* Customer Info */}
+              {(sale.customer_name || sale.customer_phone) && (
+                <div className="col-span-2 flex items-start gap-3 rounded-lg border bg-muted/30 p-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-blue-500/10">
+                    <User className="h-4 w-4 text-blue-500" />
                   </div>
-                  {(sale.remaining_balance != null && sale.remaining_balance > 0) || sale.status === 'completed' ? (
-                    <div className={`flex justify-between text-sm text-gray-700 p-2 rounded ${sale.status === 'completed' ? 'bg-green-50' : 'bg-yellow-50'}`}>
-                      <span>Remaining Balance {sale.status === 'completed' && '(Paid)'}:</span>
-                      <span className={`font-medium ${sale.status === 'completed' ? 'line-through' : ''}`}>
-                        {formatCurrency(
-                          sale.status === 'completed' 
-                            ? (sale.total_amount - (sale.down_payment ?? 0)) // Calculate original remaining balance
-                            : (sale.remaining_balance ?? 0), 
-                          currency
-                        )}
-                      </span>
-                    </div>
-                  ) : null}
-                </>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-muted-foreground">Customer</p>
+                    <p className="text-sm font-semibold text-foreground truncate">{sale.customer_name || 'N/A'}</p>
+                    {sale.customer_phone && (
+                      <p className="text-xs text-muted-foreground mt-0.5">{sale.customer_phone}</p>
+                    )}
+                  </div>
+                </div>
               )}
-              <div className="flex justify-between font-semibold text-base">
-                <span>Net Profit:</span>
-                <span className={sale.net_profit < 0 ? "text-red-600" : "text-green-600"}>
-                  {formatCurrency(sale.net_profit, currency)}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Shipping Information - Only show if shipping details exist */}
-          {(sale.shipping_address || sale.shipping_city || sale.shipping_country || sale.shipping_notes) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <MapPin className="h-5 w-5" /> Shipping Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {sale.shipping_address && (
+              {/* Payment Type */}
+              <div className="flex items-start gap-3 rounded-lg border bg-muted/30 p-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-purple-500/10">
+                  <CreditCard className="h-4 w-4 text-purple-500" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-muted-foreground">Payment</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {(() => {
+                      if (!sale.payment_type) return 'N/A';
+                      if (typeof sale.payment_type === 'object' && sale.payment_type !== null) {
+                        if (sale.payment_type.type) return 'Cash';
+                        if (sale.payment_type.name) return sale.payment_type.name;
+                        return 'Cash';
+                      }
+                      if (typeof sale.payment_type === 'string') {
+                        return sale.payment_type.charAt(0).toUpperCase() + sale.payment_type.slice(1);
+                      }
+                      return 'N/A';
+                    })()}
+                  </p>
+                  {typeof sale.payment_type === 'object' && sale.payment_type?.feeType && typeof sale.payment_type?.feeValue === 'number' && sale.payment_type?.feeValue > 0 && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Fee: {sale.payment_type.feeType === 'percent' ? `${sale.payment_type.feeValue}%` : formatCurrency(sale.payment_type.feeValue, currency)}
+                      {' '}({(() => {
+                        const baseAmount = sale.down_payment != null && sale.down_payment > 0
+                          ? (sale.remaining_balance || 0)
+                          : sale.total_amount;
+                        if (sale.payment_type.feeType === 'percent') {
+                          return formatCurrency((sale.payment_type.feeValue / 100) * baseAmount, currency);
+                        }
+                        return formatCurrency(sale.payment_type.feeValue, currency);
+                      })()})
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Items Count */}
+              <div className="flex items-start gap-3 rounded-lg border bg-muted/30 p-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-amber-500/10">
+                  <Package className="h-4 w-4 text-amber-500" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-muted-foreground">Items</p>
+                  <p className="text-sm font-semibold text-foreground">{items.length} {items.length === 1 ? 'item' : 'items'}</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Financial Summary */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
+            <div className="rounded-xl border bg-card overflow-hidden">
+              <div className="px-4 py-3 border-b bg-muted/30">
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  Financial Summary
+                </h3>
+              </div>
+              <div className="p-4 space-y-2.5">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="font-medium text-foreground">{formatCurrency((sale.total_amount + sale.total_discount), currency)}</span>
+                </div>
+                {sale.total_discount > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span>Address:</span>
-                    <span className="font-medium text-right max-w-[60%]">{sale.shipping_address}</span>
+                    <span className="text-muted-foreground">Discount</span>
+                    <span className="font-medium text-red-600 dark:text-red-400">-{formatCurrency(sale.total_discount, currency)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-sm">
-                  <span>Location:</span>
-                  <span className="font-medium text-right">
-                    {[sale.shipping_city, sale.shipping_state, sale.shipping_zip, sale.shipping_country]
-                      .filter(Boolean)
-                      .join(', ')}
+                <div className="flex justify-between text-base font-bold border-t border-border pt-2.5">
+                  <span className="text-foreground">Total</span>
+                  <span className="text-foreground">{formatCurrency(sale.total_amount, currency)}</span>
+                </div>
+
+                {/* Down payment info */}
+                {sale.down_payment != null && sale.down_payment > 0 && (
+                  <>
+                    <div className="flex justify-between text-sm bg-blue-500/5 rounded-lg p-2.5 -mx-1">
+                      <span className="text-blue-700 dark:text-blue-400 font-medium">Down Payment</span>
+                      <span className="font-semibold text-blue-700 dark:text-blue-400">{formatCurrency(sale.down_payment, currency)}</span>
+                    </div>
+                    {(sale.remaining_balance != null && sale.remaining_balance > 0) || sale.status === 'completed' ? (
+                      <div className={`flex justify-between text-sm rounded-lg p-2.5 -mx-1 ${
+                        sale.status === 'completed' ? 'bg-emerald-500/5' : 'bg-amber-500/5'
+                      }`}>
+                        <span className={`font-medium ${sale.status === 'completed' ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                          Remaining {sale.status === 'completed' && '(Paid)'}
+                        </span>
+                        <span className={`font-semibold ${sale.status === 'completed' ? 'line-through text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                          {formatCurrency(
+                            sale.status === 'completed'
+                              ? (sale.total_amount - (sale.down_payment ?? 0))
+                              : (sale.remaining_balance ?? 0),
+                            currency
+                          )}
+                        </span>
+                      </div>
+                    ) : null}
+                  </>
+                )}
+
+                <div className="flex justify-between text-sm pt-1">
+                  <span className="text-muted-foreground font-medium">Net Profit</span>
+                  <span className={`font-bold text-base ${sale.net_profit < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+                    {formatCurrency(sale.net_profit, currency)}
                   </span>
                 </div>
-                {sale.shipping_notes && (
-                  <div className="text-sm">
-                    <span className="font-medium">Notes:</span>
-                    <div className="mt-1 p-2 bg-gray-50 rounded text-gray-700">
-                      {sale.shipping_notes}
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Shipping Information */}
+          {(sale.shipping_address || sale.shipping_city || sale.shipping_country || sale.shipping_notes) && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.15 }}
+            >
+              <div className="rounded-xl border bg-card overflow-hidden">
+                <div className="px-4 py-3 border-b bg-muted/30">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-muted-foreground" />
+                    Shipping Information
+                  </h3>
+                </div>
+                <div className="p-4 space-y-2">
+                  {sale.shipping_address && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Address</span>
+                      <span className="font-medium text-foreground text-right max-w-[60%]">{sale.shipping_address}</span>
                     </div>
+                  )}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Location</span>
+                    <span className="font-medium text-foreground text-right">
+                      {[sale.shipping_city, sale.shipping_state, sale.shipping_zip, sale.shipping_country]
+                        .filter(Boolean)
+                        .join(', ')}
+                    </span>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                  {sale.shipping_notes && (
+                    <div className="pt-1">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Notes</p>
+                      <div className="text-sm text-foreground bg-muted/30 rounded-lg p-2.5">
+                        {sale.shipping_notes}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
           )}
 
           {/* Sold Items */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Package className="h-5 w-5" /> Sold Items
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              <div className="max-h-64 overflow-y-auto">
-                {items.length === 0 ? (
-                  <p className="text-center text-gray-500 py-6">No items recorded for this sale.</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="min-w-[200px]">Item</TableHead>
-                        <TableHead className="w-[100px]">
-                          {items.some(item => item.variant?.type === 'Pre-order' || item.variant?.type === 'downpayment') 
-                            ? 'Pre-order' 
-                            : 'Serial'}
-                        </TableHead>
-                        <TableHead className="w-[80px]">Size</TableHead>
-                        <TableHead className="min-w-[180px]">Notes</TableHead>
-                        <TableHead className="text-right w-[100px]">Sold Price</TableHead>
-                        <TableHead className="text-right w-[100px]">Cost Price</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell className="py-3 min-w-[200px]">
-                            <div className="flex items-center gap-3">
-                              <Image
-                                src={item.variant?.productImage || "/placeholder.svg?height=40&width=40"}
-                                alt={item.variant?.productName || "Product"}
-                                width={40}
-                                height={40}
-                                className="rounded-md object-cover flex-shrink-0"
-                              />
-                              <div className="min-w-0 flex-1">
-                                <p className="font-medium text-sm whitespace-nowrap overflow-hidden text-ellipsis">{item.variant?.productName || 'Unknown Product'}</p>
-                                <p className="text-xs text-gray-500 whitespace-nowrap overflow-hidden text-ellipsis">{item.variant?.productBrand || 'Unknown Brand'}</p>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-mono text-xs py-3 w-[100px]">
-                            {(() => {
-                              // Check if this is a pre-order or downpayment item
-                              const isPreorderItem = item.variant?.type === 'Pre-order';
-                              const isDownpaymentItem = item.variant?.type === 'downpayment';
-                              
-                              if (isPreorderItem || isDownpaymentItem) {
-                                const preorderMatch = item.variant?.notes?.match(/pre-order #(\d+)/);
-                                const preorderNumber = preorderMatch?.[1];
-                                return preorderNumber ? `#${preorderNumber}` : 'N/A';
-                              } else {
-                                return item.variant?.serialNumber || 'N/A';
-                              }
-                            })()}
-                          </TableCell>
-                          <TableCell className="text-xs py-3 w-[80px]">
-                            <div className="whitespace-nowrap">
-                              {item.variant?.size || 'N/A'} ({item.variant?.sizeLabel || 'N/A'})
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-xs py-3 min-w-[180px]">
-                            {item.variant?.notes ? (
-                              <div className="break-words" title={item.variant.notes}>
-                                {item.variant.notes}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400 italic">No notes</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right font-medium py-3 w-[100px]">{formatCurrency(item.sold_price, currency)}</TableCell>
-                          <TableCell className="text-right text-gray-600 py-3 w-[100px]">{formatCurrency(item.cost_price, currency)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+          >
+            <div className="rounded-xl border bg-card overflow-hidden">
+              <div className="px-4 py-3 border-b bg-muted/30">
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  Sold Items
+                </h3>
               </div>
-            </CardContent>
-          </Card>
+              {items.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10">
+                  <Package className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                  <p className="text-sm text-muted-foreground">No items recorded</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {items.map((item, index) => {
+                    const isPreorderItem = item.variant?.type === 'Pre-order';
+                    const isDownpaymentItem = item.variant?.type === 'downpayment';
+                    let identifier = '';
+                    if (isPreorderItem || isDownpaymentItem) {
+                      const preorderMatch = item.variant?.notes?.match(/pre-order #(\d+)/);
+                      identifier = preorderMatch ? `PO #${preorderMatch[1]}` : 'N/A';
+                    } else {
+                      identifier = item.variant?.serialNumber ? `SN: ${item.variant.serialNumber}` : 'N/A';
+                    }
+
+                    return (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.2, delay: 0.25 + index * 0.04 }}
+                        className="flex items-center gap-3 p-3 hover:bg-muted/20 transition-colors"
+                      >
+                        <Image
+                          src={item.variant?.productImage || "/placeholder.svg?height=40&width=40"}
+                          alt={item.variant?.productName || "Product"}
+                          width={44}
+                          height={44}
+                          className="rounded-lg object-cover shrink-0 border bg-muted/30"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground truncate">{item.variant?.productName || 'Unknown Product'}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-muted-foreground">{item.variant?.productBrand || 'Unknown'}</span>
+                            <span className="text-muted-foreground/40">·</span>
+                            <span className="text-xs text-muted-foreground">{item.variant?.size || 'N/A'}</span>
+                            <span className="text-muted-foreground/40">·</span>
+                            <span className="text-xs font-mono text-muted-foreground">{identifier}</span>
+                          </div>
+                          {item.variant?.notes && (
+                            <p className="text-xs text-muted-foreground/70 mt-0.5 truncate" title={item.variant.notes}>{item.variant.notes}</p>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-semibold text-foreground">{formatCurrency(item.sold_price, currency)}</p>
+                          <p className="text-xs text-muted-foreground">Cost: {formatCurrency(item.cost_price, currency)}</p>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </motion.div>
 
           {/* Profit Distribution */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Users className="h-5 w-5" /> Profit Distribution
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              {profitDistribution.length === 0 ? (
-                <p className="text-center text-gray-500 py-6">No profit distribution recorded for this sale.</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Avatar</TableHead>
-                      <TableHead className="text-right">Percentage</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {profitDistribution.map((dist) => (
-                      <TableRow key={dist.id}>
-                        <TableCell className="font-medium py-3">{dist.avatar?.name || 'Unknown Avatar'}</TableCell>
-                        <TableCell className="text-right py-3">{dist.percentage.toFixed(2)}%</TableCell>
-                        <TableCell className="text-right font-medium py-3">{formatCurrency(dist.amount, currency)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+          {profitDistribution.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.25 }}
+            >
+              <div className="rounded-xl border bg-card overflow-hidden">
+                <div className="px-4 py-3 border-b bg-muted/30">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    Profit Distribution
+                  </h3>
+                </div>
+                <div className="divide-y divide-border">
+                  {profitDistribution.map((dist, index) => (
+                    <motion.div
+                      key={dist.id}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.2, delay: 0.3 + index * 0.04 }}
+                      className="flex items-center justify-between p-3 hover:bg-muted/20 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                          {(dist.avatar?.name || 'U').charAt(0)}
+                        </div>
+                        <span className="text-sm font-medium text-foreground">{dist.avatar?.name || 'Unknown'}</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">{dist.percentage.toFixed(1)}%</span>
+                        <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(dist.amount, currency)}</span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

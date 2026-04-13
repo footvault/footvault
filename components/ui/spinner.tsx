@@ -16,7 +16,7 @@ export function Spinner({ size = "md", className }: SpinnerProps) {
   return (
     <div
       className={cn(
-        "loader aspect-square rounded-full border-8 border-black",
+        "loader aspect-square rounded-full border-8 border-emerald-500",
         sizeClasses[size],
         className
       )}
