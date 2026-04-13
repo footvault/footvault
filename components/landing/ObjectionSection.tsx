@@ -4,25 +4,25 @@ import { useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
-import { Zap, CreditCard, Footprints } from 'lucide-react';
+import { DollarSign, Gauge, Wallet } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 const objections = [
   {
-    icon: Zap,
-    title: 'No setup needed',
-    description: 'Sign up with Google, and you can start adding shoes immediately. Zero configuration.',
+    icon: DollarSign,
+    title: 'See your inventory value instantly',
+    description: 'Know the total value of your pairs at a glance so you can make better buying decisions.',
   },
   {
-    icon: CreditCard,
-    title: 'Start free, upgrade later',
-    description: 'The free plan lets you test everything. No credit card required.',
+    icon: Wallet,
+    title: 'Track real profit, not guesses',
+    description: 'Every sale shows your true profit after costs and fees. No spreadsheet formulas needed.',
   },
   {
-    icon: Footprints,
-    title: 'Built for sneaker workflow',
-    description: "This isn't adapted from another tool. Every feature was designed around how resellers actually work.",
+    icon: Gauge,
+    title: 'Move faster every day',
+    description: 'Add, find, and update pairs quickly so you spend less time on admin and more time closing sales.',
   },
 ];
 
@@ -73,8 +73,11 @@ export default function ObjectionSection() {
     <section ref={sectionRef} className="w-full px-5 sm:px-8 py-20 sm:py-28 lg:py-32">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-12 sm:mb-16">
+          <p className="objection-heading text-emerald-400 text-sm font-medium tracking-wide uppercase mb-4">
+            Why this matters
+          </p>
           <h2 className="objection-heading text-2xl sm:text-3xl lg:text-4xl font-bold text-white">
-            Still not sure?
+            Clear numbers. Faster workflow. Better decisions.
           </h2>
         </div>
 

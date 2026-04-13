@@ -1290,9 +1290,9 @@ export function AddProductForm({
                   <p className="text-sm font-medium truncate">{productForm.name}</p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{productForm.brand}</span>
-                    <span>Â·</span>
+                    <span>/</span>
                     <span className="font-mono">{productForm.sku}</span>
-                    <span>Â·</span>
+                    <span>/</span>
                     <span>{productForm.sizeCategory}</span>
                   </div>
                 </div>
@@ -1569,7 +1569,7 @@ export function AddProductForm({
                 {/* Selected sizes with quantity editors */}
                 {bulkSizes.length > 0 && (
                   <div className="space-y-1.5">
-                    <p className="text-xs text-muted-foreground">{bulkSizes.length} size{bulkSizes.length !== 1 ? 's' : ''} selected Â· {totalBulkQuantity} total pairs</p>
+                    <p className="text-xs text-muted-foreground">{bulkSizes.length} size{bulkSizes.length !== 1 ? 's' : ''} selected / {totalBulkQuantity} total pairs</p>
                     <div className="border rounded-lg divide-y max-h-40 overflow-y-auto">
                       {bulkSizes.map((bs) => (
                         <div key={bs.id} className="flex items-center justify-between px-3 py-1.5">
@@ -1926,7 +1926,7 @@ export function AddProductForm({
                 <span>{totalBulkQuantity} pair{totalBulkQuantity !== 1 ? 's' : ''} across {bulkSizes.length} size{bulkSizes.length !== 1 ? 's' : ''}</span>
               )}
               {!isBulkMode && newVariant.size && (
-                <span>Size {newVariant.size} Â· Qty {newVariant.quantity}</span>
+                <span>Size {newVariant.size} / Qty {newVariant.quantity}</span>
               )}
             </div>
             <div className="flex gap-2">

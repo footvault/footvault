@@ -13,7 +13,7 @@ const testimonials = [
     name: 'Marco D.',
     role: 'Sneaker Reseller, Manila',
     quote:
-      "I used to track everything in Google Sheets. Switched to FootVault and I finally know exactly how much I'm making per pair. Game changer.",
+      'I moved from Google Sheets to FootVault. Now I see exact profit per pair in seconds.',
     stars: 5,
     initials: 'MD',
     color: 'bg-emerald-600',
@@ -22,7 +22,7 @@ const testimonials = [
     name: 'Jem R.',
     role: 'Full-time Reseller',
     quote:
-      "The QR scanning alone saves me 30 minutes a day during live selling. I scan, show the details, and close the deal on the spot.",
+      'QR scanning alone saves me time every day. I pull up pair details fast and close deals quicker.',
     stars: 5,
     initials: 'JR',
     color: 'bg-sky-600',
@@ -31,7 +31,7 @@ const testimonials = [
     name: 'CJ Santos',
     role: 'Sneaker Store Owner',
     quote:
-      "We manage 500+ pairs across 3 team members. FootVault keeps everyone on the same page — no more double selling or lost inventory.",
+      'We manage 500+ pairs with a small team. No more double-selling. No more lost inventory.',
     stars: 5,
     initials: 'CJ',
     color: 'bg-violet-600',
@@ -40,7 +40,7 @@ const testimonials = [
     name: 'Kim L.',
     role: 'Part-time Reseller',
     quote:
-      "I started reselling as a side hustle. FootVault made it easy to see which shoes were actually profitable and which were sitting too long.",
+      'As a part-time reseller, I can instantly see what is profitable and what is sitting too long.',
     stars: 5,
     initials: 'KL',
     color: 'bg-amber-600',
@@ -133,7 +133,7 @@ export default function TestimonialsSection() {
             Testimonials
           </p>
           <h2 className="testimonials-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
-            Resellers trust FootVault.
+            Real resellers. Real results.
           </h2>
         </div>
 

@@ -178,8 +178,8 @@ export default function HeroSection() {
           <div className="hero-badge">
             <div className="inline-flex items-center gap-2 border border-white/[0.08] bg-white/[0.03] rounded-full px-3 sm:px-4 py-1.5 text-[10px] sm:text-xs text-neutral-400">
               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse flex-shrink-0" />
-              <span className="hidden sm:inline">Used by sneaker resellers across the world</span>
-              <span className="sm:hidden">Trusted by sneaker resellers</span>
+              <span className="hidden sm:inline">Built for sneaker resellers scaling past spreadsheets</span>
+              <span className="sm:hidden">Built for sneaker resellers</span>
             </div>
           </div>
 
@@ -198,8 +198,10 @@ export default function HeroSection() {
 
           {/* Subheadline */}
           <p className="hero-sub text-base sm:text-lg lg:text-xl text-neutral-400 max-w-2xl leading-relaxed">
-            FootVault is the inventory and sales management system built specifically
-            for sneaker resellers. Add pairs, track sizes, sell, and see your profit — all in one place.
+            FootVault helps sneaker resellers move faster and see exactly how much they make.
+          </p>
+          <p className="hero-sub text-sm sm:text-base text-neutral-500 max-w-2xl leading-relaxed">
+            Still using spreadsheets? Stop wasting time and guessing your profits.
           </p>
 
           {/* CTAs with magnetic button */}
@@ -211,7 +213,7 @@ export default function HeroSection() {
               onMouseMove={handleMouseMove}
               onMouseLeave={handleMouseLeave}
             >
-              Start Free
+              Start Tracking Free
               <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <a
@@ -221,6 +223,7 @@ export default function HeroSection() {
               See how it works
             </a>
           </div>
+          <p className="hero-cta text-xs text-neutral-600">No credit card required.</p>
         </div>
 
         {/* Dashboard mockup with 3D perspective */}
@@ -228,15 +231,27 @@ export default function HeroSection() {
           {/* Glow behind mockup */}
           <div className="absolute -inset-4 bg-gradient-to-b from-emerald-500/[0.08] via-transparent to-transparent rounded-3xl blur-2xl pointer-events-none" />
 
-          {/* Main dashboard */}
-          <div className="relative rounded-xl border border-white/[0.08] overflow-hidden bg-[#111]">
+          {/* Mobile: show only phone mockup */}
+          <div className="lg:hidden relative mx-auto w-fit">
             <Image
-              src="/images/footvault tablet.png"
+              src="/revamp-img/hero-phone.png"
+              alt="FootVault Mobile"
+              width={280}
+              height={560}
+              className="rounded-2xl drop-shadow-2xl"
+              priority
+            />
+            <div className="absolute inset-0 rounded-2xl ring-1 ring-white/[0.08]" />
+          </div>
+
+          {/* Main dashboard */}
+          <div className="hidden lg:block relative rounded-xl border border-white/[0.08] overflow-hidden bg-[#111]">
+            <Image
+              src="/revamp-img/hero-tablet.png"
               alt="FootVault Dashboard"
               width={1200}
               height={750}
               className="w-full h-auto"
-              priority
             />
             <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#0a0a0a] to-transparent" />
           </div>
@@ -245,7 +260,7 @@ export default function HeroSection() {
           <div className="hero-phone hidden lg:block absolute -right-8 -bottom-8 z-10">
             <div className="relative">
               <Image
-                src="/images/footvault phone.png"
+                src="/revamp-img/hero-phone.png"
                 alt="FootVault Mobile"
                 width={200}
                 height={400}

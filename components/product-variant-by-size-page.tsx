@@ -721,77 +721,91 @@ export default function ProductVariantsBySizePage({ params }: Props) {
   }
 
   return (
-    <div className="px-2 py-4 max-w-7xl mx-auto w-full">
+    <div className="space-y-5 max-w-7xl mx-auto w-full">
+      {/* Back */}
+      <div>
         <Link href="/inventory">
-      <Button variant="outline" className="mb-4">
-        ← Back
-      </Button>
-      </Link>
-      
-      {/* Stats Cards */}
-      <div className="mb-6">
-        <VariantsStatsCard
-          totalVariants={stats.totalVariants}
-          totalCostValue={stats.totalCostValue}
-          totalSaleValue={stats.totalSaleValue}
-          profit={stats.profit}
-          loading={loading}
-        />
+          <Button variant="outline" size="sm" className="gap-1.5">
+            ← Back
+          </Button>
+        </Link>
       </div>
-      
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-2 mb-4 items-center justify-between">
-        <div className="flex gap-2">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="All Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="Available">Available</SelectItem>
-            <SelectItem value="Sold">Sold</SelectItem>
-            <SelectItem value="PullOut">PullOut</SelectItem>
-            <SelectItem value="Reserved">Reserved</SelectItem>
-            <SelectItem value="PreOrder">PreOrder</SelectItem>
-          </SelectContent>
-        </Select>
-        <Input
-          type="date"
-          value={dateFilter}
-          onChange={e => setDateFilter(e.target.value)}
-          className="w-[180px]"
-          placeholder="Date Added"
+
+      {/* Stats Cards */}
+      <VariantsStatsCard
+        totalVariants={stats.totalVariants}
+        totalCostValue={stats.totalCostValue}
+        totalSaleValue={stats.totalSaleValue}
+        profit={stats.profit}
+        loading={loading}
+      />
+
+      {/* Product card */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-xl border bg-card px-5 py-4">
+        <Image
+          src={product.image || "/placeholder.jpg"}
+          alt="Product"
+          width={72}
+          height={72}
+          className="rounded-lg object-cover bg-muted mx-auto sm:mx-0 ring-1 ring-border"
         />
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-lg leading-tight truncate">{product.name}</div>
+          <div className="text-muted-foreground text-sm truncate mt-0.5">{product.brand}</div>
+          <div className="text-xs text-muted-foreground mt-1 font-mono">SKU: {product.sku}</div>
         </div>
-        <Button onClick={() => setBulkAddModal(true)} size="sm" className="flex items-center gap-1">
+        <div className="sm:ml-auto flex flex-col items-center sm:items-end gap-0.5">
+          <span className="text-xs text-muted-foreground uppercase tracking-widest">Size</span>
+          <span className="text-3xl font-black tabular-nums">{size}</span>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between rounded-xl border bg-card px-4 py-3">
+        <div className="flex flex-wrap gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[140px] h-9">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="Available">Available</SelectItem>
+              <SelectItem value="Sold">Sold</SelectItem>
+              <SelectItem value="PullOut">PullOut</SelectItem>
+              <SelectItem value="Reserved">Reserved</SelectItem>
+              <SelectItem value="PreOrder">PreOrder</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            type="date"
+            value={dateFilter}
+            onChange={e => setDateFilter(e.target.value)}
+            className="w-[180px] h-9"
+            placeholder="Date Added"
+          />
+        </div>
+        <Button onClick={() => setBulkAddModal(true)} size="sm" className="gap-1.5 shrink-0">
           <Plus className="h-4 w-4" />
           Bulk Add Variants
         </Button>
       </div>
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
-        <Image src={product.image || "/placeholder.jpg"} alt="Product" width={60} height={60} className="rounded object-cover bg-muted mx-auto sm:mx-0" />
-        <div className="flex-1 min-w-0">
-          <div className="font-bold text-lg truncate">{product.name}</div>
-          <div className="text-muted-foreground text-sm truncate">{product.brand}</div>
-          <div className="text-xs mt-1 truncate">SKU: {product.sku}</div>
-        </div>
-        <div className="sm:ml-auto text-base font-semibold text-center sm:text-right">Size: {size}</div>
-      </div>
-      <div className="overflow-x-auto rounded-md border bg-background container">
-        <Table className="min-w-[1200px] w-full text-sm">
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-xl border bg-card table-scrollbar">
+        <Table className="min-w-[1100px] w-full text-sm">
           <TableHeader>
-            <TableRow>
-              <TableHead>Image</TableHead>
-              <TableHead>Serial Number</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Size</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Owner</TableHead>
-              <TableHead>Size Category</TableHead>
-              <TableHead>Cost</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Date Added</TableHead>
-              <TableHead>Actions</TableHead>
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
+              <TableHead className="font-semibold text-foreground/70 w-14">Image</TableHead>
+              <TableHead className="font-semibold text-foreground/70">Serial #</TableHead>
+              <TableHead className="font-semibold text-foreground/70">Name</TableHead>
+              <TableHead className="font-semibold text-foreground/70">Size</TableHead>
+              <TableHead className="font-semibold text-foreground/70">Status</TableHead>
+              <TableHead className="font-semibold text-foreground/70">Owner</TableHead>
+              <TableHead className="font-semibold text-foreground/70">Category</TableHead>
+              <TableHead className="font-semibold text-foreground/70">Cost</TableHead>
+              <TableHead className="font-semibold text-foreground/70">Price</TableHead>
+              <TableHead className="font-semibold text-foreground/70">Date Added</TableHead>
+              <TableHead className="font-semibold text-foreground/70 text-right pr-4">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -817,29 +831,20 @@ export default function ProductVariantsBySizePage({ params }: Props) {
                   <TableCell>
                     {(() => {
                       const status = variant.status || '-';
-                      let badgeVariant: string = 'default';
-                      if (status === 'Available') badgeVariant = 'success';
-                      else if (status === 'Sold') badgeVariant = 'destructive';
-                      else if (status === 'Reserved') badgeVariant = 'warning';
-                      else if (status === 'PullOut') badgeVariant = 'destructive';
-                      else if (status === 'PreOrder') badgeVariant = 'default';
-                      
+                      const cls =
+                        status === 'Available'
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+                          : status === 'Sold'
+                          ? 'bg-red-500/15 text-red-400 border border-red-500/25'
+                          : status === 'Reserved'
+                          ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
+                          : status === 'PullOut'
+                          ? 'bg-orange-500/15 text-orange-400 border border-orange-500/25'
+                          : status === 'PreOrder'
+                          ? 'bg-blue-500/15 text-blue-400 border border-blue-500/25'
+                          : 'bg-muted text-muted-foreground border border-border';
                       return (
-                        <span
-                          className={`
-                            inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
-                            shadow-sm transition-colors duration-200
-                            ${
-                              badgeVariant === "success"
-                                ? "bg-green-100 text-green-800"
-                                : badgeVariant === "destructive"
-                                ? "bg-red-100 text-red-800"
-                                : badgeVariant === "warning"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-gray-100 text-gray-800"
-                            }
-                          `}
-                        >
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
                           {status}
                         </span>
                       );
@@ -861,7 +866,7 @@ export default function ProductVariantsBySizePage({ params }: Props) {
                   <TableCell>{currencySymbol}{typeof variant.cost_price === 'number' ? variant.cost_price.toFixed(2) : (typeof product.original_price === 'number' ? product.original_price.toFixed(2) : '-')}</TableCell>
                   <TableCell>{currencySymbol}{typeof (variant as any).sale_price === 'number' ? (variant as any).sale_price.toFixed(2) : (typeof product.sale_price === 'number' ? product.sale_price.toFixed(2) : '-')}</TableCell>
                   <TableCell>{variant.created_at ? new Date(variant.created_at).toISOString().slice(0, 10) : "-"}</TableCell>
-                  <TableCell>
+                  <TableCell className="text-right pr-4">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button size="icon" variant="ghost" className="h-8 w-8">

@@ -29,17 +29,21 @@ export default function Page() {
         <div className="hidden lg:flex w-1/2 relative overflow-hidden">
           {/* Background video */}
           <video
-            className="absolute inset-0 w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover brightness-110"
             autoPlay
             muted
             loop
             playsInline
+            preload="auto"
+            poster="/revamp-img/hero-tablet.png"
           >
-            <source src="/footvaultlogin.mp4" type="video/mp4" />
+            
+            <source src="/revamp-img/footvaultloginvidinright.mp4" type="video/mp4" />
+          
           </video>
 
           {/* Overlays */}
-          <div className="absolute inset-0 bg-black/40" />
+          <div className="absolute inset-0 bg-black/10" />
           <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-[#0a0a0a]/30" />
 
           {/* Content overlay */}

@@ -76,7 +76,7 @@ export default function FinalCTA() {
     return () => ctx.revert();
   }, { scope: sectionRef });
 
-  const headlineWords = "Ready to take your sneaker business".split(' ');
+  const headlineWords = 'Ready to take your sneaker business seriously?'.split(' ');
 
   return (
     <section ref={sectionRef} className="relative w-full px-5 sm:px-8 py-20 sm:py-28 lg:py-32 overflow-hidden">
@@ -91,10 +91,9 @@ export default function FinalCTA() {
                 {word}&nbsp;
               </span>
             ))}
-            <span className="cta-word inline-block text-emerald-400">seriously?</span>
           </h2>
           <p className="cta-sub text-neutral-400 text-lg max-w-xl mx-auto">
-            Stop guessing. Start tracking. Know exactly what you own, what you sold, and what you made.
+            Stop guessing. Track every pair, every sale, and every peso of profit in one place.
           </p>
           <div className="cta-btn-wrap pt-2">
             <Link
@@ -104,7 +103,7 @@ export default function FinalCTA() {
               onMouseMove={handleMouseMove}
               onMouseLeave={handleMouseLeave}
             >
-              Start Free
+              Start Tracking Free
               <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <p className="text-neutral-600 text-xs mt-4">

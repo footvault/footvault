@@ -536,9 +536,7 @@ export default function AddProductPage() {
                     </div>
                     <div className="flex items-center justify-between mt-1">
                       <p className="text-[10px] text-muted-foreground/70 font-mono">{product.sku}</p>
-                      <span className="text-[10px] bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded-full">
-                        {product.variant_count} {product.variant_count === 1 ? 'pair' : 'pairs'}
-                      </span>
+
                     </div>
                   </CardContent>
                 </Card>

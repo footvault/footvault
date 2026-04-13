@@ -103,7 +103,7 @@ export default function LandingNavbar() {
             href="/login"
             className="text-sm font-medium bg-white text-black px-4 py-2 rounded-lg hover:bg-neutral-200 transition-colors"
           >
-            Start Free
+            Start Tracking Free
           </Link>
         </div>
 
@@ -141,7 +141,7 @@ export default function LandingNavbar() {
               href="/login"
               className="text-sm font-medium bg-white text-black px-4 py-2.5 rounded-lg text-center hover:bg-neutral-200 transition-colors"
             >
-              Start Free
+              Start Tracking Free
             </Link>
           </div>
         </div>

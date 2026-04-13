@@ -911,27 +911,20 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
       ),
       cell: (info) => {
         const status = info.getValue() as string
-        let badgeVariant: any = "default"
-        if (status === "Available") badgeVariant = "success"
-        else if (status === "Sold") badgeVariant = "destructive"
-        else if (status === "Reserved") badgeVariant = "warning"
-        
+        const cls =
+          status === 'Available'
+            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+            : status === 'Sold'
+            ? 'bg-red-500/15 text-red-400 border border-red-500/25'
+            : status === 'Reserved'
+            ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
+            : status === 'PullOut'
+            ? 'bg-orange-500/15 text-orange-400 border border-orange-500/25'
+            : status === 'PreOrder'
+            ? 'bg-blue-500/15 text-blue-400 border border-blue-500/25'
+            : 'bg-muted text-muted-foreground border border-border';
         return (
-          <span
-            className={`
-              inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
-              shadow-sm transition-colors duration-200
-              ${
-                badgeVariant === "success"
-                  ? "bg-green-100 text-green-800"
-                  : badgeVariant === "destructive"
-                  ? "bg-red-100 text-red-800"
-                  : badgeVariant === "warning"
-                  ? "bg-yellow-100 text-yellow-800"
-                  : "bg-gray-100 text-gray-800"
-              }
-            `}
-          >
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
             {status}
           </span>
         )
@@ -1090,12 +1083,12 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with Product Info */}
-      <div className="flex items-start gap-4">
+    <div className="space-y-5">
+      {/* Back */}
+      <div>
         <Link 
           href="/inventory" 
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Inventory
@@ -1103,53 +1096,45 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
       </div>
 
       {/* Product Summary Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-4">
-            <div className="relative w-16 h-16">
-              <Image
-                src={product.image || "/placeholder.jpg"}
-                alt={product.name}
-                width={64}
-                height={64}
-                className="rounded-lg object-cover"
-              />
-            </div>
-            <div className="flex-1">
-              <CardTitle className="text-xl">{product.name}</CardTitle>
-              <div className="text-sm text-muted-foreground space-y-1">
-                <div>Brand: {product.brand}</div>
-                <div>SKU: {product.sku}</div>
-                <div>Category: {product.size_category}</div>
-                <div>Total Variants: {variants.length}</div>
-              </div>
-            </div>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-xl border bg-card px-5 py-4">
+        <div className="relative w-[72px] h-[72px] mx-auto sm:mx-0 shrink-0">
+          <Image
+            src={product.image || "/placeholder.jpg"}
+            alt={product.name}
+            width={72}
+            height={72}
+            className="rounded-lg object-cover ring-1 ring-border w-full h-full"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-lg leading-tight truncate">{product.name}</div>
+          <div className="text-sm text-muted-foreground mt-0.5 truncate">{product.brand}</div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-muted-foreground font-mono">
+            <span>SKU: {product.sku}</span>
+            <span>Category: {product.size_category}</span>
+            <span>{variants.length} variant{variants.length !== 1 ? 's' : ''}</span>
           </div>
-        </CardHeader>
-      </Card>
+        </div>
+        <div className="sm:ml-auto shrink-0">
+          <Button
+            onClick={() => setAddVariantsModal({ open: true, product })}
+            size="sm"
+            className="gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            Add Variants
+          </Button>
+        </div>
+      </div>
 
       {/* Stats Cards */}
-      <div className="mb-6">
-        <VariantsStatsCard
-          totalVariants={stats.totalVariants}
-          totalCostValue={stats.totalCostValue}
-          totalSaleValue={stats.totalSaleValue}
-          profit={stats.profit}
-          loading={loading}
-        />
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex flex-wrap gap-2 justify-between items-center">
-        <h2 className="text-2xl font-semibold">Variants</h2>
-        <Button
-          onClick={() => setAddVariantsModal({ open: true, product })}
-          className="flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add More Variants
-        </Button>
-      </div>
+      <VariantsStatsCard
+        totalVariants={stats.totalVariants}
+        totalCostValue={stats.totalCostValue}
+        totalSaleValue={stats.totalSaleValue}
+        profit={stats.profit}
+        loading={loading}
+      />
 
       {/* Bulk actions bar */}
       {selectedIds.length > 0 && (
@@ -1319,13 +1304,13 @@ export function ProductVariantsPage({ productId }: ProductVariantsPageProps) {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-md border">
+      <div className="overflow-x-auto rounded-xl border bg-card table-scrollbar">
         <Table className="min-w-[800px] w-full">
-          <TableHeader className="bg-muted sticky top-0 z-10">
+          <TableHeader className="sticky top-0 z-10">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="bg-muted/40 hover:bg-muted/40">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="whitespace-nowrap">
+                  <TableHead key={header.id} className="whitespace-nowrap text-xs font-semibold text-foreground/70 uppercase tracking-wider">
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}

@@ -11,27 +11,27 @@ gsap.registerPlugin(ScrollTrigger, useGSAP);
 const painPoints = [
   {
     icon: AlertTriangle,
-    title: 'Losing track of pairs',
+    title: 'Pairs go missing in your workflow',
     description:
-      'You bought 30 pairs last week. Where are they? Which sizes? Which ones are sold? No clue.',
+      'You buy, list, and sell fast. Then one pair disappears in a sheet and you waste time finding it.',
   },
   {
     icon: FileSpreadsheet,
-    title: 'Messy spreadsheets',
+    title: 'Excel gets messy fast',
     description:
-      "You've tried Google Sheets. Columns break, formulas fail, and it's impossible to share with your team.",
+      'Rows break. Formulas fail. One wrong edit and your numbers are off.',
   },
   {
     icon: HelpCircle,
-    title: 'Size and variant confusion',
+    title: 'Sizes and variants get confusing',
     description:
-      'Same shoe, 8 sizes, 3 colorways. Tracking all of that by hand is a nightmare.',
+      'Same SKU, multiple sizes, different statuses. Manual tracking creates mistakes.',
   },
   {
     icon: TrendingDown,
-    title: 'Not knowing your real profit',
+    title: 'Profit is unclear',
     description:
-      "Shipping, fees, cost price, selling price — after everything, did you actually make money? Most resellers can't answer that.",
+      'Cost, fees, shipping, sale price. If profit is in a spreadsheet formula, it is easy to miss the truth.',
   },
 ];
 
@@ -119,12 +119,12 @@ export default function ProblemSection() {
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-16 sm:mb-20">
           <p className="problem-heading text-emerald-400 text-sm font-medium tracking-wide uppercase mb-4">
-            Sound familiar?
+            The real problem
           </p>
           <h2 className="problem-subtitle text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight max-w-3xl mx-auto">
-            Reselling sneakers is profitable.
+            Still tracking sneakers in Excel?
             <br />
-            <span className="text-neutral-500">Managing them shouldn&apos;t be painful.</span>
+            <span className="text-neutral-500">That is costing you money and speed.</span>
           </h2>
           <div className="problem-divider w-16 h-px bg-emerald-500/40 mx-auto mt-8 origin-left" />
         </div>

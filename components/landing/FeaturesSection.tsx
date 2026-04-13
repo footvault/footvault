@@ -5,7 +5,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import Image from 'next/image';
-import { Search, LayoutGrid, QrCode, ShoppingBag, TrendingUp } from 'lucide-react';
+import { Search, LayoutGrid, QrCode, ShoppingBag, CreditCard } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -13,42 +13,42 @@ const steps = [
   {
     step: '01',
     icon: Search,
-    title: 'Add sneakers in seconds',
+    title: 'Add pairs instantly. No manual input.',
     description:
-      'Search any shoe, select the pair, and FootVault auto-fills product data, images, and retail price. No manual entry needed.',
-    image: '/feature/Stockx integration.png',
+      'Search by SKU or name, pick the pair, and FootVault auto-fills key details for you.',
+    image: '/revamp-img/Add Pairs Instantly.png',
   },
   {
     step: '02',
     icon: LayoutGrid,
-    title: 'Stay organized',
+    title: 'Never lose track of inventory again.',
     description:
-      'Track every size, colorway, and variant in one clean dashboard. Know what you have, where it is, and what\'s left to sell.',
-    image: '/feature/inventory management.png',
+      'See what is in stock, what sold, and what is still sitting, all in one place.',
+    image: '/revamp-img/Inventory Page.png',
   },
   {
     step: '03',
     icon: QrCode,
-    title: 'Scan with QR',
+    title: 'Find any pair in seconds with QR.',
     description:
-      'Generate QR stickers for each pair. Scan to instantly pull up product details, cost, and status — perfect for live selling.',
-    image: '/feature/qrscan feature.png',
+      'Scan a code and instantly pull up pair details, status, and pricing during fast sales.',
+    image: '/revamp-img/QR Tech.png',
   },
   {
     step: '04',
     icon: ShoppingBag,
-    title: 'Sell and track',
+    title: 'Track every sale and payment.',
     description:
-      'Create orders, assign customers, track payments, and manage your entire sales pipeline without leaving FootVault.',
-    image: '/feature/sales system.png',
+      'Log sales, assign customers, and keep your sales flow organized without extra tools.',
+    image: '/revamp-img/Sales Page.png',
   },
   {
     step: '05',
-    icon: TrendingUp,
-    title: 'Know your profit',
+    icon: CreditCard,
+    title: 'Checkout faster when buyers are ready.',
     description:
-      'Every sale automatically calculates your net profit after cost, shipping, and fees. No more guessing if you made money.',
-    image: '/feature/profit distribution.png',
+      'Use a built-in checkout flow to close deals quickly and keep each transaction recorded.',
+    image: '/revamp-img/Checkout Page.png',
   },
 ];
 
@@ -162,11 +162,11 @@ export default function FeaturesSection() {
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-16 sm:mb-20">
           <p className="features-label text-emerald-400 text-sm font-medium tracking-wide uppercase mb-4">
-            How it works
+            Outcomes, not busywork
           </p>
           <h2 className="features-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight max-w-3xl mx-auto">
-            From adding pairs to counting profit.{' '}
-            <span className="text-neutral-500">In minutes, not hours.</span>
+            Replace manual tracking with a faster reseller workflow.{' '}
+            <span className="text-neutral-500">Less admin. More sales.</span>
           </h2>
         </div>
 
@@ -176,7 +176,7 @@ export default function FeaturesSection() {
             <div className="w-full h-full bg-white/[0.04]" />
             <div
               className="features-progress-line absolute top-0 left-0 w-full bg-emerald-500/50 origin-top"
-              style={{ scaleY: 0, width: '2px', height: '100%', marginLeft: '-0.5px' }}
+              style={{ transform: 'scaleY(0)', width: '2px', height: '100%', marginLeft: '-0.5px' }}
             />
             {/* Glow dot that rides the line */}
             <div

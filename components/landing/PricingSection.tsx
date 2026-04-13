@@ -19,62 +19,62 @@ const plans = [
   {
     key: 'free',
     title: 'Starter',
-    audience: 'For beginners',
+    audience: 'For new resellers',
     priceMonthlyUSD: 0,
     priceYearlyUSD: 0,
     features: [
-      { label: 'Track available & sold shoes' },
-      { label: 'Manage inventory and sales' },
+      { label: 'Track inventory and sold pairs' },
+      { label: 'See inventory value and profit basics' },
       { label: 'Up to 30 available variants' },
-      { label: 'Community support', tooltip: 'Access community forums and resources.' },
+      { label: 'Community support', tooltip: 'Get help from the reseller community.' },
     ],
     recommended: false,
-    cta: 'Start Free',
+    cta: 'Start Tracking Free',
   },
   {
     key: 'individual',
     title: 'Reseller',
-    audience: 'For active resellers',
+    audience: 'For active sellers',
     priceMonthlyUSD: 10,
     priceYearlyUSD: 100,
     features: [
       { label: 'Everything in Starter' },
       { label: 'Up to 500 available variants' },
-      { label: 'Export via CSV', tooltip: 'Download your inventory as CSV files.' },
-      { label: 'QR code printing', tooltip: 'Generate QR stickers for each pair.' },
+      { label: 'CSV exports', tooltip: 'Download your inventory and sales data anytime.' },
+      { label: 'QR code labels', tooltip: 'Generate QR stickers for each pair.' },
     ],
     recommended: false,
-    cta: 'Get Started',
+    cta: 'Start Tracking Free',
   },
   {
     key: 'team',
     title: 'Business',
-    audience: 'For growing businesses',
+    audience: 'For growing teams',
     priceMonthlyUSD: 14,
     priceYearlyUSD: 140,
     features: [
       { label: 'Everything in Reseller' },
       { label: 'Up to 1,500 available variants' },
-      { label: '5 team member avatars', tooltip: 'Split profits with team members.' },
-      { label: 'Priority email support', tooltip: 'Faster response times.' },
+      { label: '5 team member avatars', tooltip: 'Support team profit splitting and ownership.' },
+      { label: 'Priority support', tooltip: 'Get faster support responses.' },
     ],
     recommended: true,
-    cta: 'Get Started',
+    cta: 'Start Tracking Free',
   },
   {
     key: 'store',
     title: 'Store',
-    audience: 'For full-time sellers',
+    audience: 'For large operations',
     priceMonthlyUSD: 20,
     priceYearlyUSD: 200,
     features: [
       { label: 'Everything in Business' },
       { label: 'Up to 5,000 available variants' },
-      { label: 'Unlimited team avatars', tooltip: 'Add as many team members as needed.' },
+      { label: 'Unlimited team avatars', tooltip: 'Add as many team members as you need.' },
       { label: 'Dedicated support', tooltip: '1-on-1 help from a support manager.' },
     ],
     recommended: false,
-    cta: 'Get Started',
+    cta: 'Start Tracking Free',
   },
 ];
 
@@ -168,10 +168,10 @@ export default function PricingSection() {
             Pricing
           </p>
           <h2 className="pricing-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight mb-4">
-            Pick your plan. Scale when ready.
+            Start free. Upgrade only when you need more.
           </h2>
           <p className="pricing-heading text-neutral-400 max-w-xl mx-auto">
-            Start free. Upgrade as your business grows.
+            No credit card required. Zero risk to test your workflow.
           </p>
 
           {/* Toggle */}
@@ -212,7 +212,7 @@ export default function PricingSection() {
                   {plan.recommended && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                       <span className="bg-emerald-500 text-black text-xs font-semibold px-3 py-1 rounded-full">
-                        Most Popular
+                        Best Value
                       </span>
                     </div>
                   )}

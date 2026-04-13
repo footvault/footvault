@@ -12,23 +12,23 @@ gsap.registerPlugin(ScrollTrigger, useGSAP);
 const reasons = [
   {
     icon: Zap,
-    title: 'Built for sneaker resellers',
+    title: 'Built for sneaker resellers only',
     description:
-      "Not a generic inventory app. Every feature is designed around how resellers actually buy, store, and sell sneakers.",
+      'FootVault is not another generic inventory app. It matches how you buy, store, list, and sell pairs.',
     image: '/images/search product.png',
   },
   {
     icon: Layers,
-    title: 'Handles variants properly',
+    title: 'Tracks every detail per pair',
     description:
-      'Sizes, colorways, conditions — FootVault tracks every variant without the clutter. One product, all the details.',
+      'Track SKU, size, condition, and status without clutter. Everything stays clean and searchable.',
     image: '/images/product variants page.png',
   },
   {
     icon: Repeat,
-    title: 'Designed for the flipping workflow',
+    title: 'One workflow from add to sold',
     description:
-      'Buy → store → list → sell → profit. FootVault follows your exact workflow instead of forcing a generic process on you.',
+      'From new stock to closed sale, your data stays updated so you can move faster every day.',
     image: '/images/sales table.png',
   },
 ];
@@ -105,11 +105,11 @@ export default function WhyFootVault() {
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-16 sm:mb-20">
           <p className="why-label text-emerald-400 text-sm font-medium tracking-wide uppercase mb-4">
-            Why FootVault
+            The solution
           </p>
           <h2 className="why-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight max-w-3xl mx-auto">
-            Generic tools weren&apos;t made for this.{' '}
-            <span className="text-neutral-500">FootVault was.</span>
+            FootVault replaces spreadsheet chaos
+            <span className="text-neutral-500"> with a system built for sneaker reselling.</span>
           </h2>
         </div>
 

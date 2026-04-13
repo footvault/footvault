@@ -1258,13 +1258,13 @@ export function ShoesVariantsTable() {
       </div>
 
       {/* Table with horizontal scroll */}
-      <div className="overflow-x-auto rounded-xl border bg-card custom-scrollbar">
+      <div className="overflow-x-auto rounded-xl border bg-card table-scrollbar">
         <Table className="min-w-[1000px] w-full">
           <TableHeader>
             {table.getHeaderGroups().map(headerGroup => (
-              <TableRow key={headerGroup.id} className="border-b bg-muted/30 hover:bg-muted/30">
+              <TableRow key={headerGroup.id} className="border-b bg-muted/40 hover:bg-muted/40">
                 {headerGroup.headers.map(header => (
-                  <TableHead key={header.id} className="whitespace-nowrap text-xs font-medium text-muted-foreground uppercase tracking-wider h-10">
+                  <TableHead key={header.id} className="whitespace-nowrap text-xs font-semibold text-foreground/70 uppercase tracking-wider h-10">
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}

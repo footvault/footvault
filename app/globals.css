@@ -34,6 +34,32 @@ body {
   scrollbar-color: hsl(var(--foreground) / 0.12) transparent;
 }
 
+/* Table scrollbar — thick, easy to grab */
+.table-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 10px;
+}
+.table-scrollbar::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 9999px;
+  margin: 0 4px;
+}
+.table-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--foreground) / 0.35);
+  border-radius: 9999px;
+  border: 2px solid hsl(var(--muted));
+}
+.table-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--foreground) / 0.55);
+}
+.table-scrollbar::-webkit-scrollbar-corner {
+  background: hsl(var(--muted));
+}
+.table-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--foreground) / 0.35) hsl(var(--muted));
+}
+
 /* Sidebar scrollbar theme */
 .sidebar-scrollbar::-webkit-scrollbar {
   width: 6px;
