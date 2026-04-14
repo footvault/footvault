@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,12 +9,17 @@ import { Label } from "@/components/ui/label"
 import { signUpWithEmail } from "@/app/auth/actions"
 
 export default function SignupPage() {
+  const [origin, setOrigin] = useState("")
   const [state, action, isPending] = useActionState(
     async (_state: { success: boolean; message: string } | null, formData: FormData) => {
       return await signUpWithEmail(formData)
     },
     null
   )
+
+  useEffect(() => {
+    setOrigin(window.location.origin)
+  }, [])
 
   return (
     <div className="flex min-h-[calc(100svh-64px)] items-center justify-center bg-gray-50 px-4 py-12 dark:bg-gray-950">
@@ -25,6 +30,7 @@ export default function SignupPage() {
         </CardHeader>
         <CardContent className="grid gap-4">
           <form action={action} className="grid gap-4">
+            <input type="hidden" name="origin" value={origin} />
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" name="email" type="email" placeholder="m@example.com" required />

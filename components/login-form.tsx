@@ -1,8 +1,6 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
 import { useState, useRef } from "react";
 import { FcGoogle } from "react-icons/fc";
 import gsap from "gsap";
@@ -31,73 +29,16 @@ export function LoginForm({
   }, { scope: formRef });
 
   const handleGoogleLogin = async () => {
-    const supabase = createClient(undefined);
     setIsLoading(true);
     setError(null);
-    
-   
-    
+
     try {
-      // Get the correct base URL for redirects - works for both dev and prod
-      const getBaseUrl = () => {
-        if (typeof window !== 'undefined') {
-          const origin = window.location.origin;
-      
-          
-          // For development
-          if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-            return origin; // http://localhost:3000
-          }
-          
-          // For production - ensure we have the correct production URL
-          if (origin.includes('footvault.dev')) {
-            return origin; // https://www.footvault.dev or https://footvault.dev
-          }
-          
-          // Fallback to detected origin
-          return origin;
-        }
-        
-        // Server-side fallback (shouldn't be used in client component)
-        return process.env.NODE_ENV === 'production' 
-          ? 'https://www.footvault.dev' 
-          : 'http://localhost:3000';
-      };
-
-      const baseUrl = getBaseUrl()
-      const redirectUrl = `${baseUrl}/auth/callback?next=${encodeURIComponent('/inventory')}`
-      
-   
-
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: redirectUrl,
-          queryParams: {
-            prompt: 'select_account'
-          }
-        },
-      });
-
-    
-      if (error) {
-        console.error('❌ Google OAuth error:', error);
-        setError(`Google sign-in failed: ${error.message}`);
-        setIsLoading(false); // Only reset loading on error
-     
-      } else {
-        console.log('✅ OAuth redirect initiated successfully');
-        console.log('Will redirect to:', redirectUrl);
-        console.log('=== END GOOGLE LOGIN DEBUG (SUCCESS - REDIRECTING) ===')
-        // Don't reset loading state - keep spinner until redirect happens
-      }
+      window.location.assign('/auth/sign-in?provider=google&next=%2Finventory');
     } catch (err) {
-      console.error('❌ Unexpected error during OAuth:', err);
+      console.error('Google OAuth redirect error:', err);
       setError('An unexpected error occurred during sign-in');
-      setIsLoading(false); // Only reset loading on error
-      console.log('=== END GOOGLE LOGIN DEBUG (CATCH ERROR) ===')
+      setIsLoading(false);
     }
-    // Removed finally block - don't reset loading on successful OAuth
   };
 
   return (

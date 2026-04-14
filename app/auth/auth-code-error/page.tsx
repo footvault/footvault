@@ -14,21 +14,34 @@ export default function AuthCodeErrorPage() {
     error?: string
     error_code?: string
     error_description?: string
+    details?: string
   }>({})
 
   useEffect(() => {
     const error = searchParams.get('error')
     const error_code = searchParams.get('error_code')
     const error_description = searchParams.get('error_description')
+    const details = searchParams.get('details')
 
     setErrorDetails({
       error: error || undefined,
       error_code: error_code || undefined,
-      error_description: error_description || undefined
+      error_description: error_description || undefined,
+      details: details || undefined
     })
   }, [searchParams])
 
   const getErrorMessage = () => {
+    if (errorDetails.details) {
+      const decodedDetails = decodeURIComponent(errorDetails.details.replace(/\+/g, ' '))
+
+      if (errorDetails.error === 'pkce_verifier_missing') {
+        return 'Your Google sign-in session expired before the login could finish. Start again from this tab and keep the flow in the same browser window.'
+      }
+
+      return decodedDetails
+    }
+
     if (errorDetails.error_description) {
       const decoded = decodeURIComponent(errorDetails.error_description.replace(/\+/g, ' '))
       
@@ -51,7 +64,7 @@ export default function AuthCodeErrorPage() {
           </div>
           <CardTitle className="text-2xl text-red-600">Authentication Error</CardTitle>
           <CardDescription>
-            We encountered an issue during the sign-in process
+            We couldn&apos;t finish signing you in
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -59,6 +72,12 @@ export default function AuthCodeErrorPage() {
             <p className="text-sm text-red-800">
               {getErrorMessage()}
             </p>
+
+            {errorDetails.error === 'pkce_verifier_missing' && (
+              <p className="text-xs text-red-700 mt-3">
+                This usually happens if the login started in another tab or the browser cleared the temporary auth cookie before Google redirected back.
+              </p>
+            )}
             
             {errorDetails.error_code && (
               <p className="text-xs text-red-600 mt-2">

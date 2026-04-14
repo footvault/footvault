@@ -3,10 +3,34 @@ import { rateLimit, rateLimits } from '@/lib/simple-rate-limit'
 import { getSecurityHeaders } from '@/lib/simple-security'
 import { updateSession } from '@/lib/supabase/middleware'
 
+function getCanonicalHost(host: string | null): string | null {
+  if (!host) return null
+
+  const normalizedHost = host.toLowerCase()
+  if (normalizedHost === 'footvault.dev') {
+    return 'www.footvault.dev'
+  }
+
+  return null
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const canonicalHost = getCanonicalHost(request.headers.get('host'))
   
   const securityHeaders = getSecurityHeaders()
+
+  if (canonicalHost) {
+    const redirectUrl = request.nextUrl.clone()
+    redirectUrl.host = canonicalHost
+    redirectUrl.protocol = 'https:'
+
+    const redirectResponse = NextResponse.redirect(redirectUrl, 308)
+    Object.entries(securityHeaders).forEach(([key, value]) => {
+      redirectResponse.headers.set(key, value)
+    })
+    return redirectResponse
+  }
 
   // Rate limit product search API (very strict due to external API costs)
   if (pathname === '/api/search-kicks-dev') {

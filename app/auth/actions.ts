@@ -5,6 +5,10 @@ import { createClient } from "@/lib/supabase/server"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
+function normalizeAuthOrigin(origin: string): string {
+  return origin.replace("https://footvault.dev", "https://www.footvault.dev")
+}
+
 export async function signInWithEmail(formData: FormData) {
   const email = formData.get("email") as string
   const password = formData.get("password") as string
@@ -27,14 +31,19 @@ export async function signInWithEmail(formData: FormData) {
 export async function signUpWithEmail(formData: FormData) {
   const email = formData.get("email") as string
   const password = formData.get("password") as string
+  const origin = formData.get("origin") as string | null
   const cookieStore = await cookies()
   const supabase = await createClient(cookieStore)
+  const rawOrigin = origin && /^https?:\/\//.test(origin)
+    ? origin.replace(/\/$/, "")
+    : (process.env.NEXT_PUBLIC_BASE_URL || "").replace(/\/$/, "")
+  const redirectOrigin = normalizeAuthOrigin(rawOrigin)
 
   const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`, // Ensure this URL is configured in Supabase
+      emailRedirectTo: `${redirectOrigin}/auth/callback`,
     },
   })
 
