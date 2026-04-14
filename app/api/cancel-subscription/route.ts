@@ -2,6 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
+function getCreemApiBaseUrl(apiKey: string): string {
+  return apiKey.startsWith('creem_test_')
+    ? 'https://test-api.creem.io/v1'
+    : 'https://api.creem.io/v1'
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { planType } = await req.json()
@@ -27,7 +33,7 @@ export async function POST(req: NextRequest) {
     // Get user's subscription_id from database first
     const { data: userData, error: userDataError } = await supabase
       .from('users')
-      .select('subscription_id, creem_customer_id')
+      .select('plan, next_billing_date, subscription_id, creem_customer_id')
       .eq('email', userEmail)
       .single()
 
@@ -36,42 +42,20 @@ export async function POST(req: NextRequest) {
     }
 
     let subscriptionId = userData.subscription_id
+    const apiBaseUrl = getCreemApiBaseUrl(process.env.CREEM_API_KEY!)
 
-    // If no subscription_id in DB, try to fetch from Creem.io API
+    // If there is no stored subscription id, cancellation cannot be performed reliably.
     if (!subscriptionId) {
-      // @ts-ignore
-      const getSubscriptionsResponse = await fetch(`https://test-api.creem.io/v1/subscriptions?customer_email=${encodeURIComponent(userEmail)}`, {
-        method: 'GET',
-        headers: {
-          "Content-Type": "application/json",
-        "x-api-key": process.env.CREEM_API_KEY!,
-        }
-      })
-
-      if (!getSubscriptionsResponse.ok) {
-        const errorText = await getSubscriptionsResponse.text()
-        console.error('Failed to fetch subscriptions:', errorText)
-        return NextResponse.json({ success: false, error: 'Failed to fetch user subscriptions' }, { status: 500 })
-      }
-
-      const subscriptionsData = await getSubscriptionsResponse.json()
-      const activeSubscription = subscriptionsData.data?.find((sub: any) => sub.status === 'active')
-
-      if (!activeSubscription) {
-        return NextResponse.json({ success: false, error: 'No active subscription found' }, { status: 404 })
-      }
-
-      subscriptionId = activeSubscription.id
-
-      // Update the subscription_id in the database for future use
-      await supabase
-        .from('users')
-        .update({ subscription_id: subscriptionId })
-        .eq('email', userEmail)
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'No stored subscription ID was found for this account. Complete one successful billing sync first, then try canceling again.',
+        },
+        { status: 404 }
+      )
     }
 
-    // ✅ Use the official method to cancel subscription
-    const response = await fetch(`https://test-api.creem.io/v1/subscriptions/${subscriptionId}/cancel`, {
+    const response = await fetch(`${apiBaseUrl}/subscriptions/${subscriptionId}/cancel`, {
       method: 'POST',
       headers: {
        "Content-Type": "application/json",
@@ -85,13 +69,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Failed to cancel subscription' }, { status: 500 })
     }
 
-    // Update user's plan in your DB to 'Free'
+    const subscriptionEndsAt = userData.next_billing_date || null
+
     const { error: updateError } = await supabase
       .from('users')
       .update({ 
-        plan: 'Free',
-        subscription_id: null,
-        next_billing_date: null
+         subscription_status: 'scheduled_cancel',
+        subscription_ends_at: subscriptionEndsAt,
       })
       .eq('email', userEmail)
           
@@ -100,7 +84,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Failed to update user plan' }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({
+      success: true,
+      message: subscriptionEndsAt
+        ? `Your ${userData.plan || 'paid'} plan will stay active until ${subscriptionEndsAt}.`
+        : 'Your cancellation was scheduled successfully.',
+    })
   } catch (error: any) {
     console.error('Cancel subscription error:', error)
     return NextResponse.json({ success: false, error: error.message || 'Unknown error' }, { status: 500 })

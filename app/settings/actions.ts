@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { reconcileUserSubscription } from "@/lib/creem/subscription-sync"
 import { revalidatePath } from "next/cache"
 import { cookies } from "next/headers"
 
@@ -37,7 +38,8 @@ export async function getUserProfile() {
     .single()
 
   if (error) throw error
-  return data
+
+  return await reconcileUserSubscription(data)
 }
 
 export async function updateSettings({

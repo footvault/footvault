@@ -10,9 +10,11 @@ export default function Page() {
         <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
         <h1 className="text-lg font-semibold">Subscription</h1>
       </header>
-      <div className="flex flex-1 flex-col p-4">
-        <UserDashboardCards />
-        <PricingPage />
+      <div className="flex flex-1 flex-col px-4 py-4 sm:px-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+          <UserDashboardCards />
+          <PricingPage />
+        </div>
       </div>
     </SidebarInset>
   )

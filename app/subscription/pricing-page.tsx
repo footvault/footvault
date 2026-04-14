@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Check, HelpCircle, Sparkles, Shield, Zap, Crown } from "lucide-react"
+import { AlertTriangle, CalendarClock, Check, HelpCircle, Sparkles, Shield, Zap, Crown } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -23,17 +23,61 @@ const tierIcons: Record<string, any> = {
   store: Sparkles,
 }
 
+function parseDisplayDate(value: string | null | undefined): string | null {
+  if (!value || value === 'null' || value === 'undefined') {
+    return null
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime()) || parsed.getFullYear() <= 1970) {
+    return null
+  }
+
+  return parsed.toLocaleDateString()
+}
+
+function isFutureOrToday(value: string | null | undefined): boolean {
+  if (!value || value === 'null' || value === 'undefined') {
+    return false
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return false
+  }
+
+  parsed.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  return parsed >= today
+}
+
 export default function PricingPage() {
   const [isYearly, setIsYearly] = useState(false)
   const [userActivePlan, setUserActivePlan] = useState<string | null>(null)
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string>("free")
+  const [subscriptionEndsAt, setSubscriptionEndsAt] = useState<string | null>(null)
+  const [nextBillingDate, setNextBillingDate] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [pendingCancelPlan, setPendingCancelPlan] = useState<string | null>(null)
+  const relevantBillingDate = subscriptionEndsAt || nextBillingDate
+  const formattedRelevantBillingDate = parseDisplayDate(relevantBillingDate)
 
   useEffect(() => {
     fetch('/api/user-plan')
       .then(r => r.json())
-      .then(data => setUserActivePlan(data.success ? data.plan.toLowerCase() : null))
+      .then(data => {
+        if (data.success) {
+          setUserActivePlan(data.plan.toLowerCase())
+          setSubscriptionStatus(data.subscriptionStatus || (data.plan === 'Free' ? 'free' : 'active'))
+          setSubscriptionEndsAt(data.subscriptionEndsAt || null)
+          setNextBillingDate(data.nextBillingDate || null)
+        } else {
+          setUserActivePlan(null)
+        }
+      })
       .catch(() => setUserActivePlan(null))
       .finally(() => setIsLoading(false))
   }, [])
@@ -73,8 +117,9 @@ export default function PricingPage() {
     })
     const data = await res.json()
     if (data.success) {
-      alert('Subscription cancelled successfully')
-      setUserActivePlan(null)
+      alert(data.message || 'Subscription will stay active until the end of your billing period.')
+      setSubscriptionStatus('scheduled_cancel')
+      setSubscriptionEndsAt(nextBillingDate)
     } else {
       alert('Failed to cancel subscription: ' + data.error)
     }
@@ -88,6 +133,9 @@ export default function PricingPage() {
     if (isFree) {
       return { text: tier.buttonText, disabled: true, onClick: () => {}, variant: 'default' }
     }
+    if (isActivePlan && subscriptionStatus === 'scheduled_cancel') {
+      return { text: 'Cancellation Scheduled', disabled: true, onClick: () => {}, variant: 'default' }
+    }
     if (isActivePlan) {
       return { text: 'Cancel Subscription', disabled: false, onClick: () => handleCancelSubscription(tier.planType), variant: 'destructive' }
     }
@@ -98,34 +146,46 @@ export default function PricingPage() {
     <TooltipProvider>
       {/* Cancel Subscription Modal */}
       <Dialog open={showCancelModal} onOpenChange={setShowCancelModal}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader className="space-y-2">
-            <DialogTitle className="text-lg font-semibold">Cancel Subscription</DialogTitle>
-            <DialogDescription>Are you sure you want to cancel?</DialogDescription>
-          </DialogHeader>
-          <div className="py-3">
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm">
-              <p className="text-red-800 font-medium">You will:</p>
-              <ul className="mt-1.5 text-red-700 space-y-0.5 text-xs">
-                <li>• Lose access to all premium features</li>
-                <li>• Be downgraded to the Free plan</li>
-                <li>• Have variant limits reduced immediately</li>
+        <DialogContent className="overflow-hidden border border-white/10 bg-[#111714] p-0 text-white shadow-[0_24px_90px_rgba(0,0,0,0.45)] sm:max-w-[460px]">
+          <div className="border-b border-white/10 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.16),_transparent_55%)] px-6 py-5">
+            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-500/15 ring-1 ring-orange-400/20">
+              <CalendarClock className="h-5 w-5 text-orange-300" />
+            </div>
+            <DialogHeader className="space-y-2 text-left">
+              <DialogTitle className="text-lg font-semibold text-white">End plan at billing period close?</DialogTitle>
+              <DialogDescription className="text-sm leading-6 text-white/65">
+                Your paid access will stay active until the end of the current cycle. This keeps the experience gentler than an immediate downgrade.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="px-6 py-5">
+            <div className="rounded-2xl border border-orange-400/15 bg-orange-500/10 p-4 text-sm text-orange-100/90">
+              <div className="mb-2 flex items-center gap-2 font-semibold text-orange-200">
+                <AlertTriangle className="h-4 w-4" />
+                If you confirm
+              </div>
+              <ul className="space-y-2 text-sm leading-6 text-orange-50/80">
+                <li>• Your current paid plan stays active until {formattedRelevantBillingDate || 'the end of the current billing period'}.</li>
+                <li>• Premium limits and features will fall back to Free only after that date.</li>
+                <li>• Renewing before then prevents any interruption.</li>
               </ul>
             </div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowCancelModal(false)}>
-              Keep Subscription
+
+          <DialogFooter className="border-t border-white/10 bg-white/[0.02] px-6 py-4 sm:justify-between">
+            <Button variant="outline" size="sm" onClick={() => setShowCancelModal(false)} className="border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+              Keep my plan
             </Button>
-            <Button variant="destructive" size="sm" onClick={confirmCancelSubscription}>
-              Cancel Subscription
+            <Button variant="destructive" size="sm" onClick={confirmCancelSubscription} className="bg-orange-500 text-white hover:bg-orange-400">
+              Schedule cancellation
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <section id="pricing" className="w-full">
-        <div className="max-w-5xl mx-auto px-4 py-10">
+        <div className="w-full px-1 py-8 sm:px-0 sm:py-10">
 
           {/* Header */}
           <div className="text-center mb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -316,7 +376,7 @@ export default function PricingPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-3xl mx-auto">
               {[
                 { q: "What counts towards my variant limit?", a: "Only shoes with \"Available\" status. Sold shoes don't count." },
-                { q: "Can I change plans anytime?", a: "Yes — upgrade or downgrade instantly. Changes take effect immediately." },
+                { q: "Can I change plans anytime?", a: "Yes. Upgrades take effect right away, and cancellations keep your paid access until the current billing period ends." },
                 { q: "What if I exceed my limit?", a: "You'll get a warning. Upgrade your plan to keep adding inventory." },
                 { q: "Is my data secure?", a: "Enterprise-grade security. We never share your data with third parties." }
               ].map((item, i) => (
